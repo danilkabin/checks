@@ -1,0 +1,98 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "kernel/main.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/kernel/main.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "kernel/window.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/kernel/window.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "kernel/playerModule/player.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/kernel/playerModule/player.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "kernel/cameraModule/camera.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/kernel/cameraModule/camera.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "kernel/planeModule/plane.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/kernel/planeModule/plane.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-std=c11",
+      "-g",
+      "-I./include",
+      "-o",
+      "build/plane_game",
+      "engine/hierarchy.c"
+    ],
+    "directory": "/home/danilka_bin/trasher/airplane",
+    "file": "/home/danilka_bin/trasher/airplane/engine/hierarchy.c",
+    "output": "/home/danilka_bin/trasher/airplane/build/plane_game"
+  }
+]
