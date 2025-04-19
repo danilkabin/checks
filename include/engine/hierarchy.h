@@ -4,10 +4,11 @@
 #include "raylib.h"
 #include "typedef.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 // ENUM TYPEDEFS
 typedef enum {
-   OBJECT_TYPE_PART,
+   OBJECT_TYPE_CUBE,
    OBJECT_TYPE_SPHERE,
    OBJECT_TYPE_CYLINDER,
    OBJECT_TYPE_GRID,
@@ -17,8 +18,9 @@ typedef enum {
 
 typedef enum {
    PARENT_TYPE_OBJECT,
-   PARENT_TYPE_WORKSPACE
-} parentType;
+   PARENT_TYPE_PART,
+   PARENT_TYPE_NULL
+} kindStructType;
 
 typedef enum {
    MATERIAL_TYPE_PLASTIC,
@@ -42,15 +44,26 @@ typedef enum {
 
 // END ENUM TYPEDEFS
 
+typedef struct {
+   kindStructType kindtype; 
+   char *name;
+   void *parent;
+   void **children;
+   int childCount;
+   void *variables;
+} baseNode;
+
 // STRUCT TYPEDEFS
 // // GENERAL DEFINITIONS
 typedef struct {
+   baseNode mynode;
+
    float transparency;
    bool castShadow;
    bool anchored;
 
-   void *parent;
-   void *variables;
+   void *part;
+   objectType partType; 
 
    Color brickColor;
    materialType material;
@@ -60,55 +73,75 @@ typedef struct {
    Vector3 position;
    Vector3 orientation;
    Vector3 size;
-   Matrix orientationMatrix;
-} shapeVariables;
+} shapeProperties;
 
 typedef struct {
-   char *name;
-
-   void *parent;
-   parentType parentKind;
-
-   void **children;
-   int childCount;
+   baseNode mynode;
 
    void *partData;
-   void *variables;
 } objectSpace;
 
 // // PART DEFINITIONS
 typedef struct {
-   shapeVariables *shape;
    
 } partCube;
 
 typedef struct {
-   shapeVariables *shape;
    float radius;
 } partSphere;
 
 typedef struct {
-   shapeVariables *shape;
    float radiusTop;
    float radiusBottom;
    float height;
    int slices;
 } partCylinder;
 
+typedef struct {
+   Mesh mesh;
+   Texture2D texture;
+   char *meshPath;
+} partMesh;
+
 // END STRUCT TYPEDEFS
 
 extern objectSpace *workspace;
 
+void *readable_malloc(size_t len);
+void free_readable_malloc(void *ptr, size_t len);
+
 objectSpace *instance_object(void *parent);
-shapeVariables *instance_shape();
+void remove_object(objectSpace *object);
 
-partCube *instance_cube(void *parent);
-partSphere *instance_sphere(void *parent, float radius);
-partCylinder *instance_cylinder(void *parent, float radiusTop, float radiusBottom, float height, int slices);
+shapeProperties *instance_shape();
 
-int setDefaultShape(shapeVariables *shape, void *parent);
+partCube *instance_cube(void *parent, shapeProperties *shape);
+partSphere *instance_sphere(void *parent, shapeProperties *shape, float radius);
+partCylinder *instance_cylinder(void *parent, shapeProperties *shape, float radiusTop, float radiusBottom, float height, int slices);
+partMesh *instance_meshPart(void *parent, shapeProperties *shape, Mesh mesh, Texture2D texture, char *meshPath);
 
+baseNode *getBaseNode(void *ptr);
+void setDefaultBaseNode(baseNode *node, void *parent);
+
+void remove_shape(shapeProperties *shape);
+
+void remove_cube(partCube **part);
+void remove_sphere(partSphere **part);
+void remove_cylinder(partCylinder **part);
+void remove_meshPart(partMesh **part);
+
+shapeProperties *instancePart(void *parent, objectType type, void *params);
+void removePart(void *part, objectType type);
+
+void childDestroy(void *ptr);
+
+int setDefaultShape(shapeProperties *shape, void *parent);
+
+bool checkIsTypeWorkspace(void *parent);
 void init_workspace();
 void remove_workspace();
+
+void childAdd__(void *parent, void *children);
+void childRemove__();
 
 #endif
