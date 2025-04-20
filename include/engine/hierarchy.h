@@ -1,4 +1,5 @@
 #ifndef HIERARCHY_H
+
 #define HIERARCHY_H
 
 #include "raylib.h"
@@ -6,8 +7,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#define MAX_POOL_SIZE 5000
+
+#define FLAG_ANCHORED (1 << 0)
+#define FLAG_CANCOLLIDE (1 << 1)
+
 // ENUM TYPEDEFS
-typedef enum {
+typedef enum u_int_8 {
    OBJECT_TYPE_CUBE,
    OBJECT_TYPE_SPHERE,
    OBJECT_TYPE_CYLINDER,
@@ -51,6 +57,7 @@ typedef struct {
    void **children;
    int childCount;
    void *variables;
+   int variablesSize;
 } baseNode;
 
 // STRUCT TYPEDEFS
@@ -58,17 +65,15 @@ typedef struct {
 typedef struct {
    baseNode mynode;
 
-   float transparency;
-   bool castShadow;
-   bool anchored;
+   u_int_8 transparency;
+   u_int_8 flags;
 
    void *part;
    objectType partType; 
 
    Color brickColor;
-   materialType material;
-
-   u_int_32 collisionGroup;
+   u_int_8 material;
+   u_int_16 collisionGroup;
 
    Vector3 position;
    Vector3 orientation;
@@ -81,9 +86,13 @@ typedef struct {
    void *partData;
 } objectSpace;
 
-// // PART DEFINITIONS
 typedef struct {
    
+} workspaceObject;
+
+// // PART DEFINITIONS
+typedef struct {
+  char live; 
 } partCube;
 
 typedef struct {
@@ -98,10 +107,24 @@ typedef struct {
 } partCylinder;
 
 typedef struct {
-   Mesh mesh;
-   Texture2D texture;
+   Mesh *mesh;
+   Texture2D *texture;
    char *meshPath;
 } partMesh;
+
+typedef struct {
+   size_t start;
+   size_t end;
+} poolIndexFree;
+
+typedef struct {
+   void *memory;
+   size_t size;
+   size_t used;
+   u_int_32 free_count;
+   u_int_32 capacity;
+   poolIndexFree *indexFree; 
+} memoryPool;
 
 // END STRUCT TYPEDEFS
 
@@ -118,7 +141,7 @@ shapeProperties *instance_shape();
 partCube *instance_cube(void *parent, shapeProperties *shape);
 partSphere *instance_sphere(void *parent, shapeProperties *shape, float radius);
 partCylinder *instance_cylinder(void *parent, shapeProperties *shape, float radiusTop, float radiusBottom, float height, int slices);
-partMesh *instance_meshPart(void *parent, shapeProperties *shape, Mesh mesh, Texture2D texture, char *meshPath);
+partMesh *instance_meshPart(void *parent, shapeProperties *shape, Mesh *mesh, Texture2D *texture, char *meshPath);
 
 baseNode *getBaseNode(void *ptr);
 void setDefaultBaseNode(baseNode *node, void *parent);
@@ -137,8 +160,13 @@ void childDestroy(void *ptr);
 
 int setDefaultShape(shapeProperties *shape, void *parent);
 
+memoryPool *initPool(size_t size);
+u_int_8 createIndexFree(memoryPool *pool, size_t start, size_t end);
+void *addPoolChild(memoryPool *gottenPool, void *data, size_t size);
+void removePoolChild();
+
 bool checkIsTypeWorkspace(void *parent);
-void init_workspace();
+void init_workspace(memoryPool *gottenPool);
 void remove_workspace();
 
 void childAdd__(void *parent, void *children);

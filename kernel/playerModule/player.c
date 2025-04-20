@@ -6,20 +6,31 @@
 #include <math.h>
 #include <raylib.h>
 #include <stdio.h>
+#include <string.h>
 
 planeShape *currentPlane;
 
 void playerAdded() {
-   init_workspace();
-      partMesh meshParams = {
-         .meshPath = "pudoeofe"
-      };
-   objectSpace *object = instance_object(workspace);
-   for (int aye = 0; aye < 3; aye++) {
-      shapeProperties *yes = instancePart(object, OBJECT_TYPE_FOLDER, &meshParams);
-     // partMesh *partMesh = yes->part;
+   memoryPool *pool = readable_malloc(MAX_POOL_SIZE);
+   init_workspace(pool);
+   partMesh meshParams = {
+      .meshPath = "hello"
+   };
+
+         shapeProperties *shape1 = instancePart(workspace, OBJECT_TYPE_CUBE, NULL);
+         remove_shape(shape1);
+   //objectSpace *obj = instance_object(workspace);
+
+   /*
+   for (int i = 0; i < 1; i++) {
+      objectSpace *objyes = instance_object(obj);
+      for (int i2 = 0; i2 < 3; i2++) {
+         shapeProperties *shape = instancePart(objyes, OBJECT_TYPE_CUBE, NULL);
+      }
+   remove_object(objyes);
    }
-childDestroy(object);
+   remove_object(obj);
+*/
 }
 
 void *characterAdded() {
