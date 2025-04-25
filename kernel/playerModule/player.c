@@ -11,26 +11,19 @@
 planeShape *currentPlane;
 
 void playerAdded() {
-   memoryPool *pool = readable_malloc(MAX_POOL_SIZE);
-   init_workspace(pool);
-   partMesh meshParams = {
-      .meshPath = "hello"
-   };
-
-         shapeProperties *shape1 = instancePart(workspace, OBJECT_TYPE_CUBE, NULL);
-         remove_shape(shape1);
+   init_workspace();
    //objectSpace *obj = instance_object(workspace);
 
    /*
-   for (int i = 0; i < 1; i++) {
+      for (int i = 0; i < 1; i++) {
       objectSpace *objyes = instance_object(obj);
       for (int i2 = 0; i2 < 3; i2++) {
-         shapeProperties *shape = instancePart(objyes, OBJECT_TYPE_CUBE, NULL);
+      shapeProperties *shape = instancePart(objyes, OBJECT_TYPE_CUBE, NULL);
       }
-   remove_object(objyes);
-   }
-   remove_object(obj);
-*/
+      remove_object(objyes);
+      }
+      remove_object(obj);
+      */
 }
 
 void *characterAdded() {

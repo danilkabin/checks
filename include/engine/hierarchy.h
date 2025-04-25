@@ -1,5 +1,4 @@
 #ifndef HIERARCHY_H
-
 #define HIERARCHY_H
 
 #include "raylib.h"
@@ -7,19 +6,33 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define MAX_POOL_SIZE 5000
-
+#define MAX_POOL_SIZE 256
 #define FLAG_ANCHORED (1 << 0)
 #define FLAG_CANCOLLIDE (1 << 1)
 
-// ENUM TYPEDEFS
+#define POOL_BITMASK_SIZE 64
+
+#define ROUND_UP(first, second) (((first) + (second) - 1) / (second))
+#define IS_BIT_SET(val, idx) (((val) >> (idx)) & 1UL)
+
+#define INIT_DUMMY(T) ((T[]){{0}})
+
+#define __INIT_PART__(TYPE, SHAPE, POOL) \
+   TYPE part = {0}; \
+   partPoolInit_struct res = initPartPool(POOL, &part, sizeof(TYPE)); \
+   if (!res.part) { \
+      return NULL; \
+   } \
+   TYPE *partPtr = (TYPE*)res.part; \
+   shape->poolIndex = res.targetIndex; \
+   shape->part = partPtr; \
+
 typedef enum u_int_8 {
    OBJECT_TYPE_CUBE,
    OBJECT_TYPE_SPHERE,
    OBJECT_TYPE_CYLINDER,
-   OBJECT_TYPE_GRID,
    OBJECT_TYPE_MESHPART,
-   OBJECT_TYPE_FOLDER
+   OBJECT_TYPE_COUNT
 } objectType;
 
 typedef enum {
@@ -48,33 +61,27 @@ typedef enum {
    COLLISION_GROUP_TWELVE = 1 << 11
 } collisionGroup;
 
-// END ENUM TYPEDEFS
-
 typedef struct {
-   kindStructType kindtype; 
+   kindStructType kindtype;
    char *name;
    void *parent;
    void **children;
-   int childCount;
+   u_int_32 childCount;
+   u_int_32 childCapacity;
    void *variables;
    int variablesSize;
 } baseNode;
 
-// STRUCT TYPEDEFS
-// // GENERAL DEFINITIONS
 typedef struct {
    baseNode mynode;
-
    u_int_8 transparency;
    u_int_8 flags;
-
+   u_int_32 poolIndex;
    void *part;
-   objectType partType; 
-
+   objectType partType;
    Color brickColor;
    u_int_8 material;
    u_int_16 collisionGroup;
-
    Vector3 position;
    Vector3 orientation;
    Vector3 size;
@@ -82,51 +89,42 @@ typedef struct {
 
 typedef struct {
    baseNode mynode;
-
    void *partData;
 } objectSpace;
 
 typedef struct {
-   
 } workspaceObject;
 
-// // PART DEFINITIONS
 typedef struct {
-  char live; 
+   char live;
 } partCube;
 
 typedef struct {
-   float radius;
+float radius;
 } partSphere;
 
 typedef struct {
    float radiusTop;
    float radiusBottom;
    float height;
-   int slices;
+   u_int_8 slices;
 } partCylinder;
 
 typedef struct {
-   Mesh *mesh;
-   Texture2D *texture;
-   char *meshPath;
+   u_int_16 mesh;
+   u_int_16 texture;
+   u_int_16 meshPath;
 } partMesh;
-
-typedef struct {
-   size_t start;
-   size_t end;
-} poolIndexFree;
 
 typedef struct {
    void *memory;
    size_t size;
-   size_t used;
-   u_int_32 free_count;
+   bool isActive;
+   u_int_64 *cellVar;
+   u_int_16 cellCount;
+   u_int_32 sizePerFrame;
    u_int_32 capacity;
-   poolIndexFree *indexFree; 
-} memoryPool;
-
-// END STRUCT TYPEDEFS
+} bitmaskPool;
 
 extern objectSpace *workspace;
 
@@ -135,41 +133,47 @@ void free_readable_malloc(void *ptr, size_t len);
 
 objectSpace *instance_object(void *parent);
 void remove_object(objectSpace *object);
+void removeChildrens(void ***children, u_int_32 *childCount);
 
 shapeProperties *instance_shape();
 
-partCube *instance_cube(void *parent, shapeProperties *shape);
-partSphere *instance_sphere(void *parent, shapeProperties *shape, float radius);
-partCylinder *instance_cylinder(void *parent, shapeProperties *shape, float radiusTop, float radiusBottom, float height, int slices);
-partMesh *instance_meshPart(void *parent, shapeProperties *shape, Mesh *mesh, Texture2D *texture, char *meshPath);
+partCube *instance_cube(void *parent, shapeProperties *shape, bitmaskPool *pool);
+partSphere *instance_sphere(void *parent, shapeProperties *shape, bitmaskPool *pool, float radius);
+partCylinder *instance_cylinder(void *parent, shapeProperties *shape, bitmaskPool *pool, float radiusTop, float radiusBottom, float height, u_int_8 slices);
+partMesh *instance_meshPart(void *parent, shapeProperties *shape, bitmaskPool *pool, u_int_16 mesh, u_int_16 texture, u_int_16 meshPath);
 
 baseNode *getBaseNode(void *ptr);
 void setDefaultBaseNode(baseNode *node, void *parent);
 
 void remove_shape(shapeProperties *shape);
 
-void remove_cube(partCube **part);
-void remove_sphere(partSphere **part);
-void remove_cylinder(partCylinder **part);
-void remove_meshPart(partMesh **part);
+void remove_cube(void **part);
+void remove_sphere(void **part);
+void remove_cylinder(void **part);
+void remove_meshPart(void **part);
 
 shapeProperties *instancePart(void *parent, objectType type, void *params);
-void removePart(void *part, objectType type);
+void removePart(shapeProperties *shape, bitmaskPool *pool);
 
 void childDestroy(void *ptr);
 
 int setDefaultShape(shapeProperties *shape, void *parent);
 
-memoryPool *initPool(size_t size);
-u_int_8 createIndexFree(memoryPool *pool, size_t start, size_t end);
-void *addPoolChild(memoryPool *gottenPool, void *data, size_t size);
 void removePoolChild();
 
 bool checkIsTypeWorkspace(void *parent);
-void init_workspace(memoryPool *gottenPool);
 void remove_workspace();
 
 void childAdd__(void *parent, void *children);
 void childRemove__();
+
+void init_workspace();
+
+// BITMASK
+bitmaskPool *bitmaskPool_init(size_t size, size_t sizePerFrame);
+void bitmaskPool_clear(bitmaskPool *pool);
+bitmaskPool *bitmaskPool_rewrite(bitmaskPool *pool, u_int_8 side);
+u_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size);
+void bitmaskPool_remove(bitmaskPool *pool, u_int_32 index);
 
 #endif

@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-memoryPool *poolPtr;
 objectSpace *workspace;
 size_t memory_busy = 0;
 size_t memory_busyTimes = 0;
@@ -19,6 +18,29 @@ size_t memory_clearTimes = 0;
 // === MEMORY MANAGEMENT ===
 //
 
+struct hierarchyBitPools_struct {
+   bitmaskPool *pool_partCube;
+   bitmaskPool *pool_partSphere;
+   bitmaskPool *pool_partCylinder;
+   bitmaskPool *pool_partMesh;
+} hierarchyBitPools;
+
+typedef struct {
+   int targetIndex;
+   void *part;
+} partPoolInit_struct;
+
+
+typedef void (*RemovePartFunc)(void** part);
+
+RemovePartFunc removePartFuncs[OBJECT_TYPE_COUNT] = {
+   [OBJECT_TYPE_CUBE]    = (RemovePartFunc)remove_cube,
+   [OBJECT_TYPE_SPHERE]  = (RemovePartFunc)remove_sphere,
+   [OBJECT_TYPE_CYLINDER]= (RemovePartFunc)remove_cylinder,
+   [OBJECT_TYPE_MESHPART]= (RemovePartFunc)remove_meshPart
+};
+
+
 void *readable_malloc(size_t len) {
    if (len == 0) return NULL;
    void *ptr = malloc(len);
@@ -26,12 +48,12 @@ void *readable_malloc(size_t len) {
       memory_busy += len;
       memory_busyTimes += 1;
    }
-   printf("addr: %p memory added: %zu memory capacity: %zu \n\n", ptr, len, memory_busy);
+   printf("Memory allocated at: %p, Size: %zu, Total memory usage: %zu \n", ptr, len, memory_busy);
    return ptr;
 }
 
 void *readable_realloc(void *ptr, size_t len, size_t oldlen) {
-   if (len == 0) return NULL;
+   if (!ptr || len == 0) return NULL;
    void *newptr = realloc(ptr, len);
    if (newptr) {
       memory_busy = memory_busy - oldlen + len;
@@ -45,7 +67,7 @@ void free_readable_malloc(void *ptr, size_t len) {
    free(ptr);
    memory_busy = (memory_busy < len) ? 0 : memory_busy - len;
    memory_clearTimes += 1;
-   printf("memory cleared: %zu memory capacity: %zu \n", len, memory_busy);
+   printf("Memory freed: %zu bytes, Total memory usage: %zu \n", len, memory_busy);
 }
 
 char *str_dup(const char *str) {
@@ -66,92 +88,191 @@ void changePathVar(char **ptr, const char *str) {
 }
 
 //
-// === POOL ===
+// === BITMASK POOL ===
 //
 
-memoryPool *initPool(size_t size) {
-   if (!size) {
-      LOG_ERR("where size in initPool()");
-      return NULL;
+s_int_32 check_on_2x(u_int_32 number, u_int_16 multiply) {
+#ifdef __GNUC__
+   return (1U << (31 - __builtin_clz(number * multiply)));
+#else
+   u_int_32 defaultNumber = multiply;
+   while (defaultNumber < number) {
+      defaultNumber <<= 1;
    }
-   memoryPool *pool = readable_malloc(sizeof(memoryPool));
+   return defaultNumber;
+#endif
+}
+
+s_int_32 checkAllBitsOnSet(u_int_64 number, size_t size) {
+#ifdef __GNUC__
+   if (number == ~0ULL) return -1;
+   return __builtin_ctzll(~number);
+#else
+   for (int indexInt = 0; indexInt < size; indexInt++) {
+      if (IS_BIT_SET(number, indexInt) == 0) {
+         return (int)indexInt;
+      }
+   }
+#endif
+   return -1;
+}
+
+void printBits(u_int_64 val, int bits) {
+   for (int i = bits - 1; i >= 0; i--) {
+      printf("%d", (val >> i) & 1);
+   }
+   printf("\n");
+}
+
+s_int_32 changeNeccessaryBits(void *data, u_int_8 side, u_int_32 index, s_int_8 current) {
+   u_int_64 *bitArray = (u_int_64*)data;
+   s_int_32 targetIndex = -1;
+   if (current >= 0) {
+      u_int_8 localIndex = index / POOL_BITMASK_SIZE;
+      u_int_8 localCurrent = index - POOL_BITMASK_SIZE * localIndex;
+      bitArray[localIndex] = (side == 1) ? (bitArray[localIndex] | (1UL << localCurrent)) : (bitArray[localIndex] & ~(1UL << localCurrent));
+      printBits(bitArray[localIndex], 64);
+      return targetIndex;
+   }
+   for (int inx = 0; inx < index; inx++) {
+      int bit = checkAllBitsOnSet(bitArray[inx], 64);
+      if (bit == -1) {
+         continue;
+      }
+      bitArray[inx] = (side == 1) ? (bitArray[inx] | (1UL << bit)) : (bitArray[inx] & ~(1UL << bit));
+      printBits(bitArray[inx], 64);
+      targetIndex = inx * POOL_BITMASK_SIZE + bit;
+      break;
+   }
+   return targetIndex;
+}
+
+bitmaskPool *bitmaskPool_init(size_t size, size_t sizePerFrame) {
+   if (size <= 0 || sizePerFrame <= 0 || size < sizePerFrame) {
+      LOG_ERR("Invalid parameters in bitmaskPool_init()");
+      return NULL;   
+   }
+
+   bitmaskPool *pool = readable_malloc(sizeof(bitmaskPool));
    if (!pool) {
-      LOG_ERR("pool is null");
-      return NULL;
+      LOG_ERR("Failed to allocate memory for bitmaskPool in bitmaskPool_init()");
+      goto unsuccessfull;
    }
 
-   pool->memory = readable_malloc(size);
+   if (size < (sizePerFrame * POOL_BITMASK_SIZE)) {
+      size = sizePerFrame * POOL_BITMASK_SIZE;
+   }
+
+   pool->memory = NULL;
+   pool->cellVar = NULL;
+   pool->size = check_on_2x(size, 2);
+   pool->sizePerFrame = sizePerFrame;
+   pool->capacity = ROUND_UP(pool->size / sizePerFrame, POOL_BITMASK_SIZE);
+   pool->cellCount = (64 * pool->capacity) / 64 - 1;
+   pool->isActive = false;
+
+   pool->memory = readable_malloc(pool->size);
    if (!pool->memory) {
-      LOG_ERR("pool memory is null");
-      free_readable_malloc(pool, sizeof(memoryPool));
+      LOG_ERR("Failed to allocate memory for pool->memory in bitmaskPool_init()");
+      goto unsuccessfull;
+   }
+   memset(pool->memory, 0, pool->size);
+
+   pool->cellVar = readable_malloc(64 * pool->capacity);
+   if (!pool->cellVar) {
+      LOG_ERR("Failed to allocate memory for pool->cellVar in bitmaskPool_init()");
+      goto unsuccessfull;
+   }
+   memset(pool->cellVar, 0, POOL_BITMASK_SIZE * pool->capacity);
+
+   pool->isActive = true;
+
+   LOG_INFO("bitmaskPool initialized successfully");
+
+   return pool;
+unsuccessfull:
+   bitmaskPool_clear(pool);
+   pool = NULL;
+   return NULL;
+}
+
+void bitmaskPool_clear(bitmaskPool *pool) {
+   if (!pool) {
+      LOG_ERR("Invalid data in bitmaskPool_clear");
+      return;
+   } 
+   if (pool->memory) {
+      free(pool->memory);
+      pool->memory = NULL;
+      LOG_WARN("Cleared pool memory");
+   }
+   if (pool->cellVar) {
+      free(pool->cellVar);
+      pool->cellVar = NULL;
+      LOG_WARN("Cleared pool cell variables");
+   }
+   free(pool);
+};
+
+bitmaskPool *bitmaskPool_rewrite(bitmaskPool *pool, u_int_8 side) {
+   if (!pool || !pool->isActive) {
+      LOG_ERR("Invalid pool data in bitmaskPool_rewrite");
+      return NULL;
+   }
+   size_t oldsize = pool->size;
+   u_int_16 oldCellCount = pool->cellCount;
+   u_int_32 oldcapacity = pool->capacity;
+
+
+   pool->size = (side == 1) ? pool->size * 2 : pool->size / 2;
+   pool->capacity = ROUND_UP(pool->size / pool->sizePerFrame, POOL_BITMASK_SIZE);
+   pool->cellCount = (64 * pool->capacity) / 64 - 1;
+
+   void *newMem = readable_realloc(pool->memory, pool->size, oldsize); 
+   if (!newMem) {
+      LOG_ERR("Failed to reallocate memory in bitmaskPool_rewrite");
       return NULL;
    }
 
-   pool->size = size;
-   pool->used = 0;
-   pool->free_count = 0;
-   pool->capacity = 100;
-   pool->indexFree = readable_malloc(sizeof(poolIndexFree) * pool->capacity);
-
-   if (createIndexFree(pool, 0, size) <= 0) {
-      LOG_ERR("pool indexFree is null");
-      free_readable_malloc(pool->memory, size);
-      free_readable_malloc(pool, sizeof(memoryPool));
+   pool->cellVar = readable_realloc(pool->cellVar, 64 * pool->capacity, 64 * oldcapacity);
+   if (!pool->cellVar) {
+      LOG_ERR("Failed to allocate memory for pool->cellVar in bitmaskPool_init()");
+      free(newMem);
+      pool->size = oldsize;
+      pool->capacity = oldcapacity;
+      pool->cellCount = oldCellCount;
       return NULL;
    }
-
+   pool->memory = newMem;
+   LOG_INFO("bitmaskPool_rewrite successfully!");
    return pool;
 }
 
-u_int_8 createIndexFree(memoryPool *pool, size_t start, size_t end) {
-   if (!pool || !start || !end) {
-      LOG_ERR("where my pool in createIndexFree");
-      return -1;
+u_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size) {
+   if (!pool || !pool->isActive || !data || size <= 0) {
+      LOG_ERR("bitmaskPool_add: Invalid data or size");
+      return 0;
    }
-   if (pool->capacity <= pool->free_count) {
-      size_t new_capacity = pool->capacity * 2;
-      poolIndexFree *poolIndexFreePtr = pool->indexFree = readable_realloc(pool->indexFree, sizeof(poolIndexFree) * new_capacity, sizeof(poolIndexFree) * pool->capacity);
-      if (!poolIndexFreePtr) {
-         LOG_ERR("indexFree in createIndexFree is null");
-         return -1;
-      }
+   u_int_32 targetIndex = changeNeccessaryBits(pool->cellVar, 1, POOL_BITMASK_SIZE, -1);
 
-      pool->indexFree = poolIndexFreePtr;
-      pool->capacity = new_capacity;
+   if (targetIndex != -1) {
+      int column = targetIndex / POOL_BITMASK_SIZE;
+      void *mem_place = (void*)((u_int_8*)pool->memory + targetIndex * pool->sizePerFrame);
+      memcpy(mem_place, data, pool->sizePerFrame);
+      printf("Added at index: %d, mesh value: %u \n", column, ((partMesh*)mem_place)->mesh);
    }
 
-   pool->indexFree[pool->free_count].start = 0;
-   pool->indexFree[pool->free_count].end = end - 1;
-   pool->free_count = pool->free_count + 1;
-   return 1;
+   return targetIndex;
 }
 
-void deleteIndexFree(memoryPool *pool, u_int_32 index) {
-   if (!pool || !index) {
-      LOG_ERR("where my pool in createIndexFree");
+void bitmaskPool_remove(bitmaskPool *pool, u_int_32 index) {
+   if (!pool || !pool->isActive) {
+      LOG_ERR("bitmaskPool_remove: Invalid pool data");
       return;
    }
-
-   if (!pool->indexFree[index].start && !pool->indexFree[index].end) {
-      LOG_ERR("no indexFree in deleteIndexFree");
-      return;
-   }
-   
-   for (u_int_32 i = index; i < pool->free_count - 1; i++) {
-      pool->indexFree[i] = pool->indexFree[i + 1]; 
-   }
-
-   pool->indexFree[pool->free_count - 1].start = 0;
-   pool->indexFree[pool->free_count - 1].end = 0;
-
-}
-
-void *addPoolChild(memoryPool *gottenPool, void *data, size_t size) {
-   if (!gottenPool || !data || !size) {
-      LOG_ERR("where my data in addPoolChild");
-      return NULL;
-   }
-return NULL;
+   changeNeccessaryBits(pool->cellVar, 0, index, 1);
+   void *mem_place = (void*)((u_int_8*)pool->memory + index * pool->sizePerFrame);
+   memset(mem_place, 0, pool->sizePerFrame);
 }
 
 //
@@ -198,7 +319,7 @@ void clearBaseNode(baseNode *node) {
 // === CHILD MANAGEMENT ===
 //
 
-void changeVoidChild(void ***childrenPtr, int *childCount, void *child) {
+void changeVoidChild(void ***childrenPtr, u_int_32 *childCount, void *child) {
    size_t oldSize = sizeof(void *) * (*childCount);
    size_t newSize = sizeof(void *) * (*childCount + 1);
    void **newChildren = readable_realloc(*childrenPtr, newSize, oldSize);
@@ -216,7 +337,7 @@ void childAdd__(void *parent, void *child) {
    changeVoidChild(&node->children, &node->childCount, child);
 }
 
-void removeChildrens(void ***children, int *childCount) {
+void removeChildrens(void ***children, u_int_32 *childCount) {
    if (!children || !*children || *childCount <= 0) return;
 
    for (int index = 0; index < *childCount; index++) {
@@ -225,7 +346,6 @@ void removeChildrens(void ***children, int *childCount) {
          LOG_WARN("removeChildrens: null child");
          continue;
       }
-      LOG_WARN("hi");
       baseNode *node = getBaseNode(child);
       if (node->kindtype == PARENT_TYPE_OBJECT) {
          remove_object((objectSpace *)child);
@@ -239,206 +359,7 @@ void removeChildrens(void ***children, int *childCount) {
 }
 
 //
-// === INSTANCE FUNCTIONS ===
-//
-
-shapeProperties *instance_shape() {
-   return readable_malloc(sizeof(shapeProperties));
-}
-
-partCube *instance_cube(void *parent, shapeProperties *shape) {
-   partCube *part = readable_malloc(sizeof(partCube));
-   if (!part) return NULL;
-
-   shape->part = part;
-   shape->partType = OBJECT_TYPE_CUBE;
-
-   LOG_INFO("partCube: created");
-   return part;
-}
-
-partSphere *instance_sphere(void *parent, shapeProperties *shape, float radius) {
-   partSphere *part = readable_malloc(sizeof(partSphere));
-   if (!part) return NULL;
-
-   shape->part = part;
-   shape->partType = OBJECT_TYPE_SPHERE;
-   part->radius = (radius == 0.0f || isnan(radius)) ? 1.0f : radius;
-
-   LOG_INFO("partSphere: created");
-   return part;
-}
-
-partCylinder *instance_cylinder(void *parent, shapeProperties *shape, float radiusTop, float radiusBottom, float height, int slices) {
-   partCylinder *part = readable_malloc(sizeof(partCylinder));
-   if (!part) return NULL;
-
-   shape->part = part;
-   shape->partType = OBJECT_TYPE_CYLINDER;
-
-   part->radiusTop = (radiusTop == 0.0f || isnan(radiusTop)) ? 1.0f : radiusTop;
-   part->radiusBottom = (radiusBottom == 0.0f || isnan(radiusBottom)) ? 1.0f : radiusBottom;
-   part->height = (height == 0.0f || isnan(height)) ? 1.0f : height;
-   part->slices = (slices == 0 || (slices <= 0)) ? 1 : slices;
-
-   LOG_INFO("partCylinder: created");
-   return part;
-}
-
-partMesh *instance_meshPart(void *parent, shapeProperties *shape, Mesh *mesh, Texture2D *texture, char *meshPath) {
-   partMesh *part = readable_malloc(sizeof(partMesh));
-   if (!part) return NULL;
-
-   shape->part = part;
-   shape->partType = OBJECT_TYPE_MESHPART;
-
-   part->mesh = mesh;
-   part->texture = texture;
-   part->meshPath = NULL;
-   changePathVar(&part->meshPath, (meshPath ? meshPath : NULL));
-
-   LOG_INFO("partMesh: created");
-   return part;
-}
-
-shapeProperties *instancePart(void *parent, objectType type, void *params) {
-   void *actualParent = parent ? parent : workspace;
-   shapeProperties *newShape = instance_shape();
-   if (!newShape) {
-      LOG_ERR("newShape: cant create in instancePart");
-      return NULL;
-   }
-
-   setDefaultShape(newShape, parent);
-   printf("NEW PARENT FOR OBJECT: %p\n", parent);
-   bool success = false;
-   switch (type) {
-      case OBJECT_TYPE_CUBE:
-         success = instance_cube(actualParent, newShape);
-         break;
-      case OBJECT_TYPE_SPHERE:
-         success = instance_sphere(actualParent, newShape, ((partSphere *)params)->radius);
-         break;
-      case OBJECT_TYPE_CYLINDER: 
-         {
-            partCylinder *p = (partCylinder *)params;
-            success = instance_cylinder(actualParent, newShape, p->radiusTop, p->radiusBottom, p->height, p->slices);
-            break;
-         }
-      case OBJECT_TYPE_MESHPART: 
-         {
-            partMesh *p = (partMesh *)params;
-            success = instance_meshPart(actualParent, newShape, p->mesh, p->texture, p->meshPath);
-            break;
-         }
-      default:
-         remove_shape(newShape);
-         return NULL;
-   }
-   if (!success) {
-      LOG_ERR("instancePart: null yes");
-      remove_shape(newShape);
-      return NULL;
-   }
-   childAdd__(parent, newShape);
-   return newShape;
-}
-
-//
-// === REMOVE FUNCTIONS ===
-//
-
-void remove_cube(partCube **part) {
-   if (part && *part) {
-      free_readable_malloc(*part, sizeof(partCube));
-      *part = NULL;
-   }
-}
-
-void remove_sphere(partSphere **part) {
-   if (part && *part) {
-      free_readable_malloc(*part, sizeof(partSphere));
-      *part = NULL;
-   }
-}
-
-void remove_cylinder(partCylinder **part) {
-   if (part && *part) {
-      free_readable_malloc(*part, sizeof(partCylinder));
-      *part = NULL;
-   }
-}
-
-void remove_meshPart(partMesh **part) {
-   if (part && *part) {
-      if ((*part)->meshPath) {
-         free_readable_malloc((*part)->meshPath, strlen((*part)->meshPath) + 1);
-      }
-      free_readable_malloc(*part, sizeof(partMesh));
-      *part = NULL;
-   }
-}
-
-void removePart(void *part, objectType type) {
-   if (!part) return;
-
-   switch (type) {
-      case OBJECT_TYPE_CUBE:
-         remove_cube((partCube **)&part);
-         break;
-      case OBJECT_TYPE_SPHERE:
-         remove_sphere((partSphere **)&part);
-         break;
-      case OBJECT_TYPE_CYLINDER:
-         remove_cylinder((partCylinder **)&part);
-         break;
-      case OBJECT_TYPE_MESHPART:
-         remove_meshPart((partMesh **)&part);
-         break;
-      default:
-         LOG_WARN("removePart: DEFAULT CASE");
-         break;
-   }
-}
-
-void remove_shape(shapeProperties *shape) {
-   if (!shape) return;
-   baseNode *node = getBaseNode(shape);
-
-   if (shape->part) {
-      removePart(shape->part, shape->partType);
-      shape->part = NULL;
-   }
-
-   removeChildrens(&node->children, &node->childCount);
-   clearBaseNode(node);
-
-   free_readable_malloc(shape, sizeof(*shape));
-
-}
-
-void childDestroy(void *ptr) {
-   if (!ptr) return;
-   baseNode *node = getBaseNode(ptr);
-   if (!node) {
-      LOG_WARN("childDestroy: NODE NULL!");
-      return;
-   }
-   switch (node->kindtype) {
-      case PARENT_TYPE_OBJECT:
-         LOG_WARN("removing PARENT_TYPE_OBJECT");
-         remove_object((objectSpace*)ptr); 
-         break;
-      case PARENT_TYPE_PART:
-         LOG_INFO("removing PARENT_TYPE_PART");
-         remove_shape((shapeProperties*)ptr);
-         break;
-      default: return;
-   }
-}
-
-//
-// === OBJECT ===
+// === OBJECT MANAGEMENT ===
 //
 
 objectSpace *instance_object(void *parent) {
@@ -464,7 +385,7 @@ void remove_object(objectSpace *object) {
 }
 
 //
-// === SHAPE DEFAULTS ===
+// === SHAPE MANAGEMENT ===
 //
 
 int setDefaultShape(shapeProperties *shape, void *parent) {
@@ -485,18 +406,252 @@ int setDefaultShape(shapeProperties *shape, void *parent) {
    return 0;
 }
 
-//
-// === WORKSPACE ===
-//
+bitmaskPool *getPartPoolByType(void *part, objectType type) {
+   bitmaskPool *pool = NULL;
+   if (type == OBJECT_TYPE_CUBE) {
+      pool = hierarchyBitPools.pool_partCube;
+   } else if (type == OBJECT_TYPE_SPHERE) {
+      pool = hierarchyBitPools.pool_partSphere;
+   } else if (type == OBJECT_TYPE_CYLINDER) {
+      pool = hierarchyBitPools.pool_partCylinder;
+   } else if (type == OBJECT_TYPE_MESHPART) {
+      pool = hierarchyBitPools.pool_partMesh;
+   }
+   return pool;
+}
 
-void init_workspace(memoryPool *gottenPool) {
-   if (!gottenPool) {
-      LOG_ERR("where pool in init_workspace");
+int setPartPoolIndex(bitmaskPool *pool, void *part, size_t size) {
+   int targetIndex = bitmaskPool_add(pool, part, size);
+   return targetIndex;
+}
+
+void *getPartPoolByIndex(bitmaskPool *pool, int targetIndex) {
+   return (void*)((u_int_32*)pool->memory + targetIndex * pool->sizePerFrame);
+}
+
+partPoolInit_struct initPartPool(bitmaskPool *pool, void *part, size_t size) {
+   partPoolInit_struct res = {.targetIndex = -1, .part = NULL};
+   printf("SIZE YES YES: %zu\n\n\n\n\n", size);
+   int targetIndex = setPartPoolIndex(pool, part, size);
+   void *gottenPart = (targetIndex >= 0) ? getPartPoolByIndex(pool, targetIndex) : NULL;
+   if (gottenPart != NULL) {
+      res.targetIndex = targetIndex;
+      res.part = gottenPart;
+   }
+   return res;
+}
+
+shapeProperties *instance_shape() {
+   return readable_malloc(sizeof(shapeProperties));
+}
+
+partCube *instance_cube(void *parent, shapeProperties *shape, bitmaskPool *pool) {
+   __INIT_PART__(partCube, shape, pool);
+   partCube *createdPart = (partCube*)shape->part; 
+   if (!createdPart) {
+      return NULL;
+   }
+
+   shape->partType = OBJECT_TYPE_CUBE;
+   LOG_INFO("partCube: created");
+   return createdPart;
+}
+
+partSphere *instance_sphere(void *parent, shapeProperties *shape, bitmaskPool *pool, float radius) {
+   LOG_ERR("MESSAGE 1");
+   __INIT_PART__(partSphere, shape, pool);
+   partSphere *createdPart = (partSphere*)shape->part; 
+   if (!createdPart) {
+      return NULL;
+   } 
+   shape->partType = OBJECT_TYPE_SPHERE;
+   createdPart->radius = (radius == 0.0f || isnan(radius)) ? 1.0f : radius;
+
+   LOG_INFO("partSphere: created");
+   return createdPart;
+}
+
+partCylinder *instance_cylinder(void *parent, shapeProperties *shape, bitmaskPool *pool, float radiusTop, float radiusBottom, float height, u_int_8 slices) {
+   __INIT_PART__(partCylinder, shape, pool);
+   partCylinder *createdPart = (partCylinder*)shape->part; 
+   if (!createdPart) {
+      return NULL;
+   } 
+   shape->partType = OBJECT_TYPE_CYLINDER;
+
+  // printf("yes yes: %d\n", ((partCylinder*)shape->part)->slices);
+   createdPart->radiusTop = (radiusTop == 0.0f || isnan(radiusTop)) ? 1.0f : radiusTop;
+   createdPart->radiusBottom = (radiusBottom == 0.0f || isnan(radiusBottom)) ? 1.0f : radiusBottom;
+   createdPart->height = (height == 0.0f || isnan(height)) ? 1.0f : height;
+   createdPart->slices = (slices == 0 || (slices <= 0)) ? 1 : slices;
+
+   LOG_INFO("partCylinder: created");
+   return createdPart;
+}
+
+partMesh *instance_meshPart(void *parent, shapeProperties *shape, bitmaskPool *pool, u_int_16 mesh, u_int_16 texture, u_int_16 meshPath) {
+   __INIT_PART__(partMesh, shape, pool);
+   partMesh *createdPart = (partMesh*)shape->part; 
+   if (!createdPart) {
+      return NULL;
+   } 
+   shape->partType = OBJECT_TYPE_MESHPART;
+
+   createdPart->mesh = mesh;
+   createdPart->texture = texture;
+   //part->meshPath = NULL;
+   //changePathVar(&part->meshPath, (meshPath ? meshPath : NULL));
+
+   LOG_INFO("partMesh: created");
+   return createdPart;
+}
+
+shapeProperties *instancePart(void *parent, objectType type, void *params) {
+   void *actualParent = parent ? parent : workspace;
+   shapeProperties *newShape = instance_shape();
+   if (!newShape) {
+      LOG_ERR("newShape: cant create in instancePart");
+      return NULL;
+   }
+
+   setDefaultShape(newShape, parent);
+   printf("NEW PARENT FOR OBJECT: %p\n", parent);
+   bool success = false;
+   switch (type) {
+      case OBJECT_TYPE_CUBE:
+         success = instance_cube(actualParent, newShape, hierarchyBitPools.pool_partCube);
+         break;
+      case OBJECT_TYPE_SPHERE:
+         success = instance_sphere(actualParent, newShape, hierarchyBitPools.pool_partSphere, ((partSphere *)params)->radius);
+         break;
+      case OBJECT_TYPE_CYLINDER: 
+         {
+            partCylinder *p = (partCylinder *)params;
+            success = instance_cylinder(actualParent, newShape, hierarchyBitPools.pool_partCylinder, p->radiusTop, p->radiusBottom, p->height, p->slices);
+            break;
+         }
+      case OBJECT_TYPE_MESHPART: 
+         {
+            partMesh *p = (partMesh *)params;
+            success = instance_meshPart(actualParent, newShape, hierarchyBitPools.pool_partMesh, p->mesh, p->texture, p->meshPath);
+            break;
+         }
+      default:
+         remove_shape(newShape);
+         return NULL;
+   }
+   if (!success) {
+      LOG_ERR("instancePart: null yes");
+      remove_shape(newShape);
+      return NULL;
+   }
+   // childAdd__(parent, newShape);
+   return newShape;
+}
+
+void remove_cube(void **part) {
+   if (part && *part) {
+      partCube *convPart = (partCube*)part;
+      if (convPart) {
+         LOG_INFO("removing cube");
+         *part = NULL;
+      }   
+   }
+}
+
+void remove_sphere(void **part) {
+   if (part && *part) {
+      partSphere *convPart = (partSphere*)part;
+      if (convPart) {
+         LOG_INFO("removing sphere");
+         *part = NULL;
+      }   
+   }
+}
+
+void remove_cylinder(void **part) {
+   if (part && *part) {
+      partCylinder *convPart = (partCylinder*)part;
+      if (convPart) {
+         LOG_INFO("removing cylinder");
+         *part = NULL;
+      }   
+   }
+}
+
+void remove_meshPart(void **part) {
+   if (part && *part) {
+      partMesh *convPart = (partMesh*)part;
+      if (convPart) {
+         LOG_INFO("removing mesh");
+         *part = NULL;
+      }   
+   }
+}
+
+void removePart(shapeProperties *shape, bitmaskPool *pool) {
+   if (!shape) return;
+   if (shape->partType < OBJECT_TYPE_COUNT && removePartFuncs[shape->partType]) {
+      removePartFuncs[shape->partType](shape->part);
+   } else {
+      LOG_ERR("removePart: removePartFunc is null");
+   }
+}
+
+void remove_shape(shapeProperties *shape) {
+   if (!shape) return;
+   baseNode *node = getBaseNode(shape);
+   if (shape->part) {
+      LOG_ERR("hi");
+      removePart(shape, hierarchyBitPools.pool_partCube);
+      shape->part = NULL;
+   }
+
+   removeChildrens(&node->children, &node->childCount);
+   clearBaseNode(node);
+
+   //   free_readable_malloc(shape, sizeof(*shape));
+}
+
+void childDestroy(void *ptr) {
+   if (!ptr) return;
+   baseNode *node = getBaseNode(ptr);
+   if (!node) {
+      LOG_WARN("childDestroy: NODE NULL!");
       return;
    }
+   switch (node->kindtype) {
+      case PARENT_TYPE_OBJECT:
+         LOG_WARN("removing PARENT_TYPE_OBJECT");
+         remove_object((objectSpace*)ptr); 
+         break;
+      case PARENT_TYPE_PART:
+         LOG_INFO("removing PARENT_TYPE_PART");
+         remove_shape((shapeProperties*)ptr);
+         break;
+      default: return;
+   }
+}
+
+//
+// === WORKSPACE MANAGEMENT ===
+//
+
+void init_bitPools() {
+   hierarchyBitPools.pool_partCube = bitmaskPool_init(1023, sizeof(partCube)); 
+   hierarchyBitPools.pool_partSphere = bitmaskPool_init(1023, sizeof(partSphere)); 
+   hierarchyBitPools.pool_partCylinder = bitmaskPool_init(1023, sizeof(partCylinder)); 
+   hierarchyBitPools.pool_partMesh = bitmaskPool_init(1023, sizeof(partMesh)); 
+}
+
+void init_pools() {
+   init_bitPools();
+}
+
+void init_workspace() {
    remove_workspace();
 
-   poolPtr = gottenPool;
+   init_bitPools();
 
    workspace = readable_malloc(sizeof(objectSpace));
    baseNode node = workspace->mynode;
@@ -504,7 +659,12 @@ void init_workspace(memoryPool *gottenPool) {
    node.kindtype = PARENT_TYPE_OBJECT;
    node.name = "workspace";
 
-   printf("WORKSPACE ADDR: %p\n", workspace);
+   for (int i = 0; i < 43; i++) {
+      shapeProperties *shape = instancePart(workspace, OBJECT_TYPE_CYLINDER, INIT_DUMMY(partCylinder));
+      remove_shape(shape);
+   }
+
+
    LOG_INFO("Initializing workspace");
 }
 
