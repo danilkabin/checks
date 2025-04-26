@@ -27,6 +27,13 @@
    shape->poolIndex = res.targetIndex; \
    shape->part = partPtr; \
 
+#define INIT_POOL_SIZE_CUBE 1024
+#define INIT_POOL_SIZE_SPHERE 1024
+#define INIT_POOL_SIZE_CYLINDER 1024
+#define INIT_POOL_SIZE_MESHPART 1024
+
+#define INIT_SHAPE_POOL_SIZE 2048
+
 typedef enum u_int_8 {
    OBJECT_TYPE_CUBE,
    OBJECT_TYPE_SPHERE,
@@ -121,10 +128,26 @@ typedef struct {
    size_t size;
    bool isActive;
    u_int_64 *cellVar;
-   u_int_16 cellCount;
+   u_int_32 cellCount;
    u_int_32 sizePerFrame;
    u_int_32 capacity;
 } bitmaskPool;
+
+typedef struct {
+   bool isBusy;
+   u_int_16 size;
+
+} uniquePoolCell;
+
+typedef struct {
+   void *memory;
+   size_t size;
+   u_int_16 sizePerFreeFrame;
+   u_int_32 cellCount;
+
+   uniquePoolCell *freePoolCellVar;
+   uniquePoolCell *busyPoolCellVar;
+} uniquePool;
 
 extern objectSpace *workspace;
 
@@ -147,10 +170,10 @@ void setDefaultBaseNode(baseNode *node, void *parent);
 
 void remove_shape(shapeProperties *shape);
 
-void remove_cube(void **part);
-void remove_sphere(void **part);
-void remove_cylinder(void **part);
-void remove_meshPart(void **part);
+void remove_cube(void **part, bitmaskPool *pool, int targetIndex);
+void remove_sphere(void **part, bitmaskPool *pool, int targetIndex);
+void remove_cylinder(void **part, bitmaskPool *pool, int targetIndex);
+void remove_meshPart(void **part, bitmaskPool *pool, int targetIndex);
 
 shapeProperties *instancePart(void *parent, objectType type, void *params);
 void removePart(shapeProperties *shape, bitmaskPool *pool);
@@ -169,11 +192,15 @@ void childRemove__();
 
 void init_workspace();
 
-// BITMASK
+// BITMASK POOL
 bitmaskPool *bitmaskPool_init(size_t size, size_t sizePerFrame);
 void bitmaskPool_clear(bitmaskPool *pool);
 bitmaskPool *bitmaskPool_rewrite(bitmaskPool *pool, u_int_8 side);
 u_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size);
 void bitmaskPool_remove(bitmaskPool *pool, u_int_32 index);
+
+// UNIQUE POOL
+uniquePool *uniquePool_init(size_t size, size_t sizePerFreeFrame);
+
 
 #endif

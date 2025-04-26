@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "time.h"
 
 // === Global Variables ===
 
@@ -131,9 +130,10 @@ s_int_32 changeNeccessaryBits(void *data, u_int_8 side, u_int_32 index, s_int_8 
       u_int_16 localIndex = index / POOL_BITMASK_SIZE;
       u_int_16 localCurrent = index - POOL_BITMASK_SIZE * localIndex;
 
+      printf("chicken: %d, localIndex:%d\n", index, localCurrent);
       bitArray[localIndex] = (side == 1) ? (bitArray[localIndex] | (1UL << localCurrent)) :
          (bitArray[localIndex] & ~(1UL << localCurrent));
-      //printBits(bitArray[localIndex], POOL_BITMASK_SIZE);
+         printBits(bitArray[localIndex], POOL_BITMASK_SIZE);
       return targetIndex;
    }
 
@@ -142,7 +142,7 @@ s_int_32 changeNeccessaryBits(void *data, u_int_8 side, u_int_32 index, s_int_8 
       if (bit == -1) continue;
       bitArray[inx] = (side == 1) ? (bitArray[inx] | (1UL << bit)) :
          (bitArray[inx] & ~(1UL << bit));
-      // printBits(bitArray[inx], POOL_BITMASK_SIZE);
+      printBits(bitArray[inx], POOL_BITMASK_SIZE);
       targetIndex = inx * POOL_BITMASK_SIZE + bit;
       break;
    }
@@ -170,7 +170,7 @@ bitmaskPool *bitmaskPool_init(size_t size, size_t sizePerFrame) {
 
    pool->memory = NULL;
    pool->cellVar = NULL;
-   pool->size = check_on_2x(size - 1, 2);
+   pool->size = check_on_2x(size, 2);
    pool->sizePerFrame = sizePerFrame;
    pool->capacity = ROUND_UP(pool->size / sizePerFrame, POOL_BITMASK_SIZE);
    pool->cellCount = 0;
@@ -232,7 +232,7 @@ bitmaskPool *bitmaskPool_rewrite(bitmaskPool *pool, u_int_8 side) {
    pool->capacity = ROUND_UP(pool->size / pool->sizePerFrame, POOL_BITMASK_SIZE);
    printf("bitmaskPool_rewrite: oldsize=%zu, newsize=%zu, oldcapacity=%u, newcapacity=%u\n",
          oldsize, pool->size, oldcapacity, pool->capacity);
-   void *newMem = readable_realloc(pool->memory, pool->size, oldsize);
+    void *newMem = readable_realloc(pool->memory, pool->size, oldsize);
    if (!newMem) {
       LOG_ERR("Failed to reallocate memory in bitmaskPool_rewrite");
       goto unsuccessful;
@@ -269,8 +269,9 @@ u_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size) {
       LOG_ERR("bitmaskPool_add: Invalid data or size");
       return 0;
    }
+
    u_int_32 targetIndex = changeNeccessaryBits(pool->cellVar, 1, pool->capacity, -1);
-   // printf("cs: %d\n", pool->cellCount * pool->sizePerFrame);
+
    if (targetIndex != -1) {
       if ((pool->cellCount * pool->sizePerFrame) > (pool->size * 0.75)) {
          LOG_ERR("hlell");
@@ -291,7 +292,8 @@ void bitmaskPool_remove(bitmaskPool *pool, u_int_32 index) {
       LOG_ERR("bitmaskPool_remove: Invalid pool data");
       return;
    }
-   printf("remove yes yes: %d\n", index);
+   LOG_ERR("hello");
+   printf("yes yes: %d\n", index);
    changeNeccessaryBits(pool->cellVar, 0, index, 1);
    pool->cellCount = pool->cellCount - 1;
    if (pool->cellCount < 0) {pool->cellCount = 0;}
@@ -315,7 +317,7 @@ void *getPartPoolByIndex(bitmaskPool *pool, int targetIndex) {
       LOG_ERR("getPartPoolByIndex: Invalid pool data");
       return NULL;
    }
-   return (void *)((u_int_8 *)pool->memory + targetIndex * pool->sizePerFrame);
+return (void *)((u_int_8 *)pool->memory + targetIndex * pool->sizePerFrame);
 }
 
 partPoolInit_struct initPartPool(bitmaskPool *pool, void *part, size_t size) {
@@ -331,27 +333,7 @@ partPoolInit_struct initPartPool(bitmaskPool *pool, void *part, size_t size) {
 
 // === Unique Pool Management ===
 
-uniquePool *uniquePool_init(size_t size, size_t sizePerFreeFrame) {
-   if (size <= 0 || sizePerFreeFrame <= 0 || size < sizePerFreeFrame) {
-      LOG_ERR("Invalid parameters in uniquePool_init()");
-      return NULL;
-   }
-   uniquePool *pool = readable_malloc(sizeof(uniquePool));
-   if (!pool) {
-      LOG_ERR("Pool is null uniquePool_init()");
-   goto unsuccessful;
-   }
-      pool->memory = NULL;
-   pool->size = check_on_2x(size - 1, 2);
-   pool->sizePerFreeFrame = sizePerFreeFrame;
-   pool->cellCount = 0;
 
-   
-   return pool;
-unsuccessful:
-
-   return NULL;
-}
 
 // === Node and Type Checking ===
 
@@ -621,6 +603,8 @@ shapeProperties *instancePart(void *parent, objectType type, void *params) {
 // === Shape Removal ===
 
 void remove_part_general(void **part, bitmaskPool *pool, int targetIndex) {
+   LOG_INFO("removing PART");
+   printf("heehlhlehlhlehl\n");'
    bitmaskPool_remove(pool, targetIndex);
    *part = NULL;
 }
@@ -630,9 +614,11 @@ void remove_cube(void **part, bitmaskPool *pool, int targetIndex) {
       LOG_ERR("remove_cube: pool is null");
       return;
    }
-   partCube *convPart = (partCube *)part;
-   if (convPart) {
-      remove_part_general(part, pool, targetIndex);
+   if (part && *part) {
+      partCube *convPart = (partCube *)part;
+      if (convPart) {
+         remove_part_general(part, pool, targetIndex);
+      }
    }
 }
 
@@ -641,9 +627,11 @@ void remove_sphere(void **part, bitmaskPool *pool, int targetIndex) {
       LOG_ERR("remove_sphere: pool is null");
       return;
    }
-   partSphere *convPart = (partSphere *)part;
-   if (convPart) {
-      remove_part_general(part, pool, targetIndex);
+   if (part && *part) {
+      partSphere *convPart = (partSphere *)part;
+      if (convPart) {
+         remove_part_general(part, pool, targetIndex);
+      }
    }
 }
 
@@ -652,26 +640,31 @@ void remove_cylinder(void **part, bitmaskPool *pool, int targetIndex) {
       LOG_ERR("remove_cylinder: pool is null");
       return;
    }
-   partCylinder *convPart = (partCylinder *)part;
-   if (convPart) {
-      remove_part_general(part, pool, targetIndex);
+   if (part && *part) {
+      partCylinder *convPart = (partCylinder *)part;
+      if (convPart) {
+         remove_part_general(part, pool, targetIndex);
+      }
    }
 }
 
 void remove_meshPart(void **part, bitmaskPool *pool, int targetIndex) {
    if (!pool) {
       LOG_ERR("remove_meshPart: pool is null");
-      return; 
+      return;
    }
-   partMesh *convPart = (partMesh *)part;
-   if (convPart) {
-      remove_part_general(part, pool, targetIndex);
+   if (part && *part) {
+      partMesh *convPart = (partMesh *)part;
+      if (convPart) {
+         remove_part_general(part, pool, targetIndex);
+      }
    }
 }
 
 void removePart(shapeProperties *shape, bitmaskPool *pool) {
    if (!shape) return;
    if (shape->partType < OBJECT_TYPE_COUNT && removePartFuncs[shape->partType]) {
+   LOG_ERR("removing PART");
       removePartFuncs[shape->partType](shape->part, pool, shape->poolIndex);
    } else {
       LOG_ERR("removePart: removePartFunc is null");
@@ -680,7 +673,7 @@ void removePart(shapeProperties *shape, bitmaskPool *pool) {
 
 void remove_shape(shapeProperties *shape) {
    if (!shape) return;
-   //   printf("index:%d\n\n\n", shape->poolIndex);
+   printf("index:%d\n\n\n", shape->poolIndex);
    baseNode *node = getBaseNode(shape);
    bitmaskPool *pool = getPartPoolByType(shape->partType);
    if (!pool) {
@@ -699,10 +692,10 @@ void remove_shape(shapeProperties *shape) {
 // === Workspace Management ===
 
 void init_bitPools() {
-   hierarchyBitPools.pool_partCube = bitmaskPool_init(INIT_POOL_SIZE_CUBE, sizeof(partCube));
-   hierarchyBitPools.pool_partSphere = bitmaskPool_init(INIT_POOL_SIZE_SPHERE, sizeof(partSphere));
-   hierarchyBitPools.pool_partCylinder = bitmaskPool_init(INIT_POOL_SIZE_CYLINDER, sizeof(partCylinder));
-   hierarchyBitPools.pool_partMesh = bitmaskPool_init(INIT_POOL_SIZE_MESHPART, sizeof(partMesh));
+   hierarchyBitPools.pool_partCube = bitmaskPool_init(1023, sizeof(partCube));
+   hierarchyBitPools.pool_partSphere = bitmaskPool_init(1023, sizeof(partSphere));
+   hierarchyBitPools.pool_partCylinder = bitmaskPool_init(1023, sizeof(partCylinder));
+   hierarchyBitPools.pool_partMesh = bitmaskPool_init(1023, sizeof(partMesh));
    if (!hierarchyBitPools.pool_partCube || !hierarchyBitPools.pool_partSphere ||
          !hierarchyBitPools.pool_partCylinder || !hierarchyBitPools.pool_partMesh) {
       LOG_ERR("Failed to initialize bitmask pools");
@@ -716,20 +709,16 @@ void init_pools() {
 void init_workspace() {
    remove_workspace();
    init_bitPools();
-   srand(time(NULL));
+
    workspace = readable_malloc(sizeof(objectSpace));
    baseNode node = workspace->mynode;
    setDefaultBaseNode(&node, NULL);
    node.kindtype = PARENT_TYPE_OBJECT;
    node.name = "workspace";
 
-   for (int i = 0; i < 100; i++) {
+   for (int i = 0; i < 10; i++) {
       shapeProperties *shape = instancePart(workspace, OBJECT_TYPE_MESHPART, INIT_DUMMY(partMesh));
-      printf("created part: %d\n", shape->poolIndex);
-      int rn = rand() % 2;
-      if (shape && rn == 1) {
-         remove_shape(shape);
-      }
+      remove_shape(shape);
    }
 
    LOG_INFO("Initializing workspace");
