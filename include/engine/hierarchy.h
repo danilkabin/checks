@@ -17,22 +17,24 @@
 
 #define INIT_DUMMY(T) ((T[]){{0}})
 
-#define __INIT_PART__(TYPE, SHAPE, POOL) \
+#define __INIT_PART__(TYPE, partStruct, POOL) \
    TYPE part = {0}; \
    partPoolInit_struct res = initPartPool(POOL, &part, sizeof(TYPE)); \
    if (!res.part) { \
       return NULL; \
    } \
    TYPE *partPtr = (TYPE*)res.part; \
-   shape->poolIndex = res.targetIndex; \
-   shape->part = partPtr; \
+   partStruct->poolIndex = res.targetIndex; \
+   partStruct->shape = partPtr; \
 
 #define INIT_POOL_SIZE_CUBE 1024
 #define INIT_POOL_SIZE_SPHERE 1024
 #define INIT_POOL_SIZE_CYLINDER 1024
 #define INIT_POOL_SIZE_MESHPART 1024
 
-#define INIT_SHAPE_POOL_SIZE 2048
+#define INIT_PART_STRUCT_POOL_SIZE 2048
+
+#define RESULT_TRASH -228
 
 typedef enum u_int_8 {
    OBJECT_TYPE_CUBE,
@@ -41,6 +43,18 @@ typedef enum u_int_8 {
    OBJECT_TYPE_MESHPART,
    OBJECT_TYPE_COUNT
 } objectType;
+
+typedef enum {
+   POOL_TYPE_FIXED,
+   POOL_TYPE_DYNAMIC
+} poolType;
+
+typedef enum {
+   BITMASK_FIRST_BIT,
+   BITMASK_CURRENT_BIT,
+   BITMASK_MULTIPLY_BIT,
+   BITMASK_COUNT
+} bitmaskType;
 
 typedef enum {
    PARENT_TYPE_OBJECT,
@@ -76,7 +90,7 @@ typedef struct {
    u_int_32 childCount;
    u_int_32 childCapacity;
    void *variables;
-   int variablesSize;
+   s_int_32 variablesSize;
 } baseNode;
 
 typedef struct {
@@ -84,7 +98,8 @@ typedef struct {
    u_int_8 transparency;
    u_int_8 flags;
    u_int_32 poolIndex;
-   void *part;
+   u_int_32 shapePoolIndex;
+   void *shape;
    objectType partType;
    Color brickColor;
    u_int_8 material;
@@ -92,7 +107,7 @@ typedef struct {
    Vector3 position;
    Vector3 orientation;
    Vector3 size;
-} shapeProperties;
+} partStruct;
 
 typedef struct {
    baseNode mynode;
@@ -134,19 +149,12 @@ typedef struct {
 } bitmaskPool;
 
 typedef struct {
-   bool isBusy;
-   u_int_16 size;
-
-} uniquePoolCell;
-
-typedef struct {
    void *memory;
    size_t size;
    u_int_16 sizePerFreeFrame;
    u_int_32 cellCount;
-
-   uniquePoolCell *freePoolCellVar;
-   uniquePoolCell *busyPoolCellVar;
+   u_int_64 *cellVar;
+   u_int_32 capacity;
 } uniquePool;
 
 extern objectSpace *workspace;
@@ -158,29 +166,30 @@ objectSpace *instance_object(void *parent);
 void remove_object(objectSpace *object);
 void removeChildrens(void ***children, u_int_32 *childCount);
 
-shapeProperties *instance_shape();
+u_int_32 instance_partStruct(partStruct *part);
 
-partCube *instance_cube(void *parent, shapeProperties *shape, bitmaskPool *pool);
-partSphere *instance_sphere(void *parent, shapeProperties *shape, bitmaskPool *pool, float radius);
-partCylinder *instance_cylinder(void *parent, shapeProperties *shape, bitmaskPool *pool, float radiusTop, float radiusBottom, float height, u_int_8 slices);
-partMesh *instance_meshPart(void *parent, shapeProperties *shape, bitmaskPool *pool, u_int_16 mesh, u_int_16 texture, u_int_16 meshPath);
+partCube *instance_cube(void *parent, partStruct *partStruct, bitmaskPool *pool);
+partSphere *instance_sphere(void *parent, partStruct *partStruct, bitmaskPool *pool, float radius);
+partCylinder *instance_cylinder(void *parent, partStruct *partStruct, bitmaskPool *pool, float radiusTop, float radiusBottom, float height, u_int_8 slices);
+partMesh *instance_meshPart(void *parent, partStruct *partStruct, bitmaskPool *pool, u_int_16 mesh, u_int_16 texture, u_int_16 meshPath);
 
 baseNode *getBaseNode(void *ptr);
 void setDefaultBaseNode(baseNode *node, void *parent);
 
-void remove_shape(shapeProperties *shape);
+void remove_partStruct(partStruct *partStruct);
 
-void remove_cube(void **part, bitmaskPool *pool, int targetIndex);
-void remove_sphere(void **part, bitmaskPool *pool, int targetIndex);
-void remove_cylinder(void **part, bitmaskPool *pool, int targetIndex);
-void remove_meshPart(void **part, bitmaskPool *pool, int targetIndex);
+void remove_cube(void **part, bitmaskPool *pool, s_int_32 targetIndex);
+void remove_sphere(void **part, bitmaskPool *pool, s_int_32 targetIndex);
+void remove_cylinder(void **part, bitmaskPool *pool, s_int_32 targetIndex);
+void remove_meshPart(void **part, bitmaskPool *pool, s_int_32 targetIndex);
 
-shapeProperties *instancePart(void *parent, objectType type, void *params);
-void removePart(shapeProperties *shape, bitmaskPool *pool);
+partStruct *instancePart(void *parent, objectType type, void *params);
+
+void removePart(partStruct *partStruct, bitmaskPool *pool);
 
 void childDestroy(void *ptr);
 
-int setDefaultShape(shapeProperties *shape, void *parent);
+s_int_32 setDefaultPartStruct(partStruct *partStruct, void *parent);
 
 void removePoolChild();
 
@@ -192,15 +201,22 @@ void childRemove__();
 
 void init_workspace();
 
+s_int_32 changeFirstBit(void *data, s_int_32 index, u_int_8 side, u_int_8 variable);
+s_int_32 changeCurrentBit(void *data, s_int_32 index, u_int_8 side, u_int_8 variable);
+s_int_32 changeMultiplyBit(void *data, s_int_32 index, u_int_8 side, u_int_8 variable);
+
 // BITMASK POOL
 bitmaskPool *bitmaskPool_init(size_t size, size_t sizePerFrame);
 void bitmaskPool_clear(bitmaskPool *pool);
 bitmaskPool *bitmaskPool_rewrite(bitmaskPool *pool, u_int_8 side);
-u_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size);
+s_int_32 bitmaskPool_add(bitmaskPool *pool, void *data, size_t size);
 void bitmaskPool_remove(bitmaskPool *pool, u_int_32 index);
 
-// UNIQUE POOL
-uniquePool *uniquePool_init(size_t size, size_t sizePerFreeFrame);
+uniquePool *uniquePool_init(size_t size, size_t sizePerFrame);
+void uniquePool_clear(uniquePool *pool);
 
+s_int_32 uniquePool_add(uniquePool *pool, void *data, size_t size);
+
+void *init_pool(poolType *type, size_t size, size_t sizePerFreeFrame);
 
 #endif
