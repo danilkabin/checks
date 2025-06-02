@@ -10,47 +10,11 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/utils/src/vector.o",
-      "proto/utils/src/vector.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/utils/src/vector.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/utils/src/vector.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-Iproto/include",
-      "-Iproto/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
       "build/proto/src/binsocket.o",
       "proto/src/binsocket.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
     "file": "/home/danilka_bin/flowbin/proto/src/binsocket.c",
     "output": "/home/danilka_bin/flowbin/build/proto/src/binsocket.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-Iproto/include",
-      "-Iproto/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/src/main.o",
-      "src/main.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/main.c",
-    "output": "/home/danilka_bin/flowbin/build/src/main.o"
   }
 ]

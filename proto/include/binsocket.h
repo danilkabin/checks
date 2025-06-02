@@ -1,6 +1,8 @@
 #ifndef BIN_SOCKET_H
 #define BIN_SOCKET_H
 
+#include "lock.h"
+#include "account.h"
 #include "listhead.h"
 #include "pool.h"
 
@@ -12,6 +14,11 @@
 
 #define sockType int
 #define idType uint32_t
+
+#define BS_ANONYMOUS_BUFF_SIZE 64
+
+extern struct list_head bs_anonymous_list;
+extern thread_m anonymous_core;
 
 typedef enum {
    SOCKET_STATUS_OPEN,
@@ -86,22 +93,26 @@ struct binSocket {
 
 struct binSocket_client {
    sockType sock;
-   uint32_t user_id;
+   char buff[BS_ANONYMOUS_BUFF_SIZE];
    struct list_head list;
 };
+
+typedef void(*accept_callback_sk)(sockType client_fd, struct binSocket_client *anonymous);
 
 int bs_header_assemble(BINSOCKET_MESSAGE *message);
 int bs_header_disassemble(BINSOCKET_MESSAGE *message, char *buffer);
 
 sock_syst_status get_socket_system_status();
 uint8_t *bs_get_clients_bitmap();
+struct binSocket_client *get_bs_client_by_index(int index);
 
-struct binSocket_client *binSocket_client_create(sockType fd, idType user_id);
+//int bs_recv_message(struct binSocket *sock);
+
+struct binSocket_client *binSocket_client_create(sockType fd);
 void binSocket_client_release(struct binSocket_client *client);
-int binSocket_accept(struct binSocket *sock);
+int binSocket_accept(struct binSocket *sock, accept_callback_sk work);
 
 struct binSocket *binSocket_create(struct tcp_port_conf *port_conf);
-
 int binSocket_init(struct binSocket *sock);
 void binSocket_release(struct binSocket *sock);
 

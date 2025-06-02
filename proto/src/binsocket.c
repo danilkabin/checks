@@ -1,12 +1,16 @@
+#include "account.h"
 #include "listhead.h"
+#include "lock.h"
 #include "main.h"
 #include "binsocket.h"
 #include "pool.h"
 #include "utils.h"
 #include "vector.h"
 
+#include <bits/pthreadtypes.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,7 +21,9 @@
 #include <unistd.h>
 
 struct memoryPool *bs_client_pool = NULL;
-struct list_head bs_client_list = LIST_HEAD_INIT(bs_client_list);
+
+struct list_head bs_anonymous_list = LIST_HEAD_INIT(bs_anonymous_list);
+thread_m anonymous_core;
 
 uint8_t *clientIDs = NULL;
 size_t clientIDs_size = (MAX_CLIENTS_CAPABLE + 7) / 8;
@@ -100,7 +106,7 @@ void binSocket_release(struct binSocket *sock) {
    free(sock);
 }
 
-struct binSocket_client *binSocket_client_create(sockType fd, idType user_id) {
+struct binSocket_client *binSocket_client_create(sockType fd) {
    CHECK_SOCKET_SYSTEM_STATUS(NULL);
 
    struct binSocket_client *client = (struct binSocket_client*)memoryPool_allocBlock(bs_client_pool);
@@ -109,9 +115,7 @@ struct binSocket_client *binSocket_client_create(sockType fd, idType user_id) {
       goto free_this_trash; 
    }
    client->sock = fd;
-   client->user_id = user_id;
-   indextable_set(&bs_client_table, client, client->user_id);
-   list_add(&client->list, &bs_client_list);
+   list_add(&client->list, &bs_anonymous_list);
    return client;
 free_this_trash:
    return NULL;
@@ -122,52 +126,52 @@ void binSocket_client_release(struct binSocket_client *client) {
    if (client->sock) {
       close(client->sock);
    }
-   clear_bit(bitmap, client->user_id);
-   indextable_set(&bs_client_table, NULL, client->user_id);
    list_del(&client->list);
    memoryPool_freeBlock(bs_client_pool, client);
 }
 
-int binSocket_accept(struct binSocket *sock) {
+int binSocket_accept(struct binSocket *sock, accept_callback_sk work) {
    int ret = -1;
-   if (!sock) {
-      DEBUG_FUNC("no sock!\n");
+   if (!sock || !work) {
+      DEBUG_FUNC("no sock or work!\n");
       goto free_this_trash;
    }
    CHECK_SOCKET_SYSTEM_STATUS(-1);
-   uint8_t *bitmap = clientIDs;
-   size_t bitmap_size = MAX_CLIENTS_CAPABLE;
-
-   printBitmap(clientIDs, clientIDs_size);
-
-   int user_id = ffb(bitmap, bitmap_size);
-   if (user_id < 0) {
-      DEBUG_FUNC("no user id!\n");
-      goto free_this_trash;
-   }
-   set_bit(bitmap, user_id);
+   
    struct sockaddr_in sock_addr;
    socklen_t addrlen = sizeof(sock_addr); 
    sockType client_fd = accept(sock->fd, (struct sockaddr*)&sock_addr, &addrlen);
    if (client_fd < 0) {
       DEBUG_FUNC("accept client descriptor was failed!\n");
-      goto clear_bit_yes;
-   } 
-
-   struct binSocket_client *client = binSocket_client_create(client_fd, user_id); 
-   if (!client) {
-      DEBUG_FUNC("new client initialization was failed!\n");
-      goto free_sock; 
+      goto free_this_trash;
    }
 
-   return user_id;
+   struct binSocket_client *anonymous = binSocket_client_create(client_fd); 
+   if (!anonymous) {
+      DEBUG_FUNC("client initialization was failed\n");
+      goto free_sock;
+   }
+   
+   work(client_fd, anonymous);
+
+   return client_fd;
 free_sock:
    close(client_fd); 
-clear_bit_yes:
-   clear_bit(bitmap, user_id);
 free_this_trash:
    return ret;
 }
+
+/*int bs_recv_message(struct binSocket_client *client) {
+   int ret = -1;
+   if (!client) {
+      DEBUG_FUNC("no sock\n");
+      goto free_this_trash;
+   }
+
+   return ret;
+free_this_trash:
+   return ret;
+}*/
 
 int sock_syst_init(void) {
    SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;
@@ -190,7 +194,9 @@ int sock_syst_init(void) {
    }
 
    memset(clientIDs, 0, clientIDs_size);
-   INIT_LIST_HEAD(&bs_client_list);
+   
+   INIT_LIST_HEAD(&bs_anonymous_list);
+   mutex_init(&anonymous_core.mutex, NULL);
    SOCKET_SYSTEM_STATUS = SOCKET_STATUS_OPEN;
    return 0;
 free_clientIDs:
@@ -203,9 +209,15 @@ free_this_trash:
 
 void sock_syst_exit(void) {
    struct binSocket_client *child, *tmp;
-   list_for_each_entry_safe(child, tmp, &bs_client_list, list) {
+
+   mutex_synchronise(&anonymous_core.mutex);
+   mutex_lock(&anonymous_core.mutex);
+   list_for_each_entry_safe(child, tmp, &bs_anonymous_list, list) {
       binSocket_client_release(child);
    }
+   mutex_unlock(&anonymous_core.mutex);
+
    indextable_exit(&bs_client_table);
+
    SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;
 }

@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "account.h"
 #include "main.h"
 #include "device.h"
 #include "peer.h"
@@ -31,10 +32,8 @@ int main() {
    } 
 
    while (1) {
-      int ret = binSocket_accept(sock);
-      if (ret > 0) {
-         DEBUG_FUNC("new client!\n");
-      }
+      accept_callback_sk func = bs_user_accept;
+      int ret = binSocket_accept(sock, func);
    }
 
    DEBUG_FUNC("heehllo1oo1o1\n");
