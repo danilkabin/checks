@@ -1,24 +1,23 @@
-#ifndef BIN_SOCKET_H
-#define BIN_SOCKET_H
+#ifndef BINSOCKET_H
+#define BINSOCKET_H
 
 #include "lock.h"
-#include "account.h"
 #include "listhead.h"
 #include "pool.h"
 
 #include <netinet/in.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/epoll.h>
 
 #define sockType int
 #define idType uint32_t
 
-#define BS_ANONYMOUS_BUFF_SIZE 64
-
-extern struct list_head bs_anonymous_list;
-extern thread_m anonymous_core;
+#define BS_CLIENT_BUFF_SIZE 1024
+#define BS_EPOLL_MAX_EVENTS 20
 
 typedef enum {
    SOCKET_STATUS_OPEN,
@@ -73,51 +72,67 @@ struct tcp_port_conf {
    struct in_addr addr;
 };
 
-struct binSocket {
+typedef struct {
    sockType fd;
    int8_t state;
 
-   uint64_t packets_sent;
-   uint64_t packets_received;
+   uint32_t packets_sent;
+   uint32_t packets_received;
+} sock_t;
 
+struct server_sock {
+   sock_t sock;
    uint32_t peer_connections;
    uint32_t peer_capable;
    uint16_t peer_queue_capable;
+
+   uint8_t *clientIDs;
+   size_t clientIDs_size;
 
    struct tcp_port_conf port_conf;
    struct sockaddr_in sock_addr;
    socklen_t addrlen;
 
+   int epoll_fd;
+   struct epoll_event event, events[BS_EPOLL_MAX_EVENTS]; 
+
    struct list_head clients;
+   thread_m client_core;
+   atomic_bool released;
 };
 
-struct binSocket_client {
-   sockType sock;
-   char buff[BS_ANONYMOUS_BUFF_SIZE];
+struct client_sock {
+   sock_t sock;
+   char buff[BS_CLIENT_BUFF_SIZE];
+   size_t buff_len;
+
+   struct epoll_event communicate_epoll;
+
    struct list_head list;
+   atomic_bool released;
 };
 
-typedef void(*accept_callback_sk)(sockType client_fd, struct binSocket_client *anonymous);
+typedef void(*accept_callback_sk)(sockType client_fd, struct client_sock *);
 
-int bs_header_assemble(BINSOCKET_MESSAGE *message);
-int bs_header_disassemble(BINSOCKET_MESSAGE *message, char *buffer);
+int bs_header_assemble(BINSOCKET_MESSAGE *);
+int bs_header_disassemble(BINSOCKET_MESSAGE *, char *);
 
 sock_syst_status get_socket_system_status();
-uint8_t *bs_get_clients_bitmap();
-struct binSocket_client *get_bs_client_by_index(int index);
+uint8_t *bs_get_clients_bitmap(struct server_sock *bs);
+struct client_sock *get_bs_client_by_index(int );
 
-//int bs_recv_message(struct binSocket *sock);
+size_t bs_recv_message(struct client_sock *, size_t, int);
 
-struct binSocket_client *binSocket_client_create(sockType fd);
-void binSocket_client_release(struct binSocket_client *client);
-int binSocket_accept(struct binSocket *sock, accept_callback_sk work);
+struct client_sock *client_sock_create(struct server_sock *, sockType );
+void client_sock_release(struct server_sock *, struct client_sock *);
+int binSocket_accept(struct server_sock *sock, accept_callback_sk );
 
-struct binSocket *binSocket_create(struct tcp_port_conf *port_conf);
-int binSocket_init(struct binSocket *sock);
-void binSocket_release(struct binSocket *sock);
+struct server_sock *binSocket_create(struct tcp_port_conf *);
+int server_sock_init(struct server_sock *);
+void server_sock_release(struct server_sock *);
 
 int sock_syst_init(void);
-void sock_syst_exit(void);
+void sock_syst_exit(struct server_sock *);
 
 #define MESSAGE_HEADER_SIZE sizeof(BINSOCKET_HEADER)
 #define MAX_CLIENTS_CAPABLE 17

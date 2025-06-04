@@ -1,8 +1,8 @@
-#ifndef BS_ACCOUNT_H
-#define BS_ACCOUNT_H
+#ifndef BS_USER_H
+#define BS_USER_H
 
-#include "binsocket.h"
 #include "listhead.h"
+#include "binsocket.h"
 
 #include <stdint.h>
 
@@ -22,7 +22,7 @@ typedef struct {
 
    struct list_head list;
    struct list_head chats;
-} userAccount;
+} user;
 
 typedef struct {
    char token[BS_AUTHORIZATION_TOKEN_LEN];
@@ -30,6 +30,7 @@ typedef struct {
 } sessionToken;
 
 void bs_user_accept(sockType client_fd, struct binSocket_client *anonymous);
+void *bs_anonymous_runservice(void *arg);
 
 int authorisation_init(void);
 void authorisation_exit(void);

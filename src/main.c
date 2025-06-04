@@ -29,13 +29,14 @@ int main() {
    if (ret < 0) {
       DEBUG_INFO("where my init sock!!\n");
       return -1;
-   } 
-
-   while (1) {
+   }
+   for (int i = 0; i < 5; i++) {
       accept_callback_sk func = bs_user_accept;
       int ret = binSocket_accept(sock, func);
+   sleep(1);
    }
-
+   sleep(1);
+   sock_syst_exit();
    DEBUG_FUNC("heehllo1oo1o1\n");
    return 0;
 }

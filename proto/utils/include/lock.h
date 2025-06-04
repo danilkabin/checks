@@ -5,6 +5,7 @@
 
 #include <pthread.h>
 #include <stdatomic.h>
+#include "urcu.h"
 
 typedef struct {
    pthread_mutex_t lock;

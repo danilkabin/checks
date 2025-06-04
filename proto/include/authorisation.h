@@ -1,0 +1,4 @@
+#ifndef BS_AUTHORISATION_H
+#define BS_AUTHORISATION_H
+
+#endif

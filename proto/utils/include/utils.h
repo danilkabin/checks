@@ -75,6 +75,10 @@ static inline void clear_bit(uint8_t *bitmap, size_t offset) {
    printf("\n%s: " fmt, __func__, ##__VA_ARGS__); \
 } while(0)
 
+#define DEBUG_ERR(fmt, ...) do { \
+   printf("\n%s: err:  %s" fmt, __func__, strerror(errno), ##__VA_ARGS__); \
+} while(0)
+
 #define CHECK_NULL_RETURN(ptr, msg) do { \
    if (!(ptr)) { \
       DEBUG_INFO(msg); \
