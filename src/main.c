@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "account.h"
 #include "main.h"
 #include "device.h"
 #include "peer.h"
@@ -19,24 +18,24 @@ int main() {
 
    fb_peers_init();
    sock_syst_init();
-   struct binSocket *sock = binSocket_create(&port_conf);
+   struct server_sock *sock = server_sock_create(&port_conf);
    if (!sock) {
       DEBUG_INFO("where my sock!!\n");
       return -1;
    }
 
-   int ret = binSocket_init(sock);
+   int ret = server_sock_init(sock);
    if (ret < 0) {
       DEBUG_INFO("where my init sock!!\n");
       return -1;
    }
-   for (int i = 0; i < 5; i++) {
+ /*  for (int i = 0; i < 5; i++) {
       accept_callback_sk func = bs_user_accept;
       int ret = binSocket_accept(sock, func);
    sleep(1);
-   }
-   sleep(1);
-   sock_syst_exit();
+   }*/
+   sleep(10);
+   sock_syst_exit(sock);
    DEBUG_FUNC("heehllo1oo1o1\n");
    return 0;
 }

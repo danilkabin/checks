@@ -10,24 +10,6 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/src/account.o",
-      "proto/src/account.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/src/account.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/src/account.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-Iproto/include",
-      "-Iproto/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
       "build/proto/src/binsocket.o",
       "proto/src/binsocket.c"
     ],

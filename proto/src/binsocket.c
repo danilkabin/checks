@@ -7,7 +7,6 @@
 #include "vector.h"
 
 #include <arpa/inet.h>
-#include <bits/pthreadtypes.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -24,8 +23,6 @@
 #include <urcu/urcu-memb.h>
 #include <fcntl.h>
 
-struct memoryPool *bs_client_pool = NULL;
-
 index_table bs_client_table;
 sock_syst_status SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;
 
@@ -39,6 +36,19 @@ uint8_t *bs_get_clients_bitmap(struct server_sock *bs) {
 
 struct client_sock *get_bs_client_by_index(int index) {
    return indextable_get(&bs_client_table, index);
+}
+
+void worker_release(struct worker *work) {
+   if (work->epoll_fd) {
+      close(work->epoll_fd);
+      work->epoll_fd = -1;
+   }
+   if (work->core.flow) {
+      pthread_cancel(work->core.flow);
+      pthread_join(work->core.flow, NULL);
+      work->core.flow = 0;
+   }
+   work->bs = NULL;
 }
 
 int sock_t_init(sock_t *sock) {
@@ -61,11 +71,18 @@ struct server_sock *server_sock_create(struct tcp_port_conf *port_conf) {
       goto free_this_trash;
    }
 
+   atomic_store(&bs->initialized, false);
    atomic_store(&bs->released, false);
 
    bs->sock.fd = socket(port_conf->domain, port_conf->type, port_conf->protocol);
    if (bs->sock.fd < 0) {
       DEBUG_FUNC("server sock descriptor fd wasn`t inited: %s\n", strerror(errno));
+      goto free_everything;
+   }
+
+   ret = memoryPool_init(&bs->client_pool, MAX_CLIENTS_CAPABLE * sizeof(struct client_sock), sizeof(struct client_sock));
+   if (ret < 0) {
+      DEBUG_FUNC("client pool initialization was failed!\n");
       goto free_everything;
    }
 
@@ -99,7 +116,6 @@ struct server_sock *server_sock_create(struct tcp_port_conf *port_conf) {
    memset(bs->clientIDs, 0, bs->clientIDs_size);
 
    INIT_LIST_HEAD(&bs->clients);
-   mutex_init(&bs->client_core.mutex, NULL);
    DEBUG_FUNC("socket created!\n");
    return bs;
 free_everything:
@@ -111,7 +127,7 @@ free_this_trash:
 int server_sock_init(struct server_sock *bs) {
    CHECK_SOCKET_SYSTEM_STATUS(-1);
    int ret;
-
+   DEBUG_ERR("yeseys\n");
    struct tcp_port_conf port_conf = bs->port_conf;
 
    bs->sock_addr.sin_addr.s_addr = port_conf.addr.s_addr;
@@ -119,6 +135,11 @@ int server_sock_init(struct server_sock *bs) {
    bs->sock_addr.sin_family = port_conf.domain;
    bs->addrlen = sizeof(bs->sock_addr);
 
+   CHECK_MY_THREAD(goto free_everything, &bs->epollable_thread, NULL, epollable_thread, bs);
+   CHECK_MY_THREAD(goto free_everything, &bs->accept_thread, NULL, bs_accept_thread, bs);
+   CHECK_MY_THREAD(goto free_everything, &bs->client_recv_thread, NULL, client_recv_thread, bs);
+
+   mutex_init(&bs->epollable_thread.mutex, NULL);
    ret = bind(bs->sock.fd, (struct sockaddr *)&bs->sock_addr, sizeof(bs->sock_addr));
    if (ret < 0) {
       server_sock_release(bs);
@@ -132,24 +153,36 @@ int server_sock_init(struct server_sock *bs) {
    }
 
    sock_t_init(&bs->sock);
-   DEBUG_FUNC("socket inited!\n");
+   atomic_store(&bs->initialized, true);
+
    return 0;
+free_everything:
+   DEBUG_FUNC("yes\n");
+   server_sock_release(bs);
 free_this_trash:
    return -1;
 }
 
 void server_sock_release(struct server_sock *bs) {
-   if (atomic_exchange(&bs->released, true)) {
+   if (atomic_load(&bs->released)) {
       return;
    }
    atomic_store(&bs->released, true);
+
    struct client_sock *client, *tmp;
-   mutex_lock(&bs->client_core.mutex);
+   void *ac_result;
+
+   mutex_lock(&bs->epollable_thread.mutex);
    list_for_each_entry_safe(client, tmp, &bs->clients, list) {
       client_sock_release(bs, client);
    }
-   mutex_unlock(&bs->client_core.mutex);
+   mutex_unlock(&bs->epollable_thread.mutex);
    synchronize_rcu();
+
+   for (int worker_index = 0; worker_index < WORKER_COUNT; worker_index++) {
+      struct worker *work = bs->workers[worker_index];
+      worker_release(work);
+   }
 
    if (bs->sock.fd > 0) {
       close(bs->sock.fd);
@@ -159,12 +192,19 @@ void server_sock_release(struct server_sock *bs) {
       close(bs->epoll_fd);
    }
 
+   if (bs->client_pool) {
+      memoryPool_free(bs->client_pool);
+      bs->client_pool = NULL;
+   }
+
    if (bs->clientIDs) {
       free(bs->clientIDs);
       bs->clientIDs = NULL;
    }
 
-   mutex_destroy(&bs->client_core.mutex);
+   pthread_join(bs->epollable_thread.flow, &ac_result);
+
+   mutex_destroy(&bs->epollable_thread.mutex);
    free(bs);
 }
 
@@ -183,7 +223,7 @@ struct client_sock *client_sock_create(struct server_sock *bs, sockType fd) {
       goto free_this_trash;
    } 
 
-   struct client_sock *client = (struct client_sock*)memoryPool_allocBlock(bs_client_pool);
+   struct client_sock *client = (struct client_sock*)memoryPool_allocBlock(bs->client_pool);
    if (!client) {
       DEBUG_ERR("new client initialization was failed!\n");
       goto free_this_trash;
@@ -201,9 +241,9 @@ struct client_sock *client_sock_create(struct server_sock *bs, sockType fd) {
    client->sock.fd = fd;
    client->buff_len = 0;
 
-   mutex_lock(&bs->client_core.mutex);
+   mutex_lock(&bs->epollable_thread.mutex);
    list_add_rcu(&client->list, &bs->clients);
-   mutex_unlock(&bs->client_core.mutex);
+   mutex_unlock(&bs->epollable_thread.mutex);
 
    return client;
 free_everything:
@@ -213,7 +253,7 @@ free_this_trash:
 }
 
 void client_sock_release(struct server_sock *bs, struct client_sock *client) {
-   if (atomic_exchange(&client->released, true)) {
+   if (atomic_load(&client->released)) {
       return;
    }
    atomic_store(&client->released, true);
@@ -227,19 +267,19 @@ void client_sock_release(struct server_sock *bs, struct client_sock *client) {
       close(client->sock.fd);
    }
 
-   mutex_lock(&bs->client_core.mutex);
+   mutex_lock(&bs->epollable_thread.mutex);
    list_del_rcu(&client->list);
-   mutex_unlock(&bs->client_core.mutex);
+   mutex_unlock(&bs->epollable_thread.mutex);
    synchronize_rcu();
 
-   memoryPool_freeBlock(bs_client_pool, client);
+   memoryPool_freeBlock(bs->client_pool, client);
 }
 
 int server_sock_accept(struct server_sock *bs, accept_callback_sk work) {
    int ret = -1;
 
-   if (!bs || !work) {
-      DEBUG_FUNC("no sock or work!\n");
+   if (!bs) {
+      DEBUG_FUNC("no sock!\n");
       goto free_this_trash;
    }
 
@@ -259,7 +299,6 @@ int server_sock_accept(struct server_sock *bs, accept_callback_sk work) {
       goto free_sock;
    }
 
-   work(client_fd, client);
    return client_fd;
 
 free_sock:
@@ -286,50 +325,85 @@ size_t client_sock_recv(struct client_sock *client, size_t buff_size, int flags)
    return bytes_read;
 }
 
-int sock_syst_init(void) {
-   SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;
+void *client_recv_thread(void *args) {
 
-   int ret = memoryPool_init(&bs_client_pool, MAX_CLIENTS_CAPABLE * sizeof(struct client_sock), sizeof(struct client_sock));
-   if (ret < 0) {
-      DEBUG_FUNC("client pool initialization was failed!\n");
+   return NULL;
+}
+
+void *bs_accept_thread(void *args) {
+
+   return NULL;
+}
+
+void *bs_worker_thread(void *args) {
+
+   return NULL;
+}
+
+void *epollable_thread(void *args) {
+   struct server_sock *bs = (struct server_sock*)args;
+   if (!bs) {
+      DEBUG_ERR("no server_sock\n");
       goto free_this_trash;
    }
+
+   for (int work_index = 0; work_index < WORKER_COUNT; work_index++) {
+      struct worker *work = bs->workers[work_index];
+      work->epoll_fd = epoll_create1(0);
+      if (work->epoll_fd < 0) {
+         DEBUG_ERR("flows weren`t inited\n");
+         return NULL;
+      } 
+      work->bs = bs;
+      CHECK_MY_THREAD(goto free_workers, &work->core, NULL, bs_worker_thread, work);
+   }
+
+   while (!atomic_load(&bs->released)) {
+      if (!atomic_load(&bs->initialized)) {
+         continue;
+      }
+
+   }
+
+   DEBUG_INFO("yes yes");
+   return NULL;
+free_workers:
+   for (int worker_index = 0; worker_index < WORKER_COUNT; worker_index++) {
+      struct worker *work = bs->workers[worker_index];
+      worker_release(work);
+   }
+free_this_trash:
+   return NULL;
+}
+
+int sock_syst_init(void) {
+   SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;
+   int ret = -1;
 
    indextable_init(&bs_client_table, MAX_CLIENTS_CAPABLE);
    if (!bs_client_table.items) {
       DEBUG_FUNC("no bs_client_table items\n");
-      goto free_client_pool;
-   }
-
-   /* ret = pthread_create(&bs->anonymous_core.flow, NULL, bs_anonymous_runservice, NULL);
-      if (ret != 0) {
-      DEBUG_FUNC("no thread!\n");
       goto free_indextable;
-      }*/
+   }
 
    SOCKET_SYSTEM_STATUS = SOCKET_STATUS_OPEN;
    return 0;
 
 free_indextable:
    indextable_exit(&bs_client_table);
-free_client_pool:
-   memoryPool_free(bs_client_pool);
 free_this_trash:
    return ret;
 }
 
 void sock_syst_exit(struct server_sock *bs) {
    struct client_sock *child, *tmp;
-   void *ac_result;
 
-   // pthread_join(anonymous_core.flow, &ac_result);
-
-   mutex_synchronise(&bs->client_core.mutex);
-   mutex_lock(&bs->client_core.mutex);
+   mutex_synchronise(&bs->epollable_thread.mutex);
+   mutex_lock(&bs->epollable_thread.mutex);
    list_for_each_entry_safe(child, tmp, &bs->clients, list) {
       client_sock_release(bs, child);
    }
-   mutex_unlock(&bs->client_core.mutex);
+   mutex_unlock(&bs->epollable_thread.mutex);
 
    indextable_exit(&bs_client_table);
    SOCKET_SYSTEM_STATUS = SOCKET_STATUS_CLOSE;

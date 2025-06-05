@@ -76,7 +76,7 @@ static inline void clear_bit(uint8_t *bitmap, size_t offset) {
 } while(0)
 
 #define DEBUG_ERR(fmt, ...) do { \
-   printf("\n%s: err:  %s" fmt, __func__, strerror(errno), ##__VA_ARGS__); \
+   printf("\n%s: err:  %s  " fmt, __func__, strerror(errno), ##__VA_ARGS__); \
 } while(0)
 
 #define CHECK_NULL_RETURN(ptr, msg) do { \
@@ -91,6 +91,15 @@ static inline void clear_bit(uint8_t *bitmap, size_t offset) {
       DEBUG_INFO(msg); \
       return NULL; \
    } \
+} while(0)
+
+#define CHECK_MY_THREAD(fail, thread, attr, func, arg) do { \
+   int ret = pthread_create(thread.flow, attr, func, arg); \
+   if (ret != 0) { \
+      fail; \
+   } \
+   mutex_init(thread.mutex, NULL); \
+   DEBUG_FUNC("thread was inited\n"); \
 } while(0)
 
 #endif
