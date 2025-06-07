@@ -34,7 +34,7 @@ int main() {
       int ret = binSocket_accept(sock, func);
    sleep(1);
    }*/
-   sleep(10);
+   sleep(30);
    sock_syst_exit(sock);
    DEBUG_FUNC("heehllo1oo1o1\n");
    return 0;

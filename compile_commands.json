@@ -5,6 +5,7 @@
       "-Wall",
       "-Wextra",
       "-O2",
+      "-pthread",
       "-Iproto/include",
       "-Iproto/utils/include",
       "-Iinclude",

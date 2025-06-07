@@ -34,10 +34,14 @@ int main() {
    printf("Успешно подключено к 127.0.0.1:%d\n", PORT);
 
    // 4. Отправим сообщение (по желанию)
-   const char *msg = "Привет от клиента!\n";
-   for (int i = 0; i < 10; i++) {
-      send(sock, msg, strlen(msg), 0);
-      sleep(1);
+   while (1) {  
+        const char *msg = "Привет от клиента!\n"; 
+      ssize_t sent = send(sock, msg, strlen(msg), 0);
+if (sent == -1) {
+    perror("send error");
+    // Здесь лучше выйти или корректно закрыть сокет
+}
+usleep(10000);
    }
 
    close(sock);

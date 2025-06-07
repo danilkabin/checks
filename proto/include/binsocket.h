@@ -12,18 +12,22 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include "unistd.h"
 
 #define sockType int
 #define idType uint32_t
 
 #define BS_CLIENT_BUFF_SIZE 1024
 #define BS_EPOLL_MAX_EVENTS 20
-#define MAX_CLIENTS_CAPABLE 17
+#define MAX_CLIENTS_CAPABLE 170
 
-#define WORKER_COUNT 4
+#define AUTO_WORKER_COUNT true
 
 #define MESSAGE_HEADER_SIZE sizeof(BINSOCKET_HEADER)
 #define CHECK_SOCKET_SYSTEM_STATUS(ret) do { if (SOCKET_SYSTEM_STATUS != SOCKET_STATUS_OPEN) return (ret); } while(0)
+
+extern int CORE_COUNT;
+extern struct worker **sock_workers;
 
 typedef enum {
    SOCKET_STATUS_OPEN,
@@ -78,8 +82,12 @@ typedef struct {
 
 struct worker {
    int epoll_fd;
+   struct epoll_event event, events[BS_EPOLL_MAX_EVENTS];
    thread_m core;
    struct server_sock *bs;
+   int core_id;
+   int max_clients;
+   atomic_int client_count;
 };
 
 struct tcp_port_conf {
@@ -94,29 +102,31 @@ struct client_sock {
    sock_t sock;
    char buff[BS_CLIENT_BUFF_SIZE];
    size_t buff_len;
-   struct epoll_event communicate_epoll;
    struct list_head list;
    atomic_bool released;
+   struct worker *current_worker;
 };
 
 struct server_sock {
    sock_t sock;
-   uint32_t peer_connections;
-   uint32_t peer_capable;
+   atomic_int peer_connections;
+   int peer_capable;
    uint16_t peer_queue_capable;
    uint8_t *clientIDs;
    size_t clientIDs_size;
    struct tcp_port_conf port_conf;
    struct sockaddr_in sock_addr;
    socklen_t addrlen;
-   int epoll_fd;
-   struct epoll_event event, events[BS_EPOLL_MAX_EVENTS];
+
+   int epoll_core_fd;
+   struct epoll_event core_event, core_events[BS_EPOLL_MAX_EVENTS];
+
    struct memoryPool *client_pool;
    struct list_head clients;
    atomic_bool initialized;
    atomic_bool released;
 
-   struct worker *workers[WORKER_COUNT];
+   struct worker **workers;
    atomic_int worker_index;
 
    thread_m epollable_thread;
@@ -148,5 +158,19 @@ void *bs_worker_thread(void *);
 
 int sock_syst_init(void);
 void sock_syst_exit(struct server_sock *);
+
+#define _CREATE_EPOLL(work, fd, event, flags) do { \
+   fd = epoll_create1(flags); \
+   if (fd < 0) { \
+      DEBUG_ERR("no epoll!\n"); \
+      work; \
+   } \
+} while(0)
+
+#define _DELETE_EPOLL(fd) do { \
+   if (fd) { \
+      close(fd); \
+   } \
+} while(0)
 
 #endif
