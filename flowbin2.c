@@ -9,7 +9,7 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 51234
 #define CLIENTS_COUNT 150
-#define MSG "Hello from client!\n"
+#define MSG "Hello frgsdsigsdhg sdh hduadua'gudsaiog hduada'gudsaiog hduadghsdagndskjgdsagjas dgjdsbag kjasdgbsdajk gbdsajkgb sdjkgbsd akjgbsda kjgabsd jkgbdsajkgsbd agkjdsbagkjsdabgkj dsabgjksdagoafdsjhgoifadjhlkgdsl kgjlkadj gklsdjg asdlgjsd agasd d gsdoigh sdoighsd iogsdhg iosdghsdigu5409ug54 gj54ovj45v954b 9405b 549bjom client!\n"
 
 void *client_thread(void *arg) {
     int id = *(int *)arg;

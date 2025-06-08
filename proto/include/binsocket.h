@@ -35,12 +35,6 @@ typedef enum {
 } sock_syst_status;
 
 typedef enum {
-   SOCKET_OPEN = 0,
-   SOCKET_SHUTDOWN = -1,
-   SOCKET_CLOSE = -2,
-} BINSOCKET_TYPE;
-
-typedef enum {
    BS_MESSAGETYPE_MESSAGE = 0x01,
    BS_MESSAGETYPE_JOIN    = 0x02,
    BS_MESSAGETYPE_LEAVE   = 0x03
@@ -60,20 +54,6 @@ typedef enum {
 } MESSAGE_STATE;
 
 typedef struct {
-   uint32_t magic_number;
-   uint8_t type;
-   uint32_t message_len;
-   idType sender_id;
-   idType recipient_id;
-   idType chat_id;
-} BINSOCKET_HEADER;
-
-typedef struct {
-   BINSOCKET_HEADER *header;
-   char *buff;
-} BINSOCKET_MESSAGE;
-
-typedef struct {
    sockType fd;
    int8_t state;
    uint32_t packets_sent;
@@ -86,8 +66,7 @@ struct worker {
    thread_m core;
    struct server_sock *bs;
    int core_id;
-   int max_clients;
-   atomic_int client_count;
+   atomic_int peer_count;
 };
 
 struct tcp_port_conf {
@@ -98,63 +77,50 @@ struct tcp_port_conf {
    struct in_addr addr;
 };
 
-struct client_sock {
+struct peer_sock {
    sock_t sock;
    char buff[BS_CLIENT_BUFF_SIZE];
    size_t buff_len;
    struct list_head list;
-   atomic_bool released;
-   struct worker *current_worker;
+   struct worker *worker;
+   bool initialized;
+   bool released;
 };
 
 struct server_sock {
    sock_t sock;
-   atomic_int peer_connections;
-   int peer_capable;
    uint16_t peer_queue_capable;
-   uint8_t *clientIDs;
-   size_t clientIDs_size;
-   struct tcp_port_conf port_conf;
-   struct sockaddr_in sock_addr;
-   socklen_t addrlen;
+   uint8_t *peerIDs;
+   size_t peerIDs_size;
 
-   int epoll_core_fd;
-   struct epoll_event core_event, core_events[BS_EPOLL_MAX_EVENTS];
+   struct memoryPool *peer_pool;
+   struct list_head peers;
 
-   struct memoryPool *client_pool;
-   struct list_head clients;
-   atomic_bool initialized;
-   atomic_bool released;
+   struct worker *worker;
+   int worker_index;
 
-   struct worker **workers;
-   atomic_int worker_index;
+   int peer_current;
+   int peer_capable;
 
-   thread_m epollable_thread;
-   thread_m accept_thread;
-   thread_m client_recv_thread;
+   bool initialized;
+   bool released;
 };
 
-typedef void (*accept_callback_sk)(sockType client_fd, struct client_sock *);
-
-int bs_header_assemble(BINSOCKET_MESSAGE *);
-int bs_header_disassemble(BINSOCKET_MESSAGE *, char *);
+typedef void (*accept_callback_sk)(sockType peer_fd, struct peer_sock *);
 
 sock_syst_status get_socket_system_status(void);
-uint8_t *bs_get_clients_bitmap(struct server_sock *);
-struct client_sock *get_bs_client_by_index(int);
-struct client_sock *client_sock_create(struct server_sock *, sockType);
-void client_sock_release(struct server_sock *, struct client_sock *);
+uint8_t *bs_get_peers_bitmap(struct server_sock *);
+struct peer_sock *get_bs_peer_by_index(int);
+struct peer_sock *peer_sock_create(struct server_sock *, sockType);
+void peer_sock_release(struct server_sock *, struct peer_sock *);
 
-int server_sock_init(struct server_sock *);
-struct server_sock *server_sock_create(struct tcp_port_conf *);
+struct server_sock *server_sock_create(struct tcp_port_conf *, struct worker *, int, int);
 void server_sock_release(struct server_sock *);
-void *epollable_thread(void *);
-size_t bs_recv_message(struct client_sock *, size_t, int);
-int binSocket_accept(struct server_sock *, accept_callback_sk);
 
-void *client_recv_thread(void *);
-void *bs_accept_thread(void *);
 void *bs_worker_thread(void *);
+
+int sock_core_init();
+void sock_core_exit();
 
 int sock_syst_init(void);
 void sock_syst_exit(struct server_sock *);

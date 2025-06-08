@@ -18,24 +18,14 @@ int main() {
 
    fb_peers_init();
    sock_syst_init();
-   struct server_sock *sock = server_sock_create(&port_conf);
-   if (!sock) {
-      DEBUG_INFO("where my sock!!\n");
-      return -1;
-   }
 
-   int ret = server_sock_init(sock);
-   if (ret < 0) {
-      DEBUG_INFO("where my init sock!!\n");
-      return -1;
-   }
  /*  for (int i = 0; i < 5; i++) {
       accept_callback_sk func = bs_user_accept;
       int ret = binSocket_accept(sock, func);
    sleep(1);
    }*/
-   sleep(30);
-   sock_syst_exit(sock);
+   sleep(3);
+   sock_syst_exit(NULL);
    DEBUG_FUNC("heehllo1oo1o1\n");
    return 0;
 }
