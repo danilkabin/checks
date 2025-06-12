@@ -8,14 +8,15 @@
       "-pthread",
       "-Iproto/include",
       "-Iproto/utils/include",
+      "-Iproto/https/include",
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/src/binsocket.o",
-      "proto/src/binsocket.c"
+      "build/src/main.o",
+      "src/main.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/src/binsocket.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/src/binsocket.o"
+    "file": "/home/danilka_bin/flowbin/src/main.c",
+    "output": "/home/danilka_bin/flowbin/build/src/main.o"
   }
 ]

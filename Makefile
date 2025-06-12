@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -pthread -lurcu -Iproto/include -Iproto/utils/include -Iinclude
+CFLAGS := -Wall -Wextra -O2 -pthread -lurcu -Iproto/include -Iproto/utils/include -Iproto/https/include -Iinclude
 
 SRC_DIRS := proto proto/utils/src src
 BUILD_DIR := build

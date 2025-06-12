@@ -16,7 +16,7 @@ int memoryPool_init(struct memoryPool **poolPtr, size_t max_size, size_t block_s
     int ret = -1;
     
     *poolPtr = malloc(sizeof(struct memoryPool));
-    if (!poolPtr) {
+if (!*poolPtr) {
         DEBUG_FUNC("The pool is null!\n");
         goto free_this_trash;
     }
