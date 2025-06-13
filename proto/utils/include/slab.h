@@ -7,6 +7,8 @@
 
 struct slab_block {
    size_t used;
+   size_t allocation_size;
+   int is_start;
 };
 
 struct slab {
@@ -23,6 +25,7 @@ struct slab {
 };
 
 struct slab *slab_init(size_t);
-void slab_add(struct slab*, void *, size_t, int *, int *);
-void slab_del(struct slab*, int, int);
+void *slab_malloc(struct slab*, size_t);
+void *slab_realloc(struct slab*, void *, size_t);
+void slab_free(struct slab*, void*);
 #endif

@@ -31,6 +31,7 @@ http_parser *http_parser_init() {
    parser->buff_length = 0;
    parser->type = HTTP_PARSER_DONE;
 
+
    return parser;
 free_parser:
    free(parser);
