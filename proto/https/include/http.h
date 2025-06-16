@@ -2,13 +2,22 @@
 #define FB_HTTP
 
 #include "pool.h"
+#include "slab.h"
+#include <stdbool.h>
 #include <sys/types.h>
 
 #define HTTP_MAX_HEADERS  32
 
-#define HTTP_PARSER_BUFF_SIZE 8192
+#define HTTP_PARSER_BUFF_SIZE 8192 
 #define HTTP_BODY_MAX_SIZE 8192
 #define HTTP_MAX_MESSAGES 8
+
+typedef enum {
+   HTTP_CONSUME_OK = 0,
+   HTTP_CONSUME_BAD_CORE = 1,
+   HTTP_CONSUME_NO_ALLOC = 2,
+   HTTP_CONSUME_PARSE_FAIL = 3
+} http_consume_result;
 
 typedef enum {
    HTTP_MSGTYPE_RESPONSE,
@@ -17,11 +26,11 @@ typedef enum {
 } http_message_type;
 
 typedef enum {
-   HTTP_PARSER_LINE,
-   HTTP_PARSER_HEADER,
-   HTTP_PARSER_BODY,
-   HTTP_PARSER_DONE,
-   HTTP_PARSER_ERROR
+   HTTP_PARSER_LINE = 0,
+   HTTP_PARSER_HEADER = 1,
+   HTTP_PARSER_BODY = 2,
+   HTTP_PARSER_DONE = 3,
+   HTTP_PARSER_ERROR = 4
 } http_parser_type;
 
 typedef enum {
@@ -98,15 +107,38 @@ typedef struct {
    http_header headers[HTTP_MAX_HEADERS];
    char *body;
    size_t body_size;
+   size_t current_body_size;
+   bool isActive;
+   bool isReady;
 } http_message;
 
 typedef struct {
    http_parser_type type;
-   struct memoryPool *messages;
-   char buffer[HTTP_PARSER_BUFF_SIZE];
-   size_t buff_length;
+
+   char buff[HTTP_PARSER_BUFF_SIZE];  
+   size_t buff_len;
+
+   int line_end;
+   int headers_end;
+   int body_end;
+
    size_t content_length;
    size_t content_received;
+
+   http_message messages[HTTP_MAX_MESSAGES];
+   size_t messages_count;
+   size_t messages_capacity;
+   struct slab *allocator;
 } http_parser;
+
+void http_message_extract(char*, size_t, size_t*);
+void http_message_delete(char*, size_t*, size_t);
+
+http_consume_result http_parser_consume(http_parser*, const char*, size_t);
+
+int http_parser_init(int core_count, http_parser *parser);
+
+int http_parser_allocator_init(int);
+void http_parser_allocator_exit();
 
 #endif

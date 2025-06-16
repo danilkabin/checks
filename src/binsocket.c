@@ -1,10 +1,13 @@
 #define _GNU_SOURCE
 
+#include "slab.h"
 #include "listhead.h"
 #include "lock.h"
 #include "binsocket.h"
 #include "pool.h"
 #include "utils.h"
+#include "http.h"
+#include "device.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -23,7 +26,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int CORE_COUNT;
 struct worker **sock_workers;
 
 uint8_t *bs_get_peers_bitmap(struct server_sock *bs) {
@@ -133,7 +135,7 @@ struct server_sock *server_sock_create(struct tcp_port_conf *port_conf, struct w
 
    work->event.events = EPOLLIN | EPOLLOUT | EPOLLET;
    work->event.data.ptr = bs;
-  
+
    ret = epoll_ctl(bs->worker->epoll_fd, EPOLL_CTL_ADD, bs->sock.fd, &bs->worker->event);
    if (ret < 0) {
       DEBUG_ERR("Failed to add socket to epoll.\n");
@@ -206,9 +208,19 @@ struct peer_sock *peer_sock_create(struct server_sock *bs, sockType fd) {
    }
 
    peer->worker = bs->worker;
+   peer->proto_type = PEER_PROTO_TYPE_HTTP;
+
+   http_parser *parser = &peer->parser; 
+
+   if (peer->proto_type == PEER_PROTO_TYPE_HTTP) {
+      ret = http_parser_init(bs->worker_index, &peer->parser); 
+      if (ret < 0) {
+         goto free_everything;
+      }
+   }
 
    peer->sock.fd = fd;
-   peer->buff_len = 0;
+   parser->buff_len = 0;
 
    peer->released = false;
    peer->initialized = true;
@@ -221,11 +233,24 @@ free_this_trash:
    return NULL;
 }
 
+void peer_close_request(struct server_sock *bs, struct peer_sock *peer) {
+   const char *response;
+   if (peer->proto_type == PEER_PROTO_TYPE_HTTP) {
+      response = "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+   } else if (peer->proto_type == PEER_PROTO_TYPE_WEBSOCK) {
+      return;
+   } else {
+      return;
+   }
+   send(peer->sock.fd, response, sizeof(response), 0);
+}
+
 void peer_sock_release(struct server_sock *bs, struct peer_sock *peer) {
-   int ret;
    if (peer->released) {
       return;
    }
+   peer_close_request(bs, peer);
+
    list_del(&peer->list);
    peer->released = true;
 
@@ -252,7 +277,7 @@ int server_sock_accept(struct server_sock *bs) {
 
    struct sockaddr_in sock_addr;
    socklen_t addrlen = sizeof(sock_addr);
-   
+
    sockType peer_fd = accept(bs->sock.fd, (struct sockaddr*)&sock_addr, &addrlen);
    if (peer_fd < 0) {
       DEBUG_ERR("accept() failed with error: %s\n", strerror(errno));
@@ -286,10 +311,10 @@ free_this_trash:
 }
 
 int sock_core_init() {
-   int max_peers = MAX_CLIENTS_CAPABLE / CORE_COUNT;
-   int extra = MAX_CLIENTS_CAPABLE % CORE_COUNT;
+   int max_peers = MAX_CLIENTS_CAPABLE / dev_core_count;
+   int extra = MAX_CLIENTS_CAPABLE % dev_core_count;
 
-   sock_workers = malloc(sizeof(struct worker *) * CORE_COUNT);
+   sock_workers = malloc(sizeof(struct worker *) * dev_core_count);
    if (!sock_workers) {
       DEBUG_INFO("no workers\n");
       goto free_this_trash;
@@ -302,15 +327,15 @@ int sock_core_init() {
       .addr.s_addr = htonl(INADDR_ANY)
    };
 
-   for (int work_index = 0; work_index < CORE_COUNT; work_index++) {
+   for (int work_index = 0; work_index < dev_core_count; work_index++) {
       sock_workers[work_index] = malloc(sizeof(struct worker));
       if (!sock_workers[work_index]) {
          DEBUG_ERR("no malloc worker\n");
          goto free_everything;
       }
-     
+
       struct worker *work = sock_workers[work_index];
-    
+
       work->epoll_fd = epoll_create1(0);
       if (work->epoll_fd < 0) {
          DEBUG_ERR("flows weren`t inited\n");
@@ -345,7 +370,7 @@ free_this_trash:
 }
 
 void sock_core_exit() {
-   for (int work_index = 0; work_index < CORE_COUNT; work_index++) {
+   for (int work_index = 0; work_index < dev_core_count; work_index++) {
       struct worker *work = sock_workers[work_index];
       if (!work) {
          DEBUG_ERR("work wasn`t found in sock_workers\n"); 
@@ -357,7 +382,6 @@ void sock_core_exit() {
 
 int sock_syst_init(void) {
    int ret = -1;
-   CORE_COUNT = (int)sysconf(_SC_NPROCESSORS_ONLN);
 
    ret = sock_core_init();
    if (ret < 0) {

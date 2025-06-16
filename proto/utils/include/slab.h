@@ -25,7 +25,9 @@ struct slab {
 };
 
 struct slab *slab_init(size_t);
-void *slab_malloc(struct slab*, size_t);
+void slab_exit(struct slab*);
+void *slab_malloc(struct slab*, void *, size_t);
 void *slab_realloc(struct slab*, void *, size_t);
 void slab_free(struct slab*, void*);
+
 #endif

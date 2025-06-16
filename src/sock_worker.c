@@ -30,9 +30,9 @@ void *bs_worker_thread(void *args) {
       if (work_count > 0) {
          for (int index = 0; index < work_count; index++) {
             struct epoll_event event = work->events[index];
-    if (event.data.ptr == bs) {
+            if (event.data.ptr == bs) {
                if (event.events & EPOLLIN) {
-                  int peer_fd = server_sock_accept(bs);
+                  server_sock_accept(bs);
                }
             } else {
                struct peer_sock *peer = event.data.ptr;
@@ -40,11 +40,11 @@ void *bs_worker_thread(void *args) {
                   continue;
                }
                if (event.events & EPOLLIN) {
-                  size_t bytes_read = peer_sock_recv(bs, peer, MSG_DONTWAIT, BS_CLIENT_BUFF_SIZE);
-                  size_t bytes_sent =  peer_sock_send(bs, peer, MSG_NOSIGNAL );
+                  peer_sock_recv(bs, peer, MSG_DONTWAIT, BS_CLIENT_BUFF_CAPACITY);
                } else if (event.events & EPOLLOUT) {
-
+                  DEBUG_FUNC("send!\n");
                }
+          //     peer_sock_release(bs, peer);
             }
          }
       }

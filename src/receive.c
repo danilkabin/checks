@@ -1,3 +1,5 @@
+#include "http.h"
+#include "slab.h"
 #include "utils.h"
 #include "binsocket.h"
 #include "receive.h"
@@ -11,16 +13,24 @@ size_t peer_sock_recv(struct server_sock *bs, struct peer_sock *peer, int flags,
       DEBUG_FUNC("no bs/peer\n");
       return (size_t)-1;
    }
-   if (peer->buff_len >= BS_CLIENT_BUFF_SIZE) {
+   http_parser *parser = &peer->parser;
+   
+      if (parser->buff_len >= BS_CLIENT_BUFF_CAPACITY) {
       DEBUG_FUNC("max buff size\n");
       return (size_t)-1;
    }
-   ssize_t bytes_read = recv(peer->sock.fd, peer->buff + peer->buff_len, buff_size - peer->buff_len, flags);
+
+   ssize_t bytes_read = recv(peer->sock.fd, parser->buff + parser->buff_len, BS_CLIENT_BUFF_CAPACITY - parser->buff_len, flags);
    if (bytes_read > 0) {
-      printf("%s\n", peer->buff);
-      peer->buff_len += bytes_read;
+      if (BS_CLIENT_BUFF_CAPACITY - parser->buff_len < (size_t)bytes_read) {
+         DEBUG_FUNC("buffer busy!\n");
+         return -1;
+      }
+      parser->buff_len += bytes_read;
       peer->sock.packets_received++;
-      // DEBUG_FUNC("bytes read: %zu from: %d\n", bytes_read, peer->sock.fd);
+      http_parser_consume(&peer->parser, parser->buff, BS_CLIENT_BUFF_CAPACITY);
+      
+      DEBUG_FUNC("bytes read: %zu buff len size: %zu from: %d\n", bytes_read, parser->buff_len, peer->sock.fd);
    } else if (bytes_read == 0) {
       // DEBUG_FUNC("peer disconnected: %d\n", peer->sock.fd);
    } else {

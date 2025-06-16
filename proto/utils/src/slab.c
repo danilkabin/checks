@@ -91,7 +91,7 @@ void slab_del(struct slab *allocator, int start, int end) {
    allocator->block_used -= del;
 }
 
-void *slab_malloc(struct slab *allocator, size_t size) {
+void *slab_malloc(struct slab *allocator, void *ptr, size_t size) {
    if (!allocator || size == 0) {
       DEBUG_FUNC("Invalid input\n");
       goto free_this_trash;
@@ -111,7 +111,7 @@ void *slab_malloc(struct slab *allocator, size_t size) {
       goto free_this_trash;
    }
 
-   slab_write_blocks(allocator, start_bit, NULL, size, blocks_needed, 1);
+   slab_write_blocks(allocator, start_bit, ptr, size, blocks_needed, 1);
    allocator->block_used += blocks_needed;
    DEBUG_FUNC("data size: %zu\n", size);
    return (uint8_t*)allocator->pool + start_bit * block_size;
@@ -145,7 +145,7 @@ void *slab_realloc(struct slab *allocator, void *ptr, size_t new_size) {
       goto free_this_trash;
    }
    if (ptr == NULL) {
-      return slab_malloc(allocator, new_size);
+      return slab_malloc(allocator, ptr, new_size);
    }
    if (new_size == 0) {
       slab_free(allocator, ptr);
@@ -199,7 +199,7 @@ void *slab_realloc(struct slab *allocator, void *ptr, size_t new_size) {
       return ptr;
    }
 
-   void *new_ptr = slab_malloc(allocator, new_size);
+   void *new_ptr = slab_malloc(allocator, ptr, new_size);
    if (!new_ptr) return NULL;
 
    size_t copy_size = old_blocks * block_size;

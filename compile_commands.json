@@ -12,11 +12,11 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/src/main.o",
-      "src/main.c"
+      "build/proto/https/http.o",
+      "proto/https/http.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/main.c",
-    "output": "/home/danilka_bin/flowbin/build/src/main.o"
+    "file": "/home/danilka_bin/flowbin/proto/https/http.c",
+    "output": "/home/danilka_bin/flowbin/build/proto/https/http.o"
   }
 ]

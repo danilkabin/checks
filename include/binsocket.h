@@ -1,6 +1,7 @@
 #ifndef BINSOCKET_H
 #define BINSOCKET_H
 
+#include "http.h"
 #include "listhead.h"
 #include "lock.h"
 #include "pool.h"
@@ -12,12 +13,14 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include "slab.h"
 #include "unistd.h"
 
 #define sockType int
 #define idType uint32_t
 
-#define BS_CLIENT_BUFF_SIZE 1024
+#define BS_CLIENT_BUFF_COUNT_CAPACITY 16 
+#define BS_CLIENT_BUFF_CAPACITY 8192 
 #define BS_EPOLL_MAX_EVENTS 20
 #define MAX_CLIENTS_CAPABLE 170
 
@@ -26,7 +29,6 @@
 #define MESSAGE_HEADER_SIZE sizeof(BINSOCKET_HEADER)
 #define CHECK_SOCKET_SYSTEM_STATUS(ret) do { if (SOCKET_SYSTEM_STATUS != SOCKET_STATUS_OPEN) return (ret); } while(0)
 
-extern int CORE_COUNT;
 extern struct worker **sock_workers;
 
 typedef enum {
@@ -35,10 +37,9 @@ typedef enum {
 } sock_syst_status;
 
 typedef enum {
-   BS_MESSAGETYPE_MESSAGE = 0x01,
-   BS_MESSAGETYPE_JOIN    = 0x02,
-   BS_MESSAGETYPE_LEAVE   = 0x03
-} BINSOCKET_MESSAGE_TYPE;
+   PEER_PROTO_TYPE_HTTP,
+   PEER_PROTO_TYPE_WEBSOCK
+} peer_proto_type;
 
 typedef enum {
    BS_PROTODEBUG_OK = 0,
@@ -79,8 +80,8 @@ struct tcp_port_conf {
 
 struct peer_sock {
    sock_t sock;
-   char buff[BS_CLIENT_BUFF_SIZE];
-   size_t buff_len;
+   http_parser parser;
+   peer_proto_type proto_type;
    struct list_head list;
    struct worker *worker;
    bool initialized;
