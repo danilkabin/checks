@@ -15,6 +15,8 @@
 #define HTTP_HEADER_NAME_SIZE 64
 #define HTTP_HEADER_VALUE_SIZE 1024
 
+#define HTTP_CHECK_HOST true
+
 #define HTTP_METHOD_LIST \
    X(GET)     \
    X(HEAD)    \

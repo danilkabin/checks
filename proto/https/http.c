@@ -51,6 +51,27 @@ int find_double_CRLF(char *buff, size_t buff_len) {
    return -1;
 }
 
+int http_check_on_host(char *headers) {
+   char *line_start = headers;
+
+   while (*line_start) {
+      char *line_end = strstr(line_start, "\r\n");
+      if (!line_end) {
+         return -1;
+      }
+      size_t line_len = line_end - line_start;
+
+      if (line_len > 5) {
+         if (strncasecmp(line_start, "Host", 4) == 0 && (line_start[4] == ':')) {
+            return 0;
+         }
+      }
+
+      line_start = line_end + 2;
+   }
+   return -1;
+}
+
 http_method http_parse_method(const char *method) {
    for (int index = 0; index < HTTP_METHOD_UNKNOWN; index++) {
       if (strcmp(method, http_method_m[index]) == 0) {
@@ -149,9 +170,19 @@ int http_message_init(http_parser *parser, size_t index, http_message_type type,
       DEBUG_FUNC("no malloc!\n");
       goto free_this_trash;
    }
+
    message->body_size = body_size;
    message->current_body_size = 0;
    message->type = type;
+
+   if (message->type == HTTP_MSGTYPE_REQUEST) {
+      message->start_line.request.method = HTTP_METHOD_UNKNOWN;
+      message->start_line.request.target = NULL;
+      message->start_line.request.version = HTTP_VERSION_UNKNOWN;
+   } else if (message->type == HTTP_MSGTYPE_RESPONSE) {
+      message->start_line.status.version = HTTP_VERSION_UNKNOWN;
+      message->start_line.status.code = 0;
+   }
 
    message->isActive = true;
 
@@ -218,37 +249,44 @@ free_this_trash:
 }
 
 int http_validate_start_line(http_parser *parser, http_message *message) {
-   char temp[parser->buff_len];
-   strncpy(temp, parser->buff, parser->buff_len);
-   temp[parser->buff_len] = '\0';
+   char temp[parser->line_end + 1];
+   strncpy(temp, parser->buff, parser->line_end);
+   temp[parser->line_end] = '\0';
 
-   http_method method = http_parse_method(strtok(temp, " "));
+   char *method = strtok(temp, " ");
    char *path = strtok(NULL, " ");
-   http_version version = http_parse_version(strtok(NULL, " "));
+   char *version = strtok(NULL, " ");
 
    if (!method || !path || !version) {
       DEBUG_FUNC("No string\n");
       goto free_this_trash;
-   } 
+   }
 
-   if (method == HTTP_METHOD_UNKNOWN) {
+   http_method convert_method = http_parse_method(method);
+   http_version convert_version = http_parse_version(version);
+   DEBUG_FUNC("method: %s path: %s version: %s\n", method, path, version);
+   DEBUG_FUNC("method: %s path: %s version: %s\n", method, path, version);
+   DEBUG_FUNC("method: %s path: %s version: %s\n", method, path, version);
+
+   DEBUG_FUNC("method: %d path: %s version: %d\n", convert_method, path, convert_version);
+   if (convert_method == HTTP_METHOD_UNKNOWN) {
       DEBUG_FUNC("Unknown method!\n");
       goto invald_method;
    }
 
-   if (version == HTTP_VERSION_UNKNOWN) {
+   if (convert_version == HTTP_VERSION_UNKNOWN) {
       DEBUG_FUNC("Unknown version!\n");
       goto invalid_version;
    }
 
    if (message) {
-      request_line request = message->start_line.request;
-      request.method = method;
-      request.target = path;
-      request.version = version;
+      request_line *request = &message->start_line.request;
+      request->method = convert_method;
+      request->target = path;
+      request->version = convert_version;
    }
 
-   DEBUG_FUNC("method: %d path: %s version: %d\n", method, path, version);
+   DEBUG_FUNC("method: %d path: %s version: %d\n", convert_method, path, convert_version);
    return 0;
 invald_method:
    return -3;
@@ -328,20 +366,20 @@ int http_validate_header(char *line, size_t line_len, http_header *header) {
       return - 1;
    }
 
-   size_t name_len = colon - line;
-   size_t value_len = line_len - name_len; 
-   for (int index = 0; index < (int)name_len; index++) {
-      if (isspace((unsigned char)line[index])) {
-         return -1; 
-      }
-   }
-
    char *value = colon + 1;
    while (*value && isspace((unsigned char)*value)) {
       value++;
    }
    if (*value == '\0') {
       return -1;
+   }
+
+   size_t name_len = colon - line;
+
+   for (int index = 0; index < (int)name_len; index++) {
+      if (isspace((unsigned char)line[index])) {
+         return -1; 
+      }
    }
 
    char write_name[HTTP_HEADER_NAME_SIZE];
@@ -471,18 +509,25 @@ void http_set_message_type(http_parser *parser, size_t bytes_received) {
          memset(message, 0, sizeof(http_message));
          return;
       }
-   }
 
-   ret = http_start_line_parse(parser, message);
-   if (ret < 0) {
-      clear_buffer(parser);
-      return;
-   }
+      if (HTTP_CHECK_HOST) {
+         ret = http_check_on_host(parser->buff + parser->line_end);
+         if (ret < 0) {
+            goto isnt_demand;
+         }
+      }
 
-   ret = http_headers_parse(parser, message, parser->buff + parser->line_end);
-   if (ret < 0) {
-      clear_buffer(parser);
-      return;
+      if (message->start_line.request.method == HTTP_METHOD_UNKNOWN) {
+         ret = http_start_line_parse(parser, message);
+         if (ret < 0) {
+            goto isnt_demand;
+         }
+      }
+
+      ret = http_headers_parse(parser, message, parser->buff + parser->line_end);
+      if (ret < 0) {
+         goto isnt_demand;
+      }
    }
 
    size_t body_bytes_in_buff = parser->bytes_received - parser->headers_end;
@@ -501,13 +546,20 @@ void http_set_message_type(http_parser *parser, size_t bytes_received) {
 
    if (message->current_body_size >= message->body_size) {
       message->isReady = true;
+      message->body[message->current_body_size] = '\0';
       clear_buffer(parser);
+      DEBUG_FUNC("CLEAR!!!\n");
    }
 
+   DEBUG_FUNC("SKIP CLEAR, current_size: %zu body_size: %zu!!!\n", message->current_body_size, message->body_size);
    for (size_t index = 0; index < parser->messages_capacity; index++) {
       http_message *temp_msg = &parser->messages[index];
       DEBUG_FUNC("index: %d msg: %s\n", (int)index, temp_msg->body);
    }
+   return;
+isnt_demand:
+   clear_buffer(parser);
+   return;
 }
 
 http_consume_result http_parser_consume(http_parser *parser, const char *message, size_t bytes_received) {
