@@ -28,9 +28,9 @@ size_t peer_sock_recv(struct server_sock *bs, struct peer_sock *peer, int flags,
       }
       parser->buff_len += bytes_read;
       peer->sock.packets_received++;
-      http_parser_consume(&peer->parser, parser->buff, BS_CLIENT_BUFF_CAPACITY);
+      http_parser_consume(&peer->parser, parser->buff, bytes_read);
       
-      DEBUG_FUNC("bytes read: %zu buff len size: %zu from: %d\n", bytes_read, parser->buff_len, peer->sock.fd);
+  //    DEBUG_FUNC("bytes read: %zu buff len size: %zu from: %d\n", bytes_read, parser->buff_len, peer->sock.fd);
    } else if (bytes_read == 0) {
       // DEBUG_FUNC("peer disconnected: %d\n", peer->sock.fd);
    } else {

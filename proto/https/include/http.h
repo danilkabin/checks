@@ -12,6 +12,24 @@
 #define HTTP_BODY_MAX_SIZE 8192
 #define HTTP_MAX_MESSAGES 8
 
+#define HTTP_HEADER_NAME_SIZE 64
+#define HTTP_HEADER_VALUE_SIZE 1024
+
+#define HTTP_METHOD_LIST \
+   X(GET)     \
+   X(HEAD)    \
+   X(POST)    \
+   X(PUT)     \
+   X(DELETE)  \
+   X(CONNECT) \
+   X(OPTIONS) \
+   X(TRACE)   \
+
+#define HTTP_VERSION_LIST \
+   V(VERSION_1_0, "HTTP/1.0")     \
+   V(VERSION_1_1, "HTTP/1.1")     \
+   V(VERSION_2_0, "HTTP/2.0")     \
+
 typedef enum {
    HTTP_CONSUME_OK = 0,
    HTTP_CONSUME_BAD_CORE = 1,
@@ -34,21 +52,21 @@ typedef enum {
 } http_parser_type;
 
 typedef enum {
-   HTTP_GET,
-   HTTP_HEAD,
-   HTTP_POST,
-   HTTP_PUT,
-   HTTP_DELETE,
-   HTTP_CONNECT,
-   HTTP_OPTIONS,
-   HTTP_TRACE
+#define X(name) HTTP_METHOD_##name,
+   HTTP_METHOD_LIST
+#undef X
+   HTTP_METHOD_UNKNOWN
 } http_method;
 
 typedef enum {
-   HTTP_1_0,
-   HTTP_1_1,
-   HTTP_2_0
+#define V(name, str) name,
+    HTTP_VERSION_LIST
+#undef V
+    HTTP_VERSION_UNKNOWN
 } http_version;
+
+extern const char *http_method_m[];
+extern const char *http_version_m[];
 
 typedef struct {
    http_method method;
@@ -59,17 +77,6 @@ typedef struct {
    u_int16_t code;
    const char *phrase;
 } status_phrase_t;
-
-static const method_t http_stringed_methods[] = {
-   {HTTP_GET, "GET"},
-   {HTTP_HEAD, "HEAD"},
-   {HTTP_POST, "POST"},
-   {HTTP_PUT, "PUT"},
-   {HTTP_DELETE, "DELETE"},
-   {HTTP_CONNECT, "CONNECT"},
-   {HTTP_OPTIONS, "OPTIONS"},
-   {HTTP_TRACE, "TRACE"},
-};
 
 static const status_phrase_t http_phrases[] = {
    {100, "Continue"},
@@ -122,8 +129,9 @@ typedef struct {
    int headers_end;
    int body_end;
 
-   size_t content_length;
-   size_t content_received;
+   int current_message_index;
+
+   size_t bytes_received;
 
    http_message messages[HTTP_MAX_MESSAGES];
    size_t messages_count;

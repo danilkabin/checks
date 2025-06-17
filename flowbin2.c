@@ -3,72 +3,77 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <pthread.h>
-#include <errno.h>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 51234
-#define CLIENTS_COUNT 150
-#define MSG "Hello frgsdsigsdhg sdh hduadua'gudsaiog hduada'gudsaiog hduadghsdagndskjgdsagjas dgjdsbag kjasdgbsdajk gbdsajkgb sdjkgbsd akjgbsda kjgabsd jkgbdsajkgsbd agkjdsbagkjsdabgkj dsabgjksdagoafdsjhgoifadjhlkgdsl kgjlkadj gklsdjg asdlgjsd agasd d gsdoigh sdoighsd iogsdhg iosdghsdigu5409ug54 gj54ovj45v954b 9405b 549bjom client!\n"
+#define CHUNK_SIZE 10     // размер куска в байтах
+#define DELAY_USEC 100000 // 100 мс между чанками
 
-void *client_thread(void *arg) {
-    int id = *(int *)arg;
-    free(arg);
-
+int main() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("socket");
-        return NULL;
+        return 1;
     }
 
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(SERVER_PORT);
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(SERVER_PORT),
+    };
 
-    if (inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr) <= 0) {
         perror("inet_pton");
         close(sock);
-        return NULL;
+        return 1;
     }
 
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        fprintf(stderr, "Client #%d: Connection Failed: %s\n", id, strerror(errno));
+    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("connect");
         close(sock);
-        return NULL;
+        return 1;
     }
 
-    printf("Client #%d connected\n", id);
+    int count = 0;
 
     while (1) {
-        ssize_t sent = send(sock, MSG, strlen(MSG), 0);
-        if (sent == -1) {
-            fprintf(stderr, "Client #%d send error: %s\n", id, strerror(errno));
+        char body[64];
+        snprintf(body, sizeof(body), "message number: %d", count + 1);
+        size_t body_len = strlen(body);
+
+        char http_message[1024];
+        int header_len = snprintf(http_message, sizeof(http_message),
+            "POST / HTTP/1.1\r\n"
+            "Host: %s\r\n"
+            "Content-Length: %zu\r\n"
+            "Content-Type: text/plain\r\n"
+            "\r\n",
+            SERVER_IP, body_len);
+
+        if (header_len < 0 || header_len + body_len >= sizeof(http_message)) {
+            fprintf(stderr, "Message too large\n");
             break;
         }
-        usleep(10000);  // 10 ms
+
+        memcpy(http_message + header_len, body, body_len);
+        size_t total_len = header_len + body_len;
+
+        size_t sent = 0;
+        while (sent < total_len) {
+            size_t chunk = (total_len - sent > CHUNK_SIZE) ? CHUNK_SIZE : (total_len - sent);
+            ssize_t n = send(sock, http_message + sent, chunk, 0);
+            if (n <= 0) {
+                perror("send");
+                close(sock);
+                return 1;
+            }
+            sent += n;
+            usleep(DELAY_USEC); // Пауза между чанками
+        }
+
+        count++;
+        usleep(500000); // Пауза перед следующим сообщением (0.5 сек)
     }
 
     close(sock);
-    return NULL;
-}
-
-int main() {
-    pthread_t threads[CLIENTS_COUNT];
-
-    for (int i = 0; i < CLIENTS_COUNT; i++) {
-        int *id = malloc(sizeof(int));
-        *id = i;
-        if (pthread_create(&threads[i], NULL, client_thread, id) != 0) {
-            perror("pthread_create");
-            free(id);
-        }
-        usleep(10000); // Немного разброса между подключениями
-    }
-
-    for (int i = 0; i < CLIENTS_COUNT; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
     return 0;
 }
-

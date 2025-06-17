@@ -60,7 +60,6 @@ static void slab_write_blocks(struct slab *allocator, int start_bit, void *data,
       if (index == 0) allocator->blocks[bit_offset].allocation_size = blocks_needed;
 
       real_size = real_size > block_size ? real_size - block_size : 0;
-      DEBUG_FUNC("block: %zu\n", bit_offset);
    }
 
    if (data != NULL) {
@@ -113,7 +112,6 @@ void *slab_malloc(struct slab *allocator, void *ptr, size_t size) {
 
    slab_write_blocks(allocator, start_bit, ptr, size, blocks_needed, 1);
    allocator->block_used += blocks_needed;
-   DEBUG_FUNC("data size: %zu\n", size);
    return (uint8_t*)allocator->pool + start_bit * block_size;
 free_this_trash:
    return NULL;

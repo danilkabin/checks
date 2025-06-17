@@ -5,8 +5,7 @@ const client = new net.Socket();
 const ip = '127.0.0.1';
 const port = 51234;
 
-client.connect(port, ip, () => {
-const message = 
+const messages = [
   "POST / HTTP/1.1\r\n" +
   "Host: 127.0.0.1\r\n" +
   "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36\r\n" +
@@ -25,20 +24,39 @@ const message =
   "Sec-Fetch-User: ?1\r\n" +
   "Upgrade-Insecure-Requests: 1\r\n" +
   "\r\n" +
-  "hello nigger yes yes";
+  "hello nigger yes yes",
 
+  // Можно добавить больше сообщений сюда
+  "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 11\r\n\r\nhello again",
+
+  "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
+];
+
+client.connect(port, ip, () => {
+  let currentMessageIndex = 0;
   let pos = 0;
-  const chunkSize = 600;
+  const chunkSize = 60;
 
   function sendChunk() {
+    if (currentMessageIndex >= messages.length) {
+      console.log("Все сообщения отправлены.");
+      client.end();
+      return;
+    }
+
+    const message = messages[currentMessageIndex];
+
     if (pos < message.length) {
       const chunk = message.slice(pos, pos + chunkSize);
       client.write(chunk);
-      console.log(`Sent chunk: "${chunk}"`);
+      console.log(`Sent chunk from message #${currentMessageIndex + 1}: "${chunk}"`);
       pos += chunkSize;
       setTimeout(sendChunk, 200);
     } else {
-      client.end();
+      console.log(`Message #${currentMessageIndex + 1} полностью отправлено.`);
+      pos = 0;
+      currentMessageIndex++;
+      setTimeout(sendChunk, 200);
     }
   }
 
