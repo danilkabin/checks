@@ -10,6 +10,7 @@
 
 #define HTTP_PARSER_BUFF_SIZE 8192 
 #define HTTP_BODY_MAX_SIZE 8192
+#define HTTP_CHUNK_MAX_SIZE 4096
 #define HTTP_MAX_MESSAGES 8
 
 #define HTTP_HEADER_NAME_SIZE 64
@@ -46,6 +47,20 @@ typedef enum {
 } http_message_type;
 
 typedef enum {
+   HTTP_PARSE_RET_FAILED = -2,
+   HTTP_PARSE_RET_EXTRA = -1,
+   HTTP_PARSE_RET_YET = 0,
+   HTTP_PARSE_RET_OK = 1
+} http_parse_ret;
+
+typedef enum {
+   HTTP_CHUNK_TYPE_SIZE,
+   HTTP_CHUNK_TYPE_DATA,
+   HTTP_CHUNK_TYPE_CRLF,
+   HTTP_CHUNK_TYPE_DONE
+} http_chunk_type;
+
+typedef enum {
    HTTP_PARSER_LINE = 0,
    HTTP_PARSER_HEADER = 1,
    HTTP_PARSER_BODY = 2,
@@ -71,11 +86,6 @@ extern const char *http_method_m[];
 extern const char *http_version_m[];
 
 typedef struct {
-   http_method method;
-   const char *phrase;
-} method_t;
-
-typedef struct {
    u_int16_t code;
    const char *phrase;
 } status_phrase_t;
@@ -98,9 +108,10 @@ typedef struct {
 } request_line;
 
 typedef struct {
-   http_version version;
    u_int16_t code;
-} status_line;
+   char *headers;
+   char *body;
+} response_line;
 
 typedef struct {
    char *name;
@@ -109,23 +120,29 @@ typedef struct {
 
 typedef struct {
    http_message_type type;
-   union {
-      status_line status;
-      request_line request;
-   } start_line;
+   response_line response;
+   request_line request;
    http_header headers[HTTP_MAX_HEADERS];
    char *body;
    size_t body_size;
    size_t current_body_size;
    bool isActive;
    bool isReady;
+   bool isUpperParsed;
+   bool isChunked;
 } http_message;
 
 typedef struct {
    http_parser_type type;
-
+   http_chunk_type chunk_type;
+   size_t chunkSize; 
+   size_t currentChunkSize;
+   size_t pos;
+   
    char buff[HTTP_PARSER_BUFF_SIZE];  
    size_t buff_len;
+
+   bool isChunked;
 
    int line_end;
    int headers_end;
@@ -141,14 +158,31 @@ typedef struct {
    struct slab *allocator;
 } http_parser;
 
-void http_message_extract(char*, size_t, size_t*);
-void http_message_delete(char*, size_t*, size_t);
+typedef int (*http_method_handler)();
 
 http_consume_result http_parser_consume(http_parser*, const char*, size_t);
-
 int http_parser_init(int core_count, http_parser *parser);
-
 int http_parser_allocator_init(int);
 void http_parser_allocator_exit();
+int http_response_init(struct slab*, response_line*, size_t, size_t);
+void http_response_exit(struct slab*, response_line*);
+int http_message_init(http_parser*, size_t, http_message_type, size_t);
+void http_message_exit(http_parser*, size_t);
+int http_get_upper_part(http_parser*, char*, size_t);
+int http_validate_start_line(http_parser*, http_message*);
+int http_start_line_parse(http_parser*, http_message*);
+int http_validate_header(char*, size_t, http_header*);
+int http_headers_parse(http_parser*, http_message*, char*, size_t);
+int http_message_static_parse(http_parser*, http_message*);
+int http_message_chunk_parse(http_parser*, http_message*);
+http_parse_ret http_message_body_parse(http_parser*, http_message*);
+int http_request_handling(http_parser*, http_message*, http_method_handler*);
+void http_set_message_type(http_parser*, size_t);
+int http_check_on_host(char*, size_t);
+http_method http_parse_method(const char*);
+http_version http_parse_version(const char*);
+int http_string_parse(char*, size_t, const char*, char*, size_t);
+void reset_parser(http_parser*);
+int http_find_free_message(http_parser*);
 
 #endif

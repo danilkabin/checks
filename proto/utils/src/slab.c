@@ -65,6 +65,8 @@ static void slab_write_blocks(struct slab *allocator, int start_bit, void *data,
    if (data != NULL) {
       memcpy((uint8_t*)allocator->pool + start_bit * block_size, data, size);
    }
+   allocator->memory_allocated = allocator->memory_allocated + blocks_needed;
+      DEBUG_FUNC("slab allocated: %zu\n", allocator->memory_allocated);
 }
 
 void slab_del(struct slab *allocator, int start, int end) {
@@ -88,6 +90,8 @@ void slab_del(struct slab *allocator, int start, int end) {
    clear_consecutive_busy_bits(allocator->bitmask, (size_t)start, (size_t)end + 1);
    memset((uint8_t*)allocator->pool + start * allocator->block_size, 0, del * allocator->block_size);
    allocator->block_used -= del;
+      allocator->memory_allocated = allocator->memory_allocated - del;
+      DEBUG_FUNC("slab deleted: %zu\n", allocator->memory_allocated);
 }
 
 void *slab_malloc(struct slab *allocator, void *ptr, size_t size) {

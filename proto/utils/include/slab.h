@@ -22,6 +22,8 @@ struct slab {
 
     u_int8_t *bitmask;
     size_t bitmask_size;
+
+    size_t memory_allocated;
 };
 
 struct slab *slab_init(size_t);

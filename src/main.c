@@ -27,6 +27,7 @@ int main() {
    }
    DEBUG_FUNC("blocks: %zu pool size: %zu\n", allocator->block_capacity, allocator->pool_size);
 
+   DEBUG_FUNC("yes!\n");
    struct tcp_port_conf *port_conf2 = (struct tcp_port_conf*)slab_malloc(allocator, &port_conf, sizeof(struct tcp_port_conf));
    DEBUG_FUNC("port: %d\n", ntohs(port_conf2->port));
    sleep(300);

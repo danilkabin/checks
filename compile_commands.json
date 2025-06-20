@@ -12,11 +12,11 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/https/http.o",
-      "proto/https/http.c"
+      "build/proto/https/http_parser.o",
+      "proto/https/http_parser.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/https/http.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/https/http.o"
+    "file": "/home/danilka_bin/flowbin/proto/https/http_parser.c",
+    "output": "/home/danilka_bin/flowbin/build/proto/https/http_parser.o"
   }
 ]
