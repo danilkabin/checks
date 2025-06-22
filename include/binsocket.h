@@ -1,7 +1,7 @@
 #ifndef BINSOCKET_H
 #define BINSOCKET_H
 
-#include "http.h"
+#include "parser.h"
 #include "listhead.h"
 #include "lock.h"
 #include "pool.h"
@@ -80,7 +80,7 @@ struct tcp_port_conf {
 
 struct peer_sock {
    sock_t sock;
-   http_parser parser;
+   http_request_t request;
    peer_proto_type proto_type;
    struct list_head list;
    struct worker *worker;
@@ -102,6 +102,8 @@ struct server_sock {
 
    int peer_current;
    int peer_capable;
+
+   struct slab *request_allocator;
 
    bool initialized;
    bool released;

@@ -6,7 +6,7 @@
 #include "binsocket.h"
 #include "pool.h"
 #include "utils.h"
-#include "http.h"
+#include "parser.h"
 #include "device.h"
 
 #include <arpa/inet.h>
@@ -103,6 +103,12 @@ struct server_sock *server_sock_create(struct tcp_port_conf *port_conf, struct w
    ret = memoryPool_init(&bs->peer_pool, MAX_CLIENTS_CAPABLE * sizeof(struct peer_sock), sizeof(struct peer_sock));
    if (ret < 0) {
       DEBUG_FUNC("Client memory pool initialization failed.\n");
+      goto free_everything;
+   }
+
+   bs->request_allocator = http_request_device_init(100000);
+   if (!bs->request_allocator) {
+     DEBUG_FUNC("Request allocatow initialization failed.\n"); 
       goto free_everything;
    }
 
@@ -210,17 +216,16 @@ struct peer_sock *peer_sock_create(struct server_sock *bs, sockType fd) {
    peer->worker = bs->worker;
    peer->proto_type = PEER_PROTO_TYPE_HTTP;
 
-   http_parser *parser = &peer->parser; 
+   http_request_t *request = &peer->request;
 
    if (peer->proto_type == PEER_PROTO_TYPE_HTTP) {
-      ret = http_parser_init(bs->worker_index, &peer->parser); 
+      ret = http_request_init(request, bs->request_allocator, bs->request_allocator); 
       if (ret < 0) {
          goto free_everything;
       }
    }
 
    peer->sock.fd = fd;
-   parser->buff_len = 0;
 
    peer->released = false;
    peer->initialized = true;
@@ -323,7 +328,7 @@ int sock_core_init() {
    struct tcp_port_conf port_conf = {
       .domain = AF_INET,
       .type = SOCK_STREAM,
-      .port = htons(51234),
+      .port = htons(51235),
       .addr.s_addr = htonl(INADDR_ANY)
    };
 

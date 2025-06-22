@@ -8,15 +8,15 @@
       "-pthread",
       "-Iproto/include",
       "-Iproto/utils/include",
-      "-Iproto/https/include",
+      "-Iproto/https",
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/https/http_parser.o",
-      "proto/https/http_parser.c"
+      "build/proto/https/parser.o",
+      "proto/https/parser.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/https/http_parser.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/https/http_parser.o"
+    "file": "/home/danilka_bin/flowbin/proto/https/parser.c",
+    "output": "/home/danilka_bin/flowbin/build/proto/https/parser.o"
   }
 ]

@@ -66,7 +66,7 @@ static void slab_write_blocks(struct slab *allocator, int start_bit, void *data,
       memcpy((uint8_t*)allocator->pool + start_bit * block_size, data, size);
    }
    allocator->memory_allocated = allocator->memory_allocated + blocks_needed;
-      DEBUG_FUNC("slab allocated: %zu\n", allocator->memory_allocated);
+   //   DEBUG_FUNC("slab allocated: %zu\n", allocator->memory_allocated);
 }
 
 void slab_del(struct slab *allocator, int start, int end) {
