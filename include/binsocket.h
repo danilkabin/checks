@@ -1,7 +1,7 @@
 #ifndef BINSOCKET_H
 #define BINSOCKET_H
 
-#include "parser.h"
+#include "request.h"
 #include "listhead.h"
 #include "lock.h"
 #include "pool.h"
@@ -14,7 +14,6 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include "slab.h"
-#include "unistd.h"
 
 #define sockType int
 #define idType uint32_t

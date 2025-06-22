@@ -18,5 +18,25 @@
     "directory": "/home/danilka_bin/flowbin",
     "file": "/home/danilka_bin/flowbin/proto/https/parser.c",
     "output": "/home/danilka_bin/flowbin/build/proto/https/parser.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-pthread",
+      "-Iproto/include",
+      "-Iproto/utils/include",
+      "-Iproto/https",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "build/proto/https/request.o",
+      "proto/https/request.c"
+    ],
+    "directory": "/home/danilka_bin/flowbin",
+    "file": "/home/danilka_bin/flowbin/proto/https/request.c",
+    "output": "/home/danilka_bin/flowbin/build/proto/https/request.o"
   }
 ]
