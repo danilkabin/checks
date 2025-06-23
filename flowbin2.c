@@ -4,24 +4,28 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-void send_in_chunks(int sock, const char *data, size_t len, size_t chunk_size) {
-    size_t sent = 0;
-    while (sent < len) {
-        size_t to_send = chunk_size;
-        if (sent + to_send > len) {
-            to_send = len - sent;
-        }
+// Отправка одного чанка
+void send_chunk(int sock, const char *data, size_t len) {
+    char header[32];
+    int header_len = snprintf(header, sizeof(header), "%zx\r\n", len);
+    send(sock, header, header_len, 0);
+    send(sock, data, len, 0);
+    send(sock, "\r\n", 2, 0);
+}
 
-        ssize_t n = send(sock, data + sent, to_send, 0);
-        if (n <= 0) {
-            perror("send");
-            break;
-        }
-
-        printf("Sent chunk: %zd bytes\n", n);
-        sent += n;
-        usleep(100 * 1000); // 100ms задержка
+// Отправка всех чанков
+void send_chunked_body(int sock, const char *data, size_t len, size_t chunk_size) {
+    size_t offset = 0;
+    while (offset < len) {
+        size_t size = (offset + chunk_size < len) ? chunk_size : (len - offset);
+        send_chunk(sock, data + offset, size);
+        printf("Sent chunk: %zu bytes\n", size);
+        offset += size;
+        usleep(100 * 1000); // задержка 100 мс
     }
+
+    // Конец передачи
+    send(sock, "0\r\n\r\n", 5, 0);
 }
 
 int main() {
@@ -42,21 +46,25 @@ int main() {
         return 1;
     }
 
-    const char *http_request =
-        "GET / HTTP/1.1\r\n"
+    for (int index = 0; index < 10; index++) {
+    // Отправляем заголовки
+    const char *headers =
+        "POST / HTTP/1.1\r\n"
         "Host: 127.0.0.1\r\n"
         "User-Agent: test-client\r\n"
-        "Transfer-Encoding: chunk\r\n"
+        "Transfer-Encoding: chunked\r\n"
         "Accept: */*\r\n"
-        "\r\n"
-        "asdjaasdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorgasdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorgasdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorgasdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorgasdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorgsdjsajdasjjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogjd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir ogd jasd osagjoisdfg oiregior gh orghior eegiorhreeghiroegior hereghir oegiorhreoeghiorg herehir og";
+        "\r\n";
+    send(sock, headers, strlen(headers), 0);
 
-    send_in_chunks(sock, http_request, strlen(http_request), 100);
+    // Отправляем тело чанками
+    const char *body =
+        "hello my sisterdsadhsa iohfashfgsdioaghsd io my brother i love you brother yes yes yes hello lol no";
+    send_chunked_body(sock, body, strlen(body), 12);
+       usleep(100000);
+    }
 
     shutdown(sock, SHUT_WR);
-
-    // Можно добавить чтение ответа сервера здесь, если нужно.
-
     close(sock);
     return 0;
 }

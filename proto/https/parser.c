@@ -54,19 +54,27 @@ http_parser_request_type http_parser_request(http_parser_t *parser, char *data, 
          goto parser_error;
       }
    }
-
+   //printf("INDEX request: %d\n", index);
    ret = http_parser_request_append(parser, request, data, size);
    if (ret < 0) {
       printf("http_parser_request_append failed\n");
       goto parser_error_exit;
    }
-
+  
    ret = http_request_parse(request, &parser->req_buff, data, size);
    if (ret < 0) {
       printf("http_request_parse failed\n");
       goto parser_error_exit;
    }
+   if (ret == 0) {
+      return HTTP_PARSER_REQUEST_OK;
+   }
 
+   ret = http_buff_reinit(parser->req_allocator, &parser->req_buff, HTTP_LINE_MAX_SIZE, HTTP_MAX_MESSAGE_SIZE);
+   if (ret < 0) {
+      goto parser_error_exit;
+   }
+   printf("new buffer created!\n");
    return HTTP_PARSER_REQUEST_OK;
 parser_error_exit:
    http_request_exit(request);

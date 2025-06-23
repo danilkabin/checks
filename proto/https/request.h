@@ -33,6 +33,10 @@ typedef struct {
    http_header_t headers[HTTP_MAX_HEADERS];
    int header_count;
 
+   char *body;
+   size_t body_len;
+   size_t body_capacity;
+
    size_t line_end;
    size_t header_end;
    size_t body_end;
@@ -40,8 +44,8 @@ typedef struct {
    size_t sum_capacity;
    size_t bytes_received;
 
-   int content_len;
    bool isChunked;
+   size_t chunk_dirty;
 
    bool isActive;
    bool isReady;

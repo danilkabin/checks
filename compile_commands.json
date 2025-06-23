@@ -12,26 +12,6 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/proto/https/http.o",
-      "proto/https/http.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/proto/https/http.c",
-    "output": "/home/danilka_bin/flowbin/build/proto/https/http.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-pthread",
-      "-Iproto/include",
-      "-Iproto/utils/include",
-      "-Iproto/https",
-      "-Iinclude",
-      "-c",
-      "-o",
       "build/proto/https/parser.o",
       "proto/https/parser.c"
     ],
