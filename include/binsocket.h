@@ -1,9 +1,10 @@
 #ifndef BINSOCKET_H
 #define BINSOCKET_H
 
-#include "request.h"
+#include "http.h"
 #include "listhead.h"
 #include "lock.h"
+#include "parser.h"
 #include "pool.h"
 
 #include <arpa/inet.h>
@@ -79,7 +80,7 @@ struct tcp_port_conf {
 
 struct peer_sock {
    sock_t sock;
-   http_request_t request;
+   http_parser_t parser;
    peer_proto_type proto_type;
    struct list_head list;
    struct worker *worker;
@@ -103,6 +104,7 @@ struct server_sock {
    int peer_capable;
 
    struct slab *request_allocator;
+   struct slab *request_msg_allocator;
 
    bool initialized;
    bool released;

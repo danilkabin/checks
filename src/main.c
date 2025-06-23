@@ -14,7 +14,7 @@ int main() {
    struct tcp_port_conf port_conf = {
       .domain = AF_INET,
       .type = SOCK_STREAM,
-      .port = htons(51234),
+      .port = htons(51235),
       .addr.s_addr = htonl(INADDR_ANY)
    };
 
@@ -25,11 +25,7 @@ int main() {
    if (!allocator) {
       return -1;
    }
-   DEBUG_FUNC("blocks: %zu pool size: %zu\n", allocator->block_capacity, allocator->pool_size);
 
-   DEBUG_FUNC("yes!\n");
-   struct tcp_port_conf *port_conf2 = (struct tcp_port_conf*)slab_malloc(allocator, &port_conf, sizeof(struct tcp_port_conf));
-   DEBUG_FUNC("port: %d\n", ntohs(port_conf2->port));
    sleep(300);
    sock_syst_exit(NULL);
    DEBUG_FUNC("heehllo1oo1o1\n");

@@ -1,27 +1,11 @@
 #ifndef FB_HTTP 
 #define FB_HTTP
 
-#include "parser.h"
+#include "slab.h"
+#include "http.h"
+
 #include <stdbool.h>
 #include <sys/types.h>
-
-#define HTTP_LINE_METHOD_MAX_SIZE 32
-#define HTTP_LINE_METHOD_MAX_URL 464
-#define HTTP_LINE_METHOD_MAX_VERSION 16
-#define HTTP_LINE_MAX_SIZE HTTP_LINE_METHOD_MAX_SIZE + HTTP_LINE_METHOD_MAX_URL + HTTP_LINE_METHOD_MAX_VERSION
-
-#define HTTP_MAX_HEADERS  32
-#define HTTP_MAX_HEADER_SIZE 8192
-#define HTTP_INITIAL_HEADER_SIZE 2048
-
-#define HTTP_MAX_BODY_SIZE 8192
-#define HTTP_INITIAL_BODY_SIZE 2048
-
-#define HTTP_INITIAL_MESSAGE_SIZE HTTP_LINE_MAX_SIZE + HTTP_INITIAL_HEADER_SIZE + HTTP_INITIAL_BODY_SIZE
-#define HTTP_MAX_MESSAGE_SIZE HTTP_LINE_MAX_SIZE + HTTP_MAX_HEADER_SIZE + HTTP_MAX_BODY_SIZE
-
-#define HTTP_HEADER_NAME_SIZE 64
-#define HTTP_HEADER_VALUE_SIZE 1024
 
 typedef enum {
     REQUEST_PARSE_START_LINE = 0,
@@ -49,27 +33,28 @@ typedef struct {
    http_header_t headers[HTTP_MAX_HEADERS];
    int header_count;
 
-   http_buffer_t buff;
-
    size_t line_end;
    size_t header_end;
    size_t body_end;
 
    size_t sum_capacity;
-
    size_t bytes_received;
 
+   int content_len;
+   bool isChunked;
+
+   bool isActive;
+   bool isReady;
+
    struct slab *allocator;
-   struct slab *line_allocator;
 } http_request_t;
 
-int http_request_init(http_request_t *request, struct slab *allocator, struct slab *line_allocator);
-int http_request_reinit(http_request_t *request, struct slab *allocator, struct slab *line_allocator);
+int http_request_init(http_request_t *request, struct slab *);
+int http_request_reinit(http_request_t *request, struct slab *);
 void http_request_exit(http_request_t *request);
 
-struct slab *http_request_device_init(size_t size);
-void http_request_device_exit(struct slab *allocator);
+int http_request_parse(http_request_t *request, http_buffer_t *, char *data, size_t data_size);
+int http_request_append(http_request_t *, size_t);
 
-int http_request_parse(http_request_t *request, char *data, size_t data_size);
 
 #endif

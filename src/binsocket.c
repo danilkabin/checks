@@ -1,12 +1,12 @@
 #define _GNU_SOURCE
 
+#include "parser.h"
 #include "slab.h"
 #include "listhead.h"
 #include "lock.h"
 #include "binsocket.h"
 #include "pool.h"
 #include "utils.h"
-#include "request.h"
 #include "device.h"
 
 #include <arpa/inet.h>
@@ -106,9 +106,15 @@ struct server_sock *server_sock_create(struct tcp_port_conf *port_conf, struct w
       goto free_everything;
    }
 
-   bs->request_allocator = http_request_device_init(100000);
+   bs->request_allocator = http_slab_memory_init(100000);
    if (!bs->request_allocator) {
-     DEBUG_FUNC("Request allocatow initialization failed.\n"); 
+     DEBUG_FUNC("request_allocator initialization failed.\n"); 
+      goto free_everything;
+   }
+
+   bs->request_msg_allocator = http_slab_memory_init(100000);
+   if (!bs->request_msg_allocator) {
+     DEBUG_FUNC("request_msg_allocator initialization failed.\n");
       goto free_everything;
    }
 
@@ -215,11 +221,11 @@ struct peer_sock *peer_sock_create(struct server_sock *bs, sockType fd) {
 
    peer->worker = bs->worker;
    peer->proto_type = PEER_PROTO_TYPE_HTTP;
-
-   http_request_t *request = &peer->request;
+   
+   http_parser_t *parser = &peer->parser;
 
    if (peer->proto_type == PEER_PROTO_TYPE_HTTP) {
-      ret = http_request_init(request, bs->request_allocator, bs->request_allocator); 
+      ret = http_parser_init(parser, bs->request_allocator, bs->request_msg_allocator);
       if (ret < 0) {
          goto free_everything;
       }
@@ -259,6 +265,8 @@ void peer_sock_release(struct server_sock *bs, struct peer_sock *peer) {
    list_del(&peer->list);
    peer->released = true;
 
+   http_parser_exit(&peer->parser);
+
    if (peer->sock.fd > 0) {
       struct worker *work = peer->worker;
       if (work) {
@@ -274,7 +282,6 @@ void peer_sock_release(struct server_sock *bs, struct peer_sock *peer) {
 
 int server_sock_accept(struct server_sock *bs) {
    int ret = -1;
-
    if (!bs) {
       DEBUG_FUNC("no server socket provided\n");
       goto free_this_trash;
@@ -288,7 +295,7 @@ int server_sock_accept(struct server_sock *bs) {
       DEBUG_ERR("accept() failed with error: %s\n", strerror(errno));
       goto free_this_trash;
    }
-
+   
    struct peer_sock *peer = peer_sock_create(bs, peer_fd);
    if (!peer) {
       DEBUG_ERR("peer initialization failed for fd %d\n", peer_fd);
@@ -387,7 +394,7 @@ void sock_core_exit() {
 
 int sock_syst_init(void) {
    int ret = -1;
-
+   
    ret = sock_core_init();
    if (ret < 0) {
       DEBUG_FUNC("no sock cores inited\n");

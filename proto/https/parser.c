@@ -1,88 +1,117 @@
+#include "http.h"
 #include "parser.h"
+#include "request.h"
 #include "slab.h"
+
+#include <stdio.h>
 #include <string.h>
 
-int http_buff_append(http_buffer_t *buff, char *data, size_t len) {
-   size_t available = buff->capacity - buff->end;
-   size_t used = buff->end - buff->start;
+int http_find_free_request(http_parser_t *parser) {
+   int ret = -1;
 
-   if (available < len) {
-      if (buff->start > 0) {
-         memmove(buff->data, buff->data + buff->start, used);
-         buff->start = 0;
-         buff->end = used;
-         if (buff->capacity - buff->end > len) {
-            goto copy_data;
-         }
+   for (int index = 0; index < HTTP_MAX_REQUESTS; index++) {
+      http_request_t *request = &parser->requests[parser->req_pos];
+
+      if (!request->isReady) {
+         return parser->req_pos;
       }
 
-      size_t required = buff->end + len;
-      size_t new_capacity = buff->capacity;
-      while (new_capacity < required) {
-         new_capacity = new_capacity * 2;
-         if (new_capacity > buff->limit) {
-            return -1;
-         } 
-      }
-
-      char *new_data = slab_realloc(buff->allocator, buff->data, new_capacity);
-      if (!new_data) {
-         return -1;
-      }
-      buff->data = new_data;
+      parser->req_pos = (parser->req_pos + 1) %HTTP_MAX_REQUESTS;
    }
 
-copy_data:
-   memcpy(buff->data + buff->end, data, len);
-   buff->end = buff->end + len;
+   return ret;
+}
+
+int http_parser_request_append(http_parser_t *parser, http_request_t *request, char *data, size_t data_size) {
+   if (request->state == REQUEST_PARSE_ERROR) {
+      return -1;
+   }
+
+   http_buffer_t *buff = &parser->req_buff;
+
+   int ret = http_buff_append(buff, data, data_size);
+   if (ret < 0) {
+      return ret;
+   }
+
+   http_request_append(request, data_size);
 
    return 0;
 }
 
-int http_buff_data_len(http_buffer_t *buff) {
-   return buff->end - buff->start;
+http_parser_request_type http_parser_request(http_parser_t *parser, char *data, size_t size) {
+   int index = http_find_free_request(parser);
+   if (index < 0) {
+      return HTTP_PARSER_REQUEST_LIMIT;
+   }
+
+   int ret;
+   http_request_t *request = &parser->requests[index];
+
+   if (!request->isActive) {
+      ret = http_request_init(request, parser->req_msg_allocator); 
+      if (ret < 0) {
+         goto parser_error;
+      }
+   }
+
+   ret = http_parser_request_append(parser, request, data, size);
+   if (ret < 0) {
+      printf("http_parser_request_append failed\n");
+      goto parser_error_exit;
+   }
+
+   ret = http_request_parse(request, &parser->req_buff, data, size);
+   if (ret < 0) {
+      printf("http_request_parse failed\n");
+      goto parser_error_exit;
+   }
+
+   return HTTP_PARSER_REQUEST_OK;
+parser_error_exit:
+   http_request_exit(request);
+parser_error:
+   return HTTP_PARSER_REQUEST_ERROR;
 }
 
-char *http_buff_data_start(http_buffer_t *buff) {
-   return buff->data + buff->start;
-}
+int http_parser_init(http_parser_t *parser, struct slab *allocator, struct slab *msg_allocator) {
+   int ret;
 
-void http_buff_consume(http_buffer_t *buff, size_t len) {
-   buff->start = buff->start + len;
-   if (buff->start >= buff->end) {
-      buff->start = 0;
-      buff->end = 0;
-   }
-}
+   parser->req_allocator = allocator;
+   parser->req_msg_allocator = msg_allocator;
 
-int http_buff_init(struct slab *allocator, http_buffer_t *buff, size_t capacity, size_t limit) {
-   if (limit < 8) {
-      return -1;
+   printf("HTTP_MAX_MESSAGE_SIZE: %d, HTTP_MAX_HEADER_SIZE %d, HTTP_MAX_BODY_SIZE %d, HTTP_LINE_MAX_SIZE %d\n", HTTP_MAX_MESSAGE_SIZE, HTTP_MAX_HEADER_SIZE, HTTP_MAX_BODY_SIZE, HTTP_LINE_MAX_SIZE);
+
+   ret = http_buff_init(parser->req_allocator, &parser->req_buff, HTTP_LINE_MAX_SIZE, HTTP_MAX_MESSAGE_SIZE);
+   if (ret < 0) {
+      printf("http_buffer_t initialization failed.\n");
+      goto unsuccessfull;
    }
-   buff->data = slab_malloc(allocator, NULL, capacity);
-   if (!buff->data) {
-      return -1;
-   }
-   buff->start = 0;
-   buff->end = 0;
-   buff->capacity = capacity;
-   buff->limit = limit;
-   buff->allocator = allocator;
+
+   parser->req_active = 0;
+   parser->req_pos = 0;
+   parser->req_head = 0;
+
    return 0;
+unsuccessfull:
+   return -1;
 }
 
-int http_buff_reinit(struct slab *allocator, http_buffer_t *buff, size_t capacity, size_t limit) {
-   http_buff_exit(buff);
-   return http_buff_init(allocator, buff, capacity, limit);
-}
-
-void http_buff_exit(http_buffer_t *buff) {
-   if (buff->data) {
-      slab_free(buff->allocator, buff->data);
+void http_parser_exit(http_parser_t *parser) {
+   for (int index = 0; index < parser->req_active; index++) {
+      http_request_t *request = &parser->requests[index];
+      http_request_exit(request);
    }
-   buff->start = 0;
-   buff->end = 0;
-   buff->capacity = 0;
-   buff->limit = 0;
-   buff->allocator = NULL;
+
+   if (parser->req_buff.data) {
+      http_buff_exit(&parser->req_buff);
+   }
+
+   if (parser->req_msg_allocator) {
+      parser->req_msg_allocator = NULL;
+   }
+
+   if (parser->req_allocator) {
+      parser->req_allocator = NULL;
+   }
 }
