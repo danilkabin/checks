@@ -32,4 +32,6 @@ void *slab_malloc(struct slab*, void *, size_t);
 void *slab_realloc(struct slab*, void *, size_t);
 void slab_free(struct slab*, void*);
 
+void slab_free_and_null(struct slab*, void **);
+
 #endif

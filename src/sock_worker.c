@@ -42,7 +42,7 @@ void *bs_worker_thread(void *args) {
                if (event.events & EPOLLIN) {
                   peer_sock_recv(bs, peer, MSG_DONTWAIT, BS_CLIENT_BUFF_CAPACITY);
                } else if (event.events & EPOLLOUT) {
-                  DEBUG_FUNC("send!\n");
+                  //DEBUG_FUNC("send!\n");
                }
           //     peer_sock_release(bs, peer);
             }

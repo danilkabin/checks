@@ -2,6 +2,21 @@
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
+
+struct http_choice HTTP_METHOD_LIST[] = {
+   {"GET", HTTP_METHOD_GET},
+   {"POST", HTTP_METHOD_POST},
+   {"PUT", HTTP_METHOD_PUT},
+   {"DELETE", HTTP_METHOD_DELETE},
+   {"HEAD", HTTP_METHOD_HEAD},
+   {"OPTIONS", HTTP_METHOD_OPTIONS},
+   {"PATCH", HTTP_METHOD_PATCH},
+};
+
+struct http_choice HTTP_VERSION_LIST[] = {
+   {"HTTP/1.1", HTTP_VERSION_1_1},
+};
 
 char *http_findChar(char *start, size_t size, char target) {
    for (size_t offset = 0; offset < size; offset++) {
@@ -22,6 +37,33 @@ char *http_findStr(char *start, size_t size, char *target, size_t target_size) {
       }
    }
    return NULL;
+}
+
+int http_check_header(const char *name, const char *target) {
+   return strcasecmp(name, target) == 0 ? 1 : -1;
+}
+
+int http_choice_get(struct http_choice *choice, size_t choice_count, const char *name, size_t size) {
+   for (size_t index = 0; index < choice_count; index++) {
+      struct http_choice target = choice[index];
+      size_t method_len = strlen(target.name);
+      if (method_len == size && strncmp(name, target.name, size) == 0) {
+         return target.token;
+      }
+   }
+   return -1; 
+}
+
+int http_get_valid_method(const char *name, size_t size) {
+   size_t choice_count = sizeof(HTTP_METHOD_LIST) / sizeof(HTTP_METHOD_LIST[0]);
+   int ret = http_choice_get(HTTP_METHOD_LIST, choice_count, name, size);
+   return ret >= 0 ? ret : HTTP_METHOD_INVALID;
+}
+
+int http_get_valid_version(const char *name, size_t size) {
+   size_t choice_count = sizeof(HTTP_VERSION_LIST) / sizeof(HTTP_VERSION_LIST[0]);
+   int ret = http_choice_get(HTTP_VERSION_LIST, choice_count, name, size);
+   return ret >= 0 ? ret : HTTP_VERSION_INVALID;
 }
 
 int http_buff_append(http_buffer_t *buff, char *data, size_t len) {
@@ -91,7 +133,6 @@ int http_buff_init(struct slab *allocator, http_buffer_t *buff, size_t capacity,
    buff->capacity = capacity;
    buff->limit = limit;
    buff->allocator = allocator;
-   DEBUG_FUNC("http_buffer_t limit: %zu, capacity: %zu\n", buff->limit, buff->capacity);
    return 0;
 }
 

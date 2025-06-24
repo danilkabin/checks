@@ -16,9 +16,9 @@ typedef enum {
 } request_parse_state_t;
 
 typedef struct {
-   char *method;
+   http_method_t method;
    char *url;
-   char *version;
+   http_version_t version;
 } http_start_line_t;
 
 typedef struct {
@@ -39,13 +39,14 @@ typedef struct {
 
    size_t line_end;
    size_t header_end;
-   size_t body_end;
 
-   size_t sum_capacity;
    size_t bytes_received;
 
+   bool isContentLength;
    bool isChunked;
    size_t chunk_dirty;
+
+   bool host;
 
    bool isActive;
    bool isReady;
@@ -60,5 +61,6 @@ void http_request_exit(http_request_t *request);
 int http_request_parse(http_request_t *request, http_buffer_t *, char *data, size_t data_size);
 int http_request_append(http_request_t *, size_t);
 
+void http_request_reset(http_request_t *);
 
 #endif

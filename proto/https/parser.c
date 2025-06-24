@@ -10,13 +10,12 @@ int http_find_free_request(http_parser_t *parser) {
    int ret = -1;
 
    for (int index = 0; index < HTTP_MAX_REQUESTS; index++) {
-      http_request_t *request = &parser->requests[parser->req_pos];
-
+      int pos = (parser->req_pos + index) % HTTP_MAX_REQUESTS;
+      http_request_t *request = &parser->requests[pos];
       if (!request->isReady) {
-         return parser->req_pos;
+         return pos;
       }
 
-      parser->req_pos = (parser->req_pos + 1) %HTTP_MAX_REQUESTS;
    }
 
    return ret;
@@ -54,29 +53,30 @@ http_parser_request_type http_parser_request(http_parser_t *parser, char *data, 
          goto parser_error;
       }
    }
-   //printf("INDEX request: %d\n", index);
+
    ret = http_parser_request_append(parser, request, data, size);
    if (ret < 0) {
       printf("http_parser_request_append failed\n");
       goto parser_error_exit;
    }
-  
+
    ret = http_request_parse(request, &parser->req_buff, data, size);
    if (ret < 0) {
       printf("http_request_parse failed\n");
       goto parser_error_exit;
    }
-   if (ret == 0) {
-      return HTTP_PARSER_REQUEST_OK;
-   }
 
-   ret = http_buff_reinit(parser->req_allocator, &parser->req_buff, HTTP_LINE_MAX_SIZE, HTTP_MAX_MESSAGE_SIZE);
-   if (ret < 0) {
-      goto parser_error_exit;
-   }
-   printf("new buffer created!\n");
+   if (ret > 0) {
+      printf("INDEX request confirmed: %d\n", index);
+      ret = http_buff_reinit(parser->req_allocator, &parser->req_buff, HTTP_LINE_MAX_SIZE, HTTP_MAX_MESSAGE_SIZE);
+      if (ret < 0) {
+         goto parser_error_exit;
+      }
+   } 
+
    return HTTP_PARSER_REQUEST_OK;
 parser_error_exit:
+   http_buff_exit(&parser->req_buff);
    http_request_exit(request);
 parser_error:
    return HTTP_PARSER_REQUEST_ERROR;
@@ -84,11 +84,8 @@ parser_error:
 
 int http_parser_init(http_parser_t *parser, struct slab *allocator, struct slab *msg_allocator) {
    int ret;
-
    parser->req_allocator = allocator;
    parser->req_msg_allocator = msg_allocator;
-
-   printf("HTTP_MAX_MESSAGE_SIZE: %d, HTTP_MAX_HEADER_SIZE %d, HTTP_MAX_BODY_SIZE %d, HTTP_LINE_MAX_SIZE %d\n", HTTP_MAX_MESSAGE_SIZE, HTTP_MAX_HEADER_SIZE, HTTP_MAX_BODY_SIZE, HTTP_LINE_MAX_SIZE);
 
    ret = http_buff_init(parser->req_allocator, &parser->req_buff, HTTP_LINE_MAX_SIZE, HTTP_MAX_MESSAGE_SIZE);
    if (ret < 0) {

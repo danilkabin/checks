@@ -23,10 +23,30 @@
 #define HTTP_MAX_REQUESTS             8
 #define HTTP_MAX_REQUESTS_SIZE      (HTTP_MAX_REQUESTS * HTTP_MAX_MESSAGE_SIZE)
 
-
 #include "slab.h"
 
 #include <stddef.h>
+
+struct http_choice {
+   char *name;
+   long token;
+};
+
+typedef enum {
+   HTTP_METHOD_GET = 0,
+   HTTP_METHOD_POST,
+   HTTP_METHOD_PUT,
+   HTTP_METHOD_DELETE,
+   HTTP_METHOD_HEAD,
+   HTTP_METHOD_OPTIONS,
+   HTTP_METHOD_PATCH,
+   HTTP_METHOD_INVALID
+} http_method_t;
+
+typedef enum {
+   HTTP_VERSION_1_1 = 0,
+   HTTP_VERSION_INVALID = -1
+} http_version_t;
 
 typedef enum {
    HTTP_PARSER_REQUEST_LIMIT,
@@ -57,5 +77,9 @@ void http_buff_exit(http_buffer_t *);
 
 struct slab *http_slab_memory_init(size_t size);
 void http_slab_memory_exit(struct slab *allocator);
+
+int http_check_header(const char *name, const char *target);
+int http_get_valid_method(const char *name, size_t size);
+int http_get_valid_version(const char *name, size_t size);
 
 #endif

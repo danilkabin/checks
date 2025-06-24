@@ -18,10 +18,11 @@ size_t peer_sock_recv(struct server_sock *bs, struct peer_sock *peer, int flags,
 
    char buff[8192];
    size_t buff_size1 = sizeof(buff);
-   
+   memset(buff, 0, buff_size1);
+
    ssize_t bytes_read = recv(peer->sock.fd, buff, buff_size1, flags);
    if (bytes_read > 0) {
-      http_parser_request(parser, buff, bytes_read);
+      int ret =http_parser_request(parser, buff, bytes_read);
       peer->sock.packets_received++;
   //    DEBUG_FUNC("bytes read: %zu buff len size: %zu from: %d\n", bytes_read, parser->buff_len, peer->sock.fd);
    } else if (bytes_read == 0) {
