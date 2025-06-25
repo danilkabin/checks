@@ -1,6 +1,5 @@
 #include "parser.h"
 #include "request.h"
-#include "slab.h"
 #include "utils.h"
 #include "receive.h"
 #include <stdio.h>

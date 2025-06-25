@@ -8,150 +8,7 @@
       "-fPIC",
       "-Isrc/onion",
       "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/http.o",
-      "src/onion/http.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/http.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/http.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/send.o",
-      "src/onion/send.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/send.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/send.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/parser.o",
-      "src/onion/parser.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/parser.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/parser.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/receive.o",
-      "src/onion/receive.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/receive.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/receive.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/worker.o",
-      "src/onion/worker.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/worker.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/worker.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/request.o",
-      "src/onion/request.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/request.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/request.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/net.o",
-      "src/onion/net.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/net.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/net.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/onion/response.o",
-      "src/onion/response.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/response.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/response.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
+      "-Iinclude",
       "-c",
       "-o",
       "build/obj/src/onion/onion.o",
@@ -164,73 +21,21 @@
   {
     "arguments": [
       "/usr/bin/gcc",
+      "-c",
       "-Wall",
       "-Wextra",
       "-O2",
       "-fPIC",
       "-Isrc/onion",
       "-Isrc/utils/include",
-      "-c",
+      "-Iinclude",
+      "-pthread",
       "-o",
-      "build/obj/src/utils/src/slab.o",
-      "src/utils/src/slab.c"
+      "script",
+      "tests/request/script.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/utils/src/slab.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/utils/src/slab.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/utils/src/vector.o",
-      "src/utils/src/vector.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/utils/src/vector.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/utils/src/vector.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/utils/src/lock.o",
-      "src/utils/src/lock.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/utils/src/lock.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/utils/src/lock.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-c",
-      "-o",
-      "build/obj/src/utils/src/pool.o",
-      "src/utils/src/pool.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/utils/src/pool.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/utils/src/pool.o"
+    "file": "/home/danilka_bin/flowbin/tests/request/script.c",
+    "output": "/home/danilka_bin/flowbin/script"
   }
 ]
