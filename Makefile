@@ -1,24 +1,26 @@
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -pthread -lurcu -Iproto/include -Iproto/utils/include -Iproto/https -Iinclude
-
-SRC_DIRS := proto proto/utils/src src
+AR := ar
+CFLAGS := -Wall -Wextra -O2 -fPIC -Isrc/onion -Isrc/utils/include
+SRC_DIRS := src/onion src/utils/src
 BUILD_DIR := build
-TARGET := userspace
+LIB_DIR := build/lib
+OBJ_DIR := build/obj
+TARGET := $(LIB_DIR)/libonion.a
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
-
-OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS))
+OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRCS))
 
 .PHONY: all clean
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	@mkdir -p $(LIB_DIR)
+	$(AR) rcs $@ $^
 
-$(BUILD_DIR)/%.o: %.c
+$(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	rm -rf $(BUILD_DIR)
