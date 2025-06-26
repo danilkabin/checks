@@ -5,16 +5,20 @@
 #include <bits/pthreadtypes.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/epoll.h>
 #include <time.h>
 
 #define ONION_PTHREAD_ENABLED true
 
+#define ONION_TIMER_INTERVAL 5
+
 typedef void *(*onion_handler_t) (void *);
 
 typedef struct {
    int fd;
-   
+   int pos_index;
+ 
    void *data;
    int (*func) (void*);
    
@@ -39,6 +43,8 @@ typedef struct {
    struct onion_slab *slots;
 
    onion_handler_t handler;
+   uint64_t *bitmask;
+   size_t bitmask_size;
 
    bool active;
 } onion_epoll_t;

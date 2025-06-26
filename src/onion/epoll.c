@@ -1,4 +1,6 @@
 #include <bits/time.h>
+#include <bits/types/struct_itimerspec.h>
+#include <string.h>
 #include <time.h>
 #define _GNU_SOURCE
 
@@ -36,6 +38,37 @@ int onion_get_time() {
    return time.tv_sec;
 }
 
+int onion_integrate_timer(onion_epoll_t *ep) {
+   int ret;
+   ep->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+   if (ep->timerfd < 0) {
+      DEBUG_FUNC("Epoll timer failed!\n");
+      return -1;
+   }
+
+   struct itimerspec timer_spec = {
+      .it_interval = {ONION_TIMER_INTERVAL, 0},
+      .it_value = {ONION_TIMER_INTERVAL, 0}
+   };
+
+   timerfd_settime(ep->timerfd, 0, &timer_spec, NULL);
+
+   struct epoll_event timer_event;
+   timer_event.events = EPOLLIN;
+   timer_event.data.ptr = ep;
+
+   ret = epoll_ctl(ep->fd, EPOLL_CTL_ADD, ep->timerfd, &timer_event);
+   if (ret < 0) {
+      DEBUG_ERR("Epoll ctl add timer failed!\n");
+      return -1;
+   }
+   return 0;
+}
+
+int onion_handle_timer(onion_epoll_t *ep) {
+
+}
+
 int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data) {
    int ret;
    if (ep->conn_count + 1 >= ep->conn_max) {
@@ -49,6 +82,8 @@ int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (voi
       goto unsuccessfull;
    }
 
+   ep_slot->pos_index = -1;
+
    ep_slot->fd = fd;
    ep_slot->data = data;
    ep_slot->func = func;
@@ -56,7 +91,7 @@ int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (voi
    ep_slot->shutdown_data = shutdown_data;
 
    ep_slot->time_alive = -1;
-   ep_slot->time_limit = INT_MAX;
+   ep_slot->time_limit = 10;
 
    struct epoll_event ev;
    ev.events = EPOLLIN;
@@ -68,6 +103,12 @@ int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (voi
       goto please_free;
    }
 
+   ep_slot->pos_index = onion_ffb64(ep->bitmask, ep->bitmask_size);
+   if (ep_slot->pos_index < 0) {
+      DEBUG_FUNC("No free bit!\n");
+      goto please_free;
+   }
+   onion_set_bit64(ep->bitmask, ep_slot->pos_index);
    ep->conn_count = ep->conn_count + 1;
    return 0;
 please_free:
@@ -84,9 +125,11 @@ void onion_epoll_slot_del(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot) {
    }
 
    onion_slab_free(ep->slots, ep_slot);
-   ep->conn_count = ep->conn_count -1;
+   if (ep_slot->pos_index >= 0) {
+      onion_clear_bit64(ep->bitmask, ep_slot->pos_index);
+      ep->conn_count = ep->conn_count -1;
+   }
 }
-
 
 int onion_epoll1_init(int magic, onion_handler_t handler) {
    int ret;
@@ -94,13 +137,15 @@ int onion_epoll1_init(int magic, onion_handler_t handler) {
       DEBUG_ERR("Handler must be provided!\n");
       return -1;
    }
-   
+
    if (onion_epoll_static.current_slots + 1 >= onion_epoll_static.max_slots) {
       DEBUG_ERR("onion_epoll_t limit!\n");
       return -1;
    }
 
+   int conn_max = onion_config.max_peer_per_core;
    int core = onion_epoll_static.current_slots;
+   size_t bitmask_size = (conn_max + 63) / 64; 
 
    onion_epoll_t *ep = onion_slab_malloc(onion_epoll_static.slots, NULL, sizeof(onion_epoll_t));
    if (!ep) {
@@ -123,13 +168,22 @@ int onion_epoll1_init(int magic, onion_handler_t handler) {
    }
 
    ep->conn_count = 0;
-   ep->conn_max = onion_config.max_peer_per_core;
-   ep->slots = onion_slab_init(sizeof(onion_epoll_slot_t) * ep->conn_max);
+   ep->conn_max = conn_max;
    ep->handler = handler;
+
+   ep->slots = onion_slab_init(sizeof(onion_epoll_slot_t) * ep->conn_max + bitmask_size);
    if (!ep->slots) {
       DEBUG_ERR("Epoll slots initialization failed!\n");
       goto please_free;
    }
+
+   ep->bitmask_size = bitmask_size;
+   ep->bitmask = onion_slab_malloc(ep->slots, NULL, ep->bitmask_size);
+   if (!ep->bitmask) {
+      DEBUG_ERR("Epoll bitmask initialization failed!\n");
+      goto please_free;
+   }
+   memset(ep->bitmask, 0, ep->bitmask_size);
 
    ret = pthread_create(&ep->flow, NULL, ep->handler, ep); 
    if (ret < 0) {
@@ -145,9 +199,9 @@ int onion_epoll1_init(int magic, onion_handler_t handler) {
       goto please_free;
    }
 
-   ep->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-   if (ep->timerfd < 0) {
-      DEBUG_FUNC("Epoll timer failed!\n");
+   ret = onion_integrate_timer(ep);
+   if (ret < 0) {
+      DEBUG_ERR("No timer!\n");
       goto please_free;
    }
 
@@ -162,13 +216,17 @@ unsuccessfull:
 
 void onion_epoll1_exit(onion_epoll_t *ep) {
    if (ep->timerfd) {
+      if (ep->fd) {
+         epoll_ctl(ep->fd, EPOLL_CTL_DEL, ep->timerfd, NULL);
+      }
       close(ep->timerfd);
       ep->timerfd = -1;
    }
 
    if (ep->slots) {
       onion_epoll_slot_t *child_slots = (onion_epoll_slot_t*)ep->slots->pool;
-      for (int index = 0; index < ep->conn_max; index++) {
+      int index;
+      while((index = onion_fbb64(ep->bitmask, ep->bitmask_size)) != -1) {
          int fd = child_slots[index].fd;
          if (fd >= 0) {
             onion_epoll_slot_del(ep, &child_slots[index]);
@@ -191,7 +249,10 @@ void onion_epoll1_exit(onion_epoll_t *ep) {
    }
 
    onion_slab_free(onion_epoll_static.slots, ep);
-   onion_epoll_static.current_slots = onion_epoll_static.current_slots - 1;
+   if (ep->active) {
+      onion_epoll_static.current_slots = onion_epoll_static.current_slots - 1;
+      ep->active = false;
+   }
 }
 
 int onion_epoll_static_init() {
