@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 static inline size_t round_size_pow2(size_t size) {
    if (size <= 0) {

@@ -1,0 +1,226 @@
+#include <bits/time.h>
+#include <time.h>
+#define _GNU_SOURCE
+
+#include "epoll.h"
+#include "onion.h"
+#include "slab.h"
+#include "utils.h"
+
+#include <stdio.h>
+#include <pthread.h>
+#include <sched.h>
+#include <stdatomic.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/timerfd.h>
+
+int onion_set_worker_core(pthread_t thread, int core_id) {
+   cpu_set_t set_t;
+   CPU_ZERO(&set_t);
+   CPU_SET(core_id, &set_t);
+   int ret = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &set_t);
+   if (ret != 0) {
+      DEBUG_ERR("Failed to set thread affinity to core %d\n", core_id);
+      return ret;
+   }
+   return 0;
+}
+
+int onion_get_time() {
+   struct timespec time;
+   clock_gettime(CLOCK_MONOTONIC_RAW, &time);
+   return time.tv_sec;
+}
+
+int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data) {
+   int ret;
+   if (ep->conn_count + 1 >= ep->conn_max) {
+      DEBUG_ERR("Epoll slot add limit!\n");
+      return -1;
+   }
+
+   onion_epoll_slot_t *ep_slot = onion_slab_malloc(ep->slots, NULL, sizeof(onion_epoll_slot_t));
+   if (!ep_slot) {
+      DEBUG_ERR("Epoll ep_slot initialization failed!\n");
+      goto unsuccessfull;
+   }
+
+   ep_slot->fd = fd;
+   ep_slot->data = data;
+   ep_slot->func = func;
+   ep_slot->shutdown = shutdown;
+   ep_slot->shutdown_data = shutdown_data;
+
+   ep_slot->time_alive = -1;
+   ep_slot->time_limit = INT_MAX;
+
+   struct epoll_event ev;
+   ev.events = EPOLLIN;
+   ev.data.ptr = ep_slot; 
+
+   ret = epoll_ctl(ep->fd, EPOLL_CTL_ADD, ep_slot->fd, &ev);
+   if (ret < 0) {
+      DEBUG_FUNC("Epoll ctl add failed!\n");
+      goto please_free;
+   }
+
+   ep->conn_count = ep->conn_count + 1;
+   return 0;
+please_free:
+   onion_epoll_slot_del(ep, ep_slot);
+unsuccessfull:
+   return -1;
+}
+
+void onion_epoll_slot_del(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot) {
+   if (ep_slot->fd >= 0) {
+      epoll_ctl(ep->fd, EPOLL_CTL_DEL, ep_slot->fd, NULL);
+      close(ep_slot->fd);
+      ep_slot->fd = -1;
+   }
+
+   onion_slab_free(ep->slots, ep_slot);
+   ep->conn_count = ep->conn_count -1;
+}
+
+
+int onion_epoll1_init(int magic, onion_handler_t handler) {
+   int ret;
+   if (!handler) {
+      DEBUG_ERR("Handler must be provided!\n");
+      return -1;
+   }
+   
+   if (onion_epoll_static.current_slots + 1 >= onion_epoll_static.max_slots) {
+      DEBUG_ERR("onion_epoll_t limit!\n");
+      return -1;
+   }
+
+   int core = onion_epoll_static.current_slots;
+
+   onion_epoll_t *ep = onion_slab_malloc(onion_epoll_static.slots, NULL, sizeof(onion_epoll_t));
+   if (!ep) {
+      DEBUG_ERR("onion_epoll_t initialization failed!\n");
+      goto unsuccessfull;
+   }
+
+   ep->active = false;
+
+   ep->fd = epoll_create1(EPOLL_CLOEXEC);
+   if (ep->fd < 0) {
+      DEBUG_ERR("Epoll initialization failed!\n");
+      goto please_free;
+   }
+
+   ep->eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+   if (ep->eventfd < 0) {
+      DEBUG_ERR("Epoll eventfd initialization failed!\n");
+      goto please_free;
+   }
+
+   ep->conn_count = 0;
+   ep->conn_max = onion_config.max_peer_per_core;
+   ep->slots = onion_slab_init(sizeof(onion_epoll_slot_t) * ep->conn_max);
+   ep->handler = handler;
+   if (!ep->slots) {
+      DEBUG_ERR("Epoll slots initialization failed!\n");
+      goto please_free;
+   }
+
+   ret = pthread_create(&ep->flow, NULL, ep->handler, ep); 
+   if (ret < 0) {
+      DEBUG_ERR("Epoll pthread_create initialization failed!\n");
+      goto please_free;
+   }
+
+   ep->event.events = EPOLLIN | EPOLLOUT | EPOLLET;
+   ep->core = core;
+   ret = onion_set_worker_core(ep->flow, ep->core);
+   if (ret < 0) {
+      DEBUG_ERR("Epoll set worker core failed!\n");
+      goto please_free;
+   }
+
+   ep->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+   if (ep->timerfd < 0) {
+      DEBUG_FUNC("Epoll timer failed!\n");
+      goto please_free;
+   }
+
+   onion_epoll_static.current_slots = onion_epoll_static.current_slots + 1;
+   ep->active = true;
+   return 0;
+please_free:
+   onion_epoll1_exit(ep);
+unsuccessfull:
+   return -1;
+}
+
+void onion_epoll1_exit(onion_epoll_t *ep) {
+   if (ep->timerfd) {
+      close(ep->timerfd);
+      ep->timerfd = -1;
+   }
+
+   if (ep->slots) {
+      onion_epoll_slot_t *child_slots = (onion_epoll_slot_t*)ep->slots->pool;
+      for (int index = 0; index < ep->conn_max; index++) {
+         int fd = child_slots[index].fd;
+         if (fd >= 0) {
+            onion_epoll_slot_del(ep, &child_slots[index]);
+         }
+      }
+      onion_slab_exit(ep->slots);
+      ep->slots = NULL;
+   }
+
+   pthread_join(ep->flow, NULL);
+
+   if (ep->eventfd >= 0) {
+      close(ep->eventfd);
+      ep->eventfd = -1;
+   }
+
+   if (ep->fd >= 0) {
+      close(ep->fd);
+      ep->fd = -1;
+   }
+
+   onion_slab_free(onion_epoll_static.slots, ep);
+   onion_epoll_static.current_slots = onion_epoll_static.current_slots - 1;
+}
+
+int onion_epoll_static_init() {
+   onion_epoll_static.current_slots = 0;
+   onion_epoll_static.max_slots = onion_config.core_count;
+
+   onion_epoll_static.slots = onion_slab_init(sizeof(onion_epoll_t) * onion_epoll_static.max_slots);
+   if (!onion_epoll_static.slots) {
+      DEBUG_ERR("onion_epoll_static slots initialization failed!\n");
+      return -1;
+   }
+
+   return 0;
+}
+
+void onion_epoll_static_exit() {
+
+   if (onion_epoll_static.slots) {
+      onion_epoll_t *child_slots = (onion_epoll_t*)onion_epoll_static.slots->pool;
+      for (int index = 0; index < onion_epoll_static.max_slots; index++) {
+         bool isActive = child_slots[index].active;
+         if (isActive) {
+            onion_epoll1_exit(&child_slots[index]);
+         }
+      }
+      onion_slab_exit(onion_epoll_static.slots);
+      onion_epoll_static.slots = NULL;
+   }
+
+   onion_epoll_static.slots = 0;
+   onion_epoll_static.max_slots = 0;
+}

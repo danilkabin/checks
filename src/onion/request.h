@@ -1,6 +1,7 @@
 #ifndef ONION_REQUEST_H 
 #define ONION_REQUEST_H
 
+#include "onion.h"
 #include "slab.h"
 #include "http.h"
 

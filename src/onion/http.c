@@ -85,7 +85,12 @@ int onion_http_check_in_range(const char *data, size_t size, unsigned char min, 
   return 0;
 }
 
-int onion_http_get_valid_header_name(const char *data, size_t size) {
+int onion_http_get_valid_header_name(char *data, size_t size) {
+
+   if (onion_chacha(data, size, '\0') != NULL) {
+      return -1;
+   }
+
   for (size_t index = 0; index < size; index++) {
     unsigned char c = (unsigned char)data[index];
     if (c < 33 || c > 126) {

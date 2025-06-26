@@ -1,13 +1,27 @@
 #include "request.h"
 #include "http.h"
 
+#include "onion.h"
 #include "slab.h"
+#include "utils.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define CHUNKED "chunked"
+
+typedef enum {
+   REQUEST_LINE = 1,
+   ERROR_REQUEST_LINE = -1,
+   MORE_REQUEST_LINE = 0,
+   REQUEST_HEADER = 1,
+   ERROR_REQUEST_HEADER = -1,
+   MORE_REQUEST_HEADER = 0,
+   REQUEST_BODY = 1,
+   ERROR_REQUEST_BODY = -1,
+   MORE_REQUEST_BODY = 0 
+} onion_token_report;
 
 char *onion_http_tok_alloc(struct onion_slab *allocator, char *src, size_t len) {
    char *ret = onion_slab_malloc(allocator, NULL, len + 1);
@@ -22,6 +36,13 @@ char *onion_http_tok_alloc(struct onion_slab *allocator, char *src, size_t len) 
 int onion_http_request_append(onion_http_request_t *request, size_t data_size) {
    request->bytes_received = request->bytes_received + data_size;
    return 0;
+}
+
+void onion_http_cleanup_headers(onion_http_request_t *request, int up_to_index) {
+   for (int i = 0; i < up_to_index; i++) {
+      onion_slab_free_and_null(request->allocator, (void**)&request->headers[i].name);
+      onion_slab_free_and_null(request->allocator, (void**)&request->headers[i].value);
+   }
 }
 
 int onion_http_check_header(const char *name, const char *target) {
@@ -51,7 +72,7 @@ void onion_http_debug_request_stats(onion_http_request_t *request) {
 }
 
 int http_is_complete() {
-return 0;
+   return 0;
 }
 
 int onion_http_parse_start_line(onion_http_request_t *request, onion_http_buffer_t *buff) {
@@ -61,29 +82,29 @@ int onion_http_parse_start_line(onion_http_request_t *request, onion_http_buffer
    size_t buff_data_len = onion_http_buff_data_len(buff);
 
    if (buff_data_len >= ONION_HTTP_LINE_MAX_SIZE) {
-      return -1;
+      goto unsuccessfull;
    }
 
    char *endVersion = onion_stringa(buff_data_start, buff_data_len, "\r\n", 2);
    if (!endVersion) {
-      return 0; 
+      return MORE_REQUEST_LINE;
    }
 
    size_t line_len = endVersion - buff_data_start;
 
    if (line_len <= 0) {
-      return -1;
+      goto unsuccessfull;
    }
 
    char *endName = onion_chacha(buff_data_start, line_len, ' ');
    if (!endName) {
-      return -1;
+      goto unsuccessfull;
    }
 
    char *urlStart = endName + 1;
    char *endUrl = onion_chacha(urlStart, line_len - (urlStart - buff_data_start), ' ');
    if (!endUrl) {
-      return -1;
+      goto unsuccessfull;
    }
 
    size_t nameSize = endName - buff_data_start;
@@ -95,19 +116,19 @@ int onion_http_parse_start_line(onion_http_request_t *request, onion_http_buffer
    printf("nameSize: %zu, urlSize: %zu, versionSize: %zu\n", nameSize, urlSize, versionSize);
 
    if (nameSize >= ONION_HTTP_LINE_METHOD_MAX_SIZE || nameSize == 0) {
-      return -1;
+      goto unsuccessfull;
    }
 
    if (urlSize >= ONION_HTTP_LINE_URL_MAX_SIZE || urlSize == 0) {
-      return -1;
+      goto unsuccessfull;
    }
 
    if (versionSize >= ONION_HTTP_LINE_VERSION_MAX_SIZE || versionSize == 0) {
-      return -1;
+      goto unsuccessfull;
    }
 
    if (onion_http_check_in_range(urlStart, urlSize, 32, 126, NULL, 0) < 0) {
-      return -1;
+      goto unsuccessfull;
    }
 
    start_line->method = onion_http_get_valid_method(buff_data_start, nameSize);
@@ -118,12 +139,12 @@ int onion_http_parse_start_line(onion_http_request_t *request, onion_http_buffer
 
    start_line->url = onion_http_tok_alloc(request->allocator, urlStart, urlSize);
    if (!start_line->url) {
-      return -1;
+      goto unsuccessfull;
    }
 
    start_line->version = onion_http_get_valid_version(buff_data_start + nameSize + urlSize + 2, versionSize);
    if (start_line->version == ONION_HTTP_VERSION_INVALID) {
-      return -1;
+      goto unsuccessfull;
    }
 
    size_t line_total = line_len + 2;
@@ -132,7 +153,9 @@ int onion_http_parse_start_line(onion_http_request_t *request, onion_http_buffer
    onion_http_buff_consume(buff, line_total);
 
    request->state = REQUEST_PARSE_HEADERS;
-   return line_len + 2;
+   return REQUEST_LINE;
+unsuccessfull:
+   return ERROR_REQUEST_LINE;
 }
 
 int onion_http_parse_headers(onion_http_request_t *request, onion_http_buffer_t *buff) {
@@ -142,9 +165,9 @@ int onion_http_parse_headers(onion_http_request_t *request, onion_http_buffer_t 
    char *endPoint = onion_stringa(buff_data_start, buff_data_len, "\r\n\r\n", 4);
    if (!endPoint) {
       if (buff_data_len >= ONION_HTTP_MAX_HEADER_SIZE) {
-         return -1;
+         goto unsuccessfull;
       }
-      return 0;
+      return MORE_REQUEST_HEADER;
    }
 
    char *ptr = buff_data_start;
@@ -164,23 +187,23 @@ int onion_http_parse_headers(onion_http_request_t *request, onion_http_buffer_t 
 
       char *colon = onion_stringa(ptr, header_len, ":", 1);
       if (!colon) {
-         return -1;
+         goto unsuccessfull;
       }
 
       size_t name_len = colon - ptr;
       if (name_len >= ONION_HTTP_HEADER_NAME_SIZE) {
          printf("Big size\n");
-         return -1;
+         goto unsuccessfull;
       }
 
       if (onion_http_get_valid_header_name(ptr, name_len) < 0) {
-         return -1;
+         goto unsuccessfull;
       } 
 
       header->name = onion_http_tok_alloc(request->allocator, ptr, name_len);
       if (!header->name) {
          printf("No malloc!\n");
-         return -1;
+         goto unsuccessfull;
       }
 
       char *val_start = colon + 1;
@@ -190,20 +213,19 @@ int onion_http_parse_headers(onion_http_request_t *request, onion_http_buffer_t 
       size_t val_len = line_end - val_start;
 
       if (val_len >= ONION_HTTP_HEADER_VALUE_SIZE) {
-         return -1;
+         goto unsuccessfull;
       }
 
       unsigned char exceptions[] = {9};
-      if (onion_http_check_in_range(val_start, val_len, 32, 126, exceptions, sizeof(exceptions)) < 0) {
-         return -1;
+      if (onion_http_check_in_range(val_start, val_len, 32, 255, exceptions, sizeof(exceptions)) < 0) {
+         goto unsuccessfull;
       }
 
       header->value = onion_http_tok_alloc(request->allocator, val_start, line_end - val_start);
       if (!header->value) {
          printf("No malloc!\n");
-         onion_slab_free_and_null(request->allocator, (void**)&header->name);
-         header->name = NULL;
-         return -1;
+         onion_http_cleanup_headers(request, index);
+         goto unsuccessfull;
       }
 
       if (onion_http_check_header(header->name, "Host") == 1) {
@@ -229,14 +251,16 @@ int onion_http_parse_headers(onion_http_request_t *request, onion_http_buffer_t 
    }
 
    if (!request->host || request->header_count > ONION_HTTP_MAX_HEADERS) {
-      return -1;
+      goto unsuccessfull;
    }
 
    request->header_end = request->line_end + total_size;
    onion_http_buff_consume(buff, total_size);
 
    request->state = REQUEST_PARSE_BODY;
-   return 0;
+   return REQUEST_HEADER;
+unsuccessfull:
+   return ERROR_REQUEST_HEADER;
 }
 
 int http_request_set_ready(onion_http_request_t *request, char *src, size_t size) {
@@ -260,7 +284,7 @@ int onion_http_transfer_encoding_handle(onion_http_request_t *request, onion_htt
    size_t sum_size = request->chunk_dirty;
 
    if (body_size <= sum_size) {
-      return 0;
+      return MORE_REQUEST_BODY;
    }
 
    while (1) {
@@ -271,9 +295,9 @@ int onion_http_transfer_encoding_handle(onion_http_request_t *request, onion_htt
       }
 
       size_t line_len = endPoint - current_start;
-      if (line_len == 0) {
+      if (line_len == 0 || line_len > 16) {
          printf("Empty chunk size! Body: %s\n", buff_data_start);
-         return 0;
+         return MORE_REQUEST_BODY;
       }
 
       char temp[line_len + 1];
@@ -282,27 +306,27 @@ int onion_http_transfer_encoding_handle(onion_http_request_t *request, onion_htt
 
       char *endPtr = NULL;
       size_t chunk_size = strtol(temp, &endPtr, 16);
-      if (chunk_size < 0 || endPtr == temp) {
-         return -1;
+      if (chunk_size < 0 || endPtr == temp || chunk_size >= ONION_HTTP_MAX_BODY_SIZE) {
+         return ERROR_REQUEST_BODY;
       }
 
       if (chunk_size == 0) {
          int ret = http_request_set_ready(request, buff_data_start, request->body_len);
          if (ret < 0) {
-            return -1;
+            return ERROR_REQUEST_BODY;
          }
-         return 1;
+         return REQUEST_BODY;
       }
 
       size_t total_need = line_len + 2 + chunk_size + 2;
       if (body_size - sum_size < total_need) {
-         return 0;
+         return MORE_REQUEST_BODY;
       }
 
       char *data_pos = current_start + line_len + 2;
-      if (request->bytes_received + chunk_size > ONION_HTTP_MAX_BODY_SIZE) {
+      if (request->bytes_received + chunk_size >= ONION_HTTP_MAX_BODY_SIZE) {
          printf("Body size exceeds limit!\n");
-         return -1;
+         return ERROR_REQUEST_BODY;
       }
 
       memcpy(buff_data_start + request->body_len, data_pos, chunk_size);
@@ -312,7 +336,7 @@ int onion_http_transfer_encoding_handle(onion_http_request_t *request, onion_htt
       sum_size = sum_size + total_need;
    }
 
-   return 0;
+   return MORE_REQUEST_BODY;
 }
 
 int onion_http_content_length_handle(onion_http_request_t *request, onion_http_buffer_t *buff, size_t body_size) {
@@ -326,12 +350,12 @@ int onion_http_content_length_handle(onion_http_request_t *request, onion_http_b
       request->isReady = true;
       int ret = http_request_set_ready(request, buff_data_start, request->body_len);
       if (ret < 0) {
-         return -1;
+         return ERROR_REQUEST_BODY;
       }
-      return 1;
+      return REQUEST_BODY;
    }
 
-   return 0;
+   return MORE_REQUEST_BODY;
 }
 
 int onion_http_parse_body(onion_http_request_t *request, onion_http_buffer_t *buff) {
@@ -340,7 +364,7 @@ int onion_http_parse_body(onion_http_request_t *request, onion_http_buffer_t *bu
    if (body_size >= ONION_HTTP_MAX_BODY_SIZE) {
       return ret;
    }
-
+   
    if (request->isChunked) {
       return onion_http_transfer_encoding_handle(request, buff, body_size);
    }
@@ -361,12 +385,22 @@ int onion_http_request_parse(onion_http_request_t *request, onion_http_buffer_t 
       switch (request->state) {
          case REQUEST_PARSE_START_LINE:
             ret = onion_http_parse_start_line(request, buff);
+            if (ret != REQUEST_LINE) {
+               return ret;
+            }
             break;
          case REQUEST_PARSE_HEADERS:
             ret = onion_http_parse_headers(request, buff);
+            if (ret != REQUEST_HEADER) {
+               return ret;
+            }
             break;
          case REQUEST_PARSE_BODY:
             ret = onion_http_parse_body(request, buff);
+            if (ret != REQUEST_BODY) {
+               return ret;
+            }
+
             onion_http_debug_request_stats(request);
             return 1;
          case REQUEST_PARSE_DONE:
@@ -376,10 +410,6 @@ int onion_http_request_parse(onion_http_request_t *request, onion_http_buffer_t 
          default:
             break;
       }
-   }
-
-   if (ret <= 0) {
-      return ret;
    }
 
    return 0;

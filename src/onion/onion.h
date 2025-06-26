@@ -33,7 +33,7 @@ typedef struct {
 
    int max_peer_per_core;
    int max_peer_queue_capable;
-   
+
    int http_max_requests;
 
    size_t http_line_method_max_size;
@@ -48,7 +48,7 @@ typedef struct {
    size_t http_max_body_size;
 } onion_config_t;
 
-//extern onion_config_t onion_config;
+extern onion_config_t onion_config;
 
 int onion_config_init(onion_config_t *onion_config);
 void onion_config_exit();

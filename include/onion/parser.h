@@ -18,8 +18,8 @@ typedef struct {
 
 } onion_http_parser_t;
 
-int http_parser_init(onion_http_parser_t *, struct onion_slab *, struct onion_slab *);
-void http_parser_exit(onion_http_parser_t *);
+int onion_http_parser_init(onion_http_parser_t *, struct onion_slab *, struct onion_slab *);
+void onion_http_parser_exit(onion_http_parser_t *);
 
 int onion_http_parser_request(onion_http_parser_t *, char *, size_t);
 

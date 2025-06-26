@@ -11,31 +11,11 @@
       "-Iinclude",
       "-c",
       "-o",
-      "build/obj/src/onion/onion.o",
-      "src/onion/onion.c"
+      "build/obj/src/onion/epoll.o",
+      "src/onion/epoll.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/onion.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/onion.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-c",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-pthread",
-      "-o",
-      "script",
-      "tests/request/script.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/tests/request/script.c",
-    "output": "/home/danilka_bin/flowbin/script"
+    "file": "/home/danilka_bin/flowbin/src/onion/epoll.c",
+    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/epoll.o"
   }
 ]

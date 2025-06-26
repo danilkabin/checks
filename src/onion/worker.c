@@ -3,8 +3,8 @@
 
 #include "worker.h"
 #include "receive.h"
-#include "send.h"
 
+#include "onion.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>

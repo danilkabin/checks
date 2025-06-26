@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int onion_dev_core_count = 1;
+int onion_dev_core_count = 6;
 struct onion_worker **server_sock_onion_workers;
 
 uint8_t *onion_get_peers_bitmap(struct onion_server_sock *server_sock) {
@@ -184,7 +184,7 @@ struct onion_peer_sock *onion_peer_sock_create(struct onion_server_sock *server_
    onion_http_parser_t *parser = &peer->parser;
 
    if (peer->proto_type == ONION_PEER_PROTO_TYPE_HTTP) {
-      ret = http_parser_init(parser, server_sock->request_allocator, server_sock->request_msg_allocator);
+      ret = onion_http_parser_init(parser, server_sock->request_allocator, server_sock->request_msg_allocator);
       if (ret < 0) {
          goto free_everything;
       }
@@ -212,7 +212,7 @@ void onion_peer_sock_release(struct onion_server_sock *server_sock, struct onion
    list_del(&peer->list);
    peer->released = true;
 
-   http_parser_exit(&peer->parser);
+   onion_http_parser_exit(&peer->parser);
 
    if (peer->sock.fd > 0) {
       struct onion_worker *work = peer->onion_worker;
@@ -341,7 +341,7 @@ void onion_sock_core_exit() {
    }
 }
 
-int server_sock_syst_init(void) {
+int onion_sock_syst_init(void) {
    int ret = -1;
 
    ret = onion_sock_core_init();
@@ -356,7 +356,7 @@ int server_sock_syst_init(void) {
    return ret;
 }
 
-void server_sock_syst_exit(struct onion_server_sock *server_sock) {
+void onion_sock_syst_exit(struct onion_server_sock *server_sock) {
    onion_sock_core_exit();
 }
 

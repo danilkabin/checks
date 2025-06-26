@@ -61,7 +61,7 @@ struct onion_slab *onion_slab_memory_init(size_t size);
 void onion_slab_memory_exit(struct onion_slab *allocator);
 
 int onion_http_check_in_range(const char *data, size_t size, unsigned char min, unsigned char max, unsigned char *exp, size_t size_exp);
-int onion_http_get_valid_header_name(const char *data, size_t size);
+int onion_http_get_valid_header_name(char *data, size_t size);
 
 int onion_http_get_valid_method(const char *name, size_t size);
 int onion_http_get_valid_version(const char *name, size_t size);
