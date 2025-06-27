@@ -27,8 +27,6 @@ struct onion_slab {
     size_t memory_allocated;
 };
 
-void *onion_block_get(struct onion_block *pool, int index);
-
 struct onion_slab *onion_slab_init(size_t);
 void onion_slab_exit(struct onion_slab*);
 void *onion_slab_malloc(struct onion_slab*, void *, size_t);

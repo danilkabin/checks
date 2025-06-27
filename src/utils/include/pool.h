@@ -20,6 +20,7 @@ struct onion_block {
    struct list_head list;
 };
 
+void *onion_block_get(struct onion_block *pool, int index);
 int onion_block_isFull(struct onion_block *pool);
 int onion_block_isFree(struct onion_block *pool);
 size_t onion_block_getFreeSize(struct onion_block *pool);

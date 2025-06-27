@@ -10,12 +10,12 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-void *handler(void *arg) {
+void *handler(void *arg, onion_handler_ret_t handler_ret) {
    onion_epoll_t *ep = (onion_epoll_t*)arg;
    return NULL;
 }
 
-#define TOTAL_SOCKETS_PER_CORE 6  // Количество fd на каждый epoll
+#define TOTAL_SOCKETS_PER_CORE 1
 
 int main() {
    onion_config_t onion_config1;
@@ -29,14 +29,13 @@ int main() {
    onion_epoll_t *childs[onion_config.core_count];
 
    for (int i = 0; i < onion_config.core_count; i++) {
-      onion_epoll_t *ep = onion_epoll1_init(handler, 100);
+      onion_epoll_t *ep = onion_epoll1_init(handler, 100000);
       if (!ep) {
          DEBUG_ERR("epoll init failed for core %d\n", i);
          childs[i] = NULL;
          continue;
       }
       childs[i] = ep;
-      DEBUG_FUNC("EP FD added: %d\n", ep->fd);
    }
 
    sleep(1);
@@ -64,7 +63,9 @@ int main() {
          } else {
             DEBUG_FUNC("Added fd=%d to epoll core %d, index=%d\n", fd, i, j);
          }
+               usleep(1000);
       }
+      usleep(10000);
    }
 
    sleep(100);

@@ -1,6 +1,7 @@
 #ifndef ONION_EPOLL_H
 #define ONION_EPOLL_H
 
+#include "onion/poll.h"
 #include "pool.h"
 #include "slab.h"
 #include "sup.h"
@@ -13,9 +14,18 @@
 
 #define ONION_PTHREAD_ENABLED true
 
+#define ONION_EPOLL_EVENTS_PER_TIME 64
 #define ONION_TIMER_INTERVAL 1
+#define ONION_ANONYMOUS_TIME_ALIVE 3
 
-typedef void *(*onion_handler_t) (void *);
+typedef enum {
+   ONION_EPOLL_HANDLER_SOCKET,
+   ONION_EPOLL_HANDLER_TIMER,
+   ONION_EPOLL_HANDLER_SHUTDOWN,
+   ONION_EPOLL_HANDLER_LOOP
+} onion_handler_ret_t;
+
+typedef void *(*onion_handler_t) (void *, onion_handler_ret_t);
 
 typedef struct {
    int fd;
@@ -31,7 +41,7 @@ typedef struct {
    time_t time_limit;
 } onion_epoll_slot_t;
 
-typedef struct {
+typedef struct __attribute__((aligned(32))) {
    int fd;
    int eventfd;
    int core;
@@ -44,7 +54,7 @@ typedef struct {
    struct epoll_event event;
    struct onion_block *slots;
 
-   onion_bitmask bitmask;
+   onion_bitmask *bitmask;
    onion_handler_t handler;
 
    bool active;

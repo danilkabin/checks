@@ -46,11 +46,11 @@ int onion_ffb(onion_bitmask *bitmask, int offset, int type) {
 
 int onion_ffgb(onion_bitmask *bitmask, int grab, int type) {
    size_t offset = 0;
-   
+
    int combo = 0;
    int last_pos = -2;
    int start_pos = -1;
-   
+
    while ((start_pos = onion_ffb(bitmask, offset, type)) >= 0) {
       offset = start_pos + 1;
       if (start_pos - last_pos > 1) {
@@ -96,24 +96,32 @@ void onion_bitmask_del(onion_bitmask *bitmask, int start_pos, size_t count) {
    }
 }
 
-int onion_bitmask_init(onion_bitmask *bitmask, size_t size, size_t size_per_frame) {
+int onion_bitmask_init(onion_bitmask **ptr, size_t size, size_t size_per_frame) {
    if (size < 1 || size_per_frame < 1) {
       DEBUG_FUNC("Size must be provided\n");
       goto unssuccessfull;
+   }
+  
+   onion_bitmask *bitmask = malloc(sizeof(onion_bitmask));
+   if (!bitmask) {
+      DEBUG_ERR("Bitmask initialization failed!\n");
+      goto unssuccessfull; 
    }
 
    bitmask->size = size;
    bitmask->size_per_frame = 8 * size_per_frame;
    bitmask->conv_size = (size + 63) / 64;
-   
-   bitmask->mask = malloc(bitmask->conv_size);
+
+   bitmask->mask = malloc(bitmask->size);
    if (!bitmask->mask){
       DEBUG_ERR("Mask initialization failed!\n");
-      goto unssuccessfull;
+      goto free_bitmask;
    }
    memset(bitmask->mask, 0, bitmask->conv_size);
-
+   *ptr = bitmask;
    return 0;
+free_bitmask:
+   free(bitmask);
 unssuccessfull:
    return -1;
 }

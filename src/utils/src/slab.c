@@ -70,7 +70,7 @@ static void onion_slab_write_blocks(struct onion_slab *allocator, int start_bit,
       memcpy((uint64_t*)allocator->pool + start_bit * block_size, data, size);
    }
    allocator->memory_allocated = allocator->memory_allocated + blocks_needed;
-   DEBUG_FUNC("onion_slab allocated: %zu\n", allocator->memory_allocated);
+   //DEBUG_FUNC("onion_slab allocated: %zu\n", allocator->memory_allocated);
 }
 
 void onion_slab_del(struct onion_slab *allocator, int start, int end) {

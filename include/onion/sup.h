@@ -21,7 +21,20 @@ int onion_find_grab_bit(onion_bitmask *, int, int);
 
 int onion_bitmask_add(onion_bitmask *, size_t );
 void onion_bitmask_del(onion_bitmask *, int , size_t );
-int onion_bitmask_init(onion_bitmask *, size_t , size_t);
+int onion_bitmask_init(onion_bitmask **, size_t , size_t);
 void onion_bitmask_exit(onion_bitmask *);
+
+static inline size_t onion_round_size_pow2(size_t size) {
+   if (size <= 0) {
+      return 1;
+   }
+   size_t multiply = 1;
+
+   while (size > multiply) {
+      multiply <<= 1;
+   }
+
+   return multiply;
+}
 
 #endif
