@@ -83,7 +83,7 @@ struct onion_server_sock *onion_server_sock_create(struct onion_tcp_port_conf *p
    server_sock->peer_capable = peer_capable;
    server_sock->peer_queue_capable = 30;
 
-   ret = onion_memoryPool_init(&server_sock->peer_pool, ONION_MAX_CLIENTS_CAPABLE * sizeof(struct onion_peer_sock), sizeof(struct onion_peer_sock));
+   ret = onion_block_init(&server_sock->peer_pool, ONION_MAX_CLIENTS_CAPABLE * sizeof(struct onion_peer_sock), sizeof(struct onion_peer_sock));
    if (ret < 0) {
       DEBUG_FUNC("Client memory pool initialization failed.\n");
       goto free_everything;
@@ -101,7 +101,7 @@ struct onion_server_sock *onion_server_sock_create(struct onion_tcp_port_conf *p
       goto free_everything;
    }
 
-   server_sock->peerIDs_size = (server_sock->peer_capable + 7) / 8;
+   server_sock->peerIDs_size = (server_sock->peer_capable + 63) / 64;
    server_sock->peerIDs = malloc(server_sock->peerIDs_size);
    if (!server_sock->peerIDs) {
       DEBUG_ERR("Failed to allocate memory for peer ID bitmap.\n");
@@ -172,7 +172,7 @@ void onion_server_sock_release(struct onion_server_sock *server_sock) {
 struct onion_peer_sock *onion_peer_sock_create(struct onion_server_sock *server_sock, int fd) {
    int ret;
 
-   struct onion_peer_sock *peer = (struct onion_peer_sock *)onion_memoryPool_allocBlock(server_sock->peer_pool);
+   struct onion_peer_sock *peer = (struct onion_peer_sock *)onion_block_alloc(server_sock->peer_pool, fd);
    if (!peer) {
       DEBUG_ERR("failed to allocate peer socket from peer pool\n");
       goto free_this_trash;
@@ -223,7 +223,7 @@ void onion_peer_sock_release(struct onion_server_sock *server_sock, struct onion
       onion_net_sock_exit(&peer->sock);
    }
 
-   onion_memoryPool_freeBlock(server_sock->peer_pool, peer);
+   onion_block_free(server_sock->peer_pool, peer);
    DEBUG_FUNC("Peer fd %d released on core %d\n", peer->sock.fd, peer->onion_worker ? peer->onion_worker->core_id : -1);
 }
 

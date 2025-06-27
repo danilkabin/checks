@@ -1,7 +1,9 @@
 #ifndef ONION_EPOLL_H
 #define ONION_EPOLL_H
 
+#include "pool.h"
 #include "slab.h"
+#include "sup.h"
 #include <bits/pthreadtypes.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -11,13 +13,13 @@
 
 #define ONION_PTHREAD_ENABLED true
 
-#define ONION_TIMER_INTERVAL 5
+#define ONION_TIMER_INTERVAL 1
 
 typedef void *(*onion_handler_t) (void *);
 
 typedef struct {
    int fd;
-   int pos_index;
+   int start_pos;
  
    void *data;
    int (*func) (void*);
@@ -40,11 +42,10 @@ typedef struct {
    int conn_max;
 
    struct epoll_event event;
-   struct onion_slab *slots;
+   struct onion_block *slots;
 
+   onion_bitmask bitmask;
    onion_handler_t handler;
-   uint64_t *bitmask;
-   size_t bitmask_size;
 
    bool active;
 } onion_epoll_t;
@@ -55,10 +56,10 @@ static struct {
    struct onion_slab *slots;
 } onion_epoll_static;
 
-int onion_epoll_static_init();
+int onion_epoll_static_init(size_t);
 void onion_epoll_static_exit();
 
-int onion_epoll1_init(int magic, onion_handler_t);
+onion_epoll_t *onion_epoll1_init(onion_handler_t, size_t conn_max);
 void onion_epoll1_exit(onion_epoll_t *);
 
 int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data);

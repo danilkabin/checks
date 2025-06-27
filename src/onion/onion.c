@@ -11,10 +11,8 @@ int onion_config_init(onion_config_t *user_cfg) {
         DEBUG_FUNC("onion_config_init: no CPU cores found (core_count = %d)\n", core_count);
         return -1;
     }
-
-    onion_config.core_count = (user_cfg && user_cfg->core_count >= 1)
-       ? user_cfg->core_count
-       : core_count;
+    
+    onion_config.core_count = core_count;
 
     onion_config.max_peer_per_core = (user_cfg && user_cfg->max_peer_per_core >= 1)
         ? user_cfg->max_peer_per_core

@@ -78,7 +78,7 @@ struct onion_server_sock {
    uint8_t *peerIDs;
    size_t peerIDs_size;
 
-   struct onion_memoryPool *peer_pool;
+   struct onion_block *peer_pool;
    struct list_head peers;
 
    struct onion_worker *onion_worker;

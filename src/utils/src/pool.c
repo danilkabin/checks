@@ -8,19 +8,19 @@
 #include <string.h>
 #include <sys/types.h>
 
-struct list_head onion_memoryPool_list = LIST_HEAD_INIT(onion_memoryPool_list);
+struct list_head onion_block_list = LIST_HEAD_INIT(onion_block_list);
 
 size_t onion_bs_malloc_current_size = 0;
 
-int onion_memoryPool_init(struct onion_memoryPool **poolPtr, size_t max_size, size_t block_size) {
+int onion_block_init(struct onion_block **poolPtr, size_t max_size, size_t block_size) {
    int ret = -1;
 
-   *poolPtr = malloc(sizeof(struct onion_memoryPool));
+   *poolPtr = malloc(sizeof(struct onion_block));
    if (!*poolPtr) {
       DEBUG_FUNC("The pool is null!\n");
       goto free_this_trash;
    }
-   struct onion_memoryPool *pool = *poolPtr;
+   struct onion_block *pool = *poolPtr;
 
    size_t maxSize = round_size_pow2(max_size);
    size_t blockSize = block_size;
@@ -56,7 +56,7 @@ free_this_trash:
    return ret;
 }
 
-void onion_memoryPool_free(struct onion_memoryPool *pool) {
+void onion_block_exit(struct onion_block *pool) {
    list_del(&pool->list);
 
    if (pool->data) {
@@ -70,16 +70,14 @@ void onion_memoryPool_free(struct onion_memoryPool *pool) {
    free(pool);
 }
 
-void *onion_memoryPool_allocBlock(struct onion_memoryPool *pool) {
-   if (!pool) return NULL;
-   if (onion_memoryPool_isFull(pool)) {
-      DEBUG_FUNC("Memory pool is full!\n");
-      return NULL;
-   }
+void *onion_block_get(struct onion_block *pool, int index) {
+   return (void*)((uint8_t*)pool->data + index * pool->block_size);
+}
 
-   int index = ffb(pool->bitmap, pool->block_max);
-   if (index < 0) {
-      DEBUG_FUNC("find_first_free_bit was failed!\n");
+void *onion_block_alloc(struct onion_block *pool, int index) {
+   if (!pool) return NULL;
+   if (onion_block_isFull(pool)) {
+      DEBUG_FUNC("Memory pool is full!\n");
       return NULL;
    }
 
@@ -93,7 +91,7 @@ void *onion_memoryPool_allocBlock(struct onion_memoryPool *pool) {
    return (void*)((uint8_t*)pool->data + index * pool->block_size);
 }
 
-void onion_memoryPool_freeBlock(struct onion_memoryPool *pool, void *ptr) {
+void onion_block_free(struct onion_block *pool, void *ptr) {
    int offset = (uint8_t*)ptr - (uint8_t*)pool->data;
    size_t index = offset / pool->block_size;
 
@@ -110,31 +108,31 @@ void onion_memoryPool_freeBlock(struct onion_memoryPool *pool, void *ptr) {
    onion_bs_malloc_current_size = onion_bs_malloc_current_size - pool->block_size;
 }
 
-int onion_memoryPool_isFull(struct onion_memoryPool *pool) {
+int onion_block_isFull(struct onion_block *pool) {
    return pool->block_free == 0;
 }
 
-int onion_memoryPool_isFree(struct onion_memoryPool *pool) {
+int onion_block_isFree(struct onion_block *pool) {
    return pool->block_free > 0;
 }
 
-size_t onion_memoryPool_getBusySize(struct onion_memoryPool *pool) {
+size_t onion_block_getBusySize(struct onion_block *pool) {
    return pool->block_count * pool->block_size;
 }
 
-size_t onion_memoryPool_getFreeSize(struct onion_memoryPool *pool) {
+size_t onion_block_getFreeSize(struct onion_block *pool) {
    return pool->block_free * pool->block_size;
 }
 
-int onion_memoryPools_init() {
-   INIT_LIST_HEAD(&onion_memoryPool_list);
+int onion_blocks_init() {
+   INIT_LIST_HEAD(&onion_block_list);
    return 0;
 }
 
-void onion_memoryPools_release() {
-   struct onion_memoryPool *node, *tmp;
-   list_for_each_entry_safe(node, tmp, &onion_memoryPool_list, list) {
+void onion_blocks_release() {
+   struct onion_block *node, *tmp;
+   list_for_each_entry_safe(node, tmp, &onion_block_list, list) {
       DEBUG_FUNC("pool deleting! \n");
-      onion_memoryPool_free(node);
+      onion_block_exit(node);
    }
 }

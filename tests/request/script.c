@@ -1,61 +1,81 @@
+#include "epoll.h"
+#include "utils.h"
+#include <fcntl.h>
 #include <onion/onion.h>
 #include <onion/poll.h>
+#include <onion/epoll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 
+void *handler(void *arg) {
+   onion_epoll_t *ep = (onion_epoll_t*)arg;
+   return NULL;
+}
+
+#define TOTAL_SOCKETS_PER_CORE 6  // Количество fd на каждый epoll
+
 int main() {
-   onion_config_t onion_config;
-   onion_config_init(&onion_config);
+   onion_config_t onion_config1;
+   onion_config_init(&onion_config1);
 
-   onion_sock_syst_init();
-
-
-   int sock = socket(AF_INET, SOCK_STREAM, 0);
-   if (sock < 0) {
-      perror("Socket creation failed");
+   int ret = onion_epoll_static_init(onion_config.core_count);
+   if (ret < 0) {
+      DEBUG_FUNC("No epoll!\n");
       return -1;
    }
+   onion_epoll_t *childs[onion_config.core_count];
 
-   // Настроим серверный адрес
-   struct sockaddr_in server_addr;
-   memset(&server_addr, 0, sizeof(server_addr));
-
-   server_addr.sin_family = AF_INET;
-   server_addr.sin_port = htons(51235);  // Порт 51234
-   server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");  // Локальный адрес
-
-   // Подключаемся к серверу
-   if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-      perror("Connection failed");
-      return -1;
+   for (int i = 0; i < onion_config.core_count; i++) {
+      onion_epoll_t *ep = onion_epoll1_init(handler, 100);
+      if (!ep) {
+         DEBUG_ERR("epoll init failed for core %d\n", i);
+         childs[i] = NULL;
+         continue;
+      }
+      childs[i] = ep;
+      DEBUG_FUNC("EP FD added: %d\n", ep->fd);
    }
 
-   // HTTP запрос, который мы будем отправлять
-   const char *http_request = "POST / HTTP/1.1\r\n"
-      "Host: 127.0.0.1:51235\r\n"
-      "Connection: close\r\n"
-      "Content-Length: 5\r\n\r\n"
-      "Hello\n";
+   sleep(1);
 
-   // Отправка запроса каждые полсекунды
-   while (1) {
-      // Отправляем запрос
-      if (send(sock, http_request, strlen(http_request), 0) < 0) {
-         perror("Send failed");
-         return -1;
+   for (int i = 0; i < onion_config.core_count; i++) {
+      if (!childs[i] || !childs[i]->active || childs[i]->fd <= 0) {
+         DEBUG_ERR("childs[%d] invalid\n", i);
+         continue;
       }
 
-      usleep(500000);  // Задержка в микросекундах (500000 микросекунд = 0.5 секунды)
+      for (int j = 0; j < TOTAL_SOCKETS_PER_CORE; j++) {
+         int fd = socket(AF_INET, SOCK_STREAM, 0);
+         if (fd < 0) {
+            perror("socket");
+            continue;
+         }
+
+         int flags = fcntl(fd, F_GETFL, 0);
+         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+         ret = onion_epoll_slot_add(childs[i], fd, NULL, NULL, NULL, NULL);
+         if (ret < 0) {
+            DEBUG_ERR("Failed to add fd=%d to epoll core %d, index=%d\n", fd, i, j);
+            close(fd);
+         } else {
+            DEBUG_FUNC("Added fd=%d to epoll core %d, index=%d\n", fd, i, j);
+         }
+      }
    }
 
-   // Закрываем сокет
-   close(sock);
+   sleep(100);
 
+   for (int i = 0; i < onion_config.core_count; i++) {
+      if (childs[i] && childs[i]->active) {
+         onion_epoll1_exit(childs[i]);
+      }
+   }
 
-   printf("line method max size:%zu\n", onion_config.http_line_method_max_size);
-   sleep(133);
+   onion_epoll_static_exit();
+
    return 0;
 }

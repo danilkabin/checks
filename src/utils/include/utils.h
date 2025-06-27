@@ -51,6 +51,25 @@ static inline int ffb(uint8_t *bitmap, size_t count) {
    return -1;
 }
 
+static inline int onion_fbb8(uint8_t *bitmap, size_t count) {
+   size_t blocks = (count + 7) / 8;
+   for (size_t byte = 0; byte < blocks; ++byte) {
+      uint64_t val = bitmap[byte];
+      if (val != 0) {
+         int bit_pos = __builtin_ffsll(val);
+         if (bit_pos > 0) {
+            int index = (int)(byte * 8 + (bit_pos - 1));
+            if (index < (int)count) {
+               return index;
+            } else {
+               return -1;
+            }
+         }
+      }
+   }
+   return -1;
+}
+
 static inline int onion_ffb64(uint64_t *bitmap, size_t count) {
    size_t blocks = (count + 63) / 64;
    for (size_t block = 0; block < blocks; ++block) {
@@ -71,7 +90,7 @@ static inline int onion_ffb64(uint64_t *bitmap, size_t count) {
 
 
 static inline int onion_fbb64(uint64_t *bitmap, size_t count) {
-   size_t blocks = (count + 64) / 64;
+   size_t blocks = (count + 63) / 64;
    for (size_t byte = 0; byte < blocks; ++byte) {
       uint64_t val = bitmap[byte];
       if (val != 0) {
@@ -93,6 +112,16 @@ static inline void printBitmap(uint8_t *bitmap, size_t bytes) {
    for (size_t byte = 0; byte < bytes; byte++) {
       for (int bit = 7; bit >= 0; bit--) {
          printf("%d", (bitmap[byte] >> bit) & 1);
+      }
+      printf(" ");
+   }
+   printf("\n");
+}
+
+static inline void printBitmap64(uint64_t *bitmap, size_t bytes) {
+   for (size_t byte = 0; byte < bytes; byte++) {
+      for (int bit = 63; bit >= 0; bit--) {
+         printf("%ld", (bitmap[byte] >> bit) & 1);
       }
       printf(" ");
    }

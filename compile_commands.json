@@ -2,6 +2,7 @@
   {
     "arguments": [
       "/usr/bin/gcc",
+      "-c",
       "-Wall",
       "-Wextra",
       "-O2",
@@ -9,13 +10,13 @@
       "-Isrc/onion",
       "-Isrc/utils/include",
       "-Iinclude",
-      "-c",
+      "-pthread",
       "-o",
-      "build/obj/src/onion/epoll.o",
-      "src/onion/epoll.c"
+      "script",
+      "tests/request/script.c"
     ],
     "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/epoll.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/epoll.o"
+    "file": "/home/danilka_bin/flowbin/tests/request/script.c",
+    "output": "/home/danilka_bin/flowbin/script"
   }
 ]

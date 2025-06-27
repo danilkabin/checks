@@ -8,16 +8,16 @@
 #include <string.h>
 #include <unistd.h>
 
-static int find_consecutive_free_bits(uint8_t *bitmap, size_t bitmask_size, size_t blocks_needed) {
-   size_t total_bits = bitmask_size * 8;
+static int find_consecutive_free_bits(uint64_t *bitmap, size_t bitmask_size, size_t blocks_needed) {
+   size_t total_bits = bitmask_size * 64;
    size_t consecutive_free = 0;
    int start_index = -1;
 
    for (size_t i = 0; i < total_bits; i++) {
-      size_t byte = i / 8;
-      size_t bit = i % 8;
+      size_t byte = i / 64;
+      size_t bit = i % 64;
 
-      if (byte >= bitmask_size || i >= bitmask_size * 8) {
+      if (byte >= bitmask_size || i >= bitmask_size * 64) {
          break;
       }
 
@@ -38,12 +38,16 @@ static int find_consecutive_free_bits(uint8_t *bitmap, size_t bitmask_size, size
    return -1; 
 }
 
-static void clear_consecutive_busy_bits(uint8_t *bitmap, size_t start, size_t end) {
+static void clear_consecutive_busy_bits(uint64_t *bitmap, size_t start, size_t end) {
    for (size_t bit = start; bit < end; bit++) {
-      clear_bit(bitmap, bit);
+      onion_clear_bit64(bitmap, bit);
    }
 }
 
+int onion_slab_get_endpoint(struct onion_slab *slab, int start) {
+  int busy_blocks = slab->blocks[start].allocation_size; 
+  return start + busy_blocks;
+} 
 
 static void onion_slab_write_blocks(struct onion_slab *allocator, int start_bit, void *data, size_t size, size_t blocks_needed, int set_bits) {
    size_t block_size = allocator->block_size;
@@ -53,7 +57,7 @@ static void onion_slab_write_blocks(struct onion_slab *allocator, int start_bit,
       size_t bit_offset = start_bit + index;
       size_t remain = real_size > block_size ? block_size : real_size;
 
-      if (set_bits) set_bit(allocator->bitmask, bit_offset);
+      if (set_bits) onion_set_bit64(allocator->bitmask, bit_offset);
 
       allocator->blocks[bit_offset].used = remain;
       allocator->blocks[bit_offset].is_start = (index == 0);
@@ -63,10 +67,10 @@ static void onion_slab_write_blocks(struct onion_slab *allocator, int start_bit,
    }
 
    if (data != NULL) {
-      memcpy((uint8_t*)allocator->pool + start_bit * block_size, data, size);
+      memcpy((uint64_t*)allocator->pool + start_bit * block_size, data, size);
    }
    allocator->memory_allocated = allocator->memory_allocated + blocks_needed;
-   //   DEBUG_FUNC("onion_slab allocated: %zu\n", allocator->memory_allocated);
+   DEBUG_FUNC("onion_slab allocated: %zu\n", allocator->memory_allocated);
 }
 
 void onion_slab_del(struct onion_slab *allocator, int start, int end) {
@@ -88,7 +92,7 @@ void onion_slab_del(struct onion_slab *allocator, int start, int end) {
    }
 
    clear_consecutive_busy_bits(allocator->bitmask, (size_t)start, (size_t)end + 1);
-   memset((uint8_t*)allocator->pool + start * allocator->block_size, 0, del * allocator->block_size);
+   memset((uint64_t*)allocator->pool + start * allocator->block_size, 0, del * allocator->block_size);
    allocator->block_used -= del;
    allocator->memory_allocated = allocator->memory_allocated - del;
    DEBUG_FUNC("onion_slab deleted: %zu\n", allocator->memory_allocated);
@@ -116,7 +120,7 @@ void *onion_slab_malloc(struct onion_slab *allocator, void *ptr, size_t size) {
 
    onion_slab_write_blocks(allocator, start_bit, ptr, size, blocks_needed, 1);
    allocator->block_used += blocks_needed;
-   return (uint8_t*)allocator->pool + start_bit * block_size;
+   return (uint64_t*)allocator->pool + start_bit * block_size;
 free_this_trash:
    return NULL;
 }
@@ -126,7 +130,7 @@ void onion_slab_free(struct onion_slab *allocator, void *ptr) {
       DEBUG_FUNC("Invalid input\n");
       goto free_this_trash;
    }
-   int start_index = ((uint8_t*)ptr - (uint8_t*)allocator->pool) / allocator->block_size;
+   int start_index = ((uint64_t*)ptr - (uint64_t*)allocator->pool) / allocator->block_size;
    if (start_index < 0 || (size_t)start_index >= allocator->block_capacity) {
       DEBUG_FUNC("start_index faild\n");
       goto free_this_trash;
@@ -153,7 +157,7 @@ void *onion_slab_realloc(struct onion_slab *allocator, void *ptr, size_t new_siz
       onion_slab_free(allocator, ptr);
       return NULL;
    }
-   int start_index = ((uint8_t*)ptr - (uint8_t*)allocator->pool) / allocator->block_size;
+   int start_index = ((uint64_t*)ptr - (uint64_t*)allocator->pool) / allocator->block_size;
    if (start_index < 0 || (size_t)start_index >= allocator->block_capacity) {
       DEBUG_FUNC("start_index faild\n");
       goto free_this_trash;
@@ -173,7 +177,7 @@ void *onion_slab_realloc(struct onion_slab *allocator, void *ptr, size_t new_siz
    if (new_blocks <= (size_t)old_blocks) {
       allocator->blocks[start_index].allocation_size = new_blocks;
       for (int i = start_index + new_blocks; i <= end_index; i++) {
-         clear_bit(allocator->bitmask, i);
+         onion_clear_bit64(allocator->bitmask, i);
          allocator->blocks[i].used = 0;
       }
       allocator->block_used -= (old_blocks - new_blocks);
@@ -184,7 +188,7 @@ void *onion_slab_realloc(struct onion_slab *allocator, void *ptr, size_t new_siz
    for (int i = 0; i < (int)(new_blocks - old_blocks); i++) {
       int next_bit = end_index + 1 + i;
       if ((size_t)(next_bit) >= allocator->block_capacity ||
-            (allocator->bitmask[next_bit / 8] & (1 << (next_bit % 8)))) {
+            (allocator->bitmask[next_bit / 64] & (1 << (next_bit % 64)))) {
          can_expand = 0;
          break;
       }
@@ -193,7 +197,7 @@ void *onion_slab_realloc(struct onion_slab *allocator, void *ptr, size_t new_siz
    if (can_expand) {
       for (int i = 0; i < (int)(new_blocks - old_blocks); i++) {
          int bit_index = end_index + 1 + i;
-         set_bit(allocator->bitmask, bit_index);
+         onion_set_bit64(allocator->bitmask, bit_index);
          allocator->blocks[bit_index].used = 0;
       }
       allocator->blocks[start_index].allocation_size = new_blocks;
@@ -247,7 +251,7 @@ struct onion_slab *onion_slab_init(size_t total_pool_size) {
    }
    memset(allocator->blocks, 0, blocks_size);
 
-   allocator->bitmask_size = (blocks + 7) / 8;
+   allocator->bitmask_size = (blocks + 63) / 64;
    allocator->bitmask = malloc(allocator->bitmask_size);
    if (!allocator->bitmask) {
       DEBUG_FUNC("no allocator bitmask\n");
