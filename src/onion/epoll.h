@@ -14,18 +14,26 @@
 
 #define ONION_PTHREAD_ENABLED true
 
-#define ONION_EPOLL_EVENTS_PER_TIME 64
+#define ONION_EPOLL_MAX_EVENTS 32
 #define ONION_TIMER_INTERVAL 1
 #define ONION_ANONYMOUS_TIME_ALIVE 3
 
 typedef enum {
-   ONION_EPOLL_HANDLER_SOCKET,
-   ONION_EPOLL_HANDLER_TIMER,
+   ONION_EPOLL_HANDLER_EPFD,
+   ONION_EPOLL_HANDLER_EVENTFD,
+   ONION_EPOLL_HANDLER_TIMERFD,
+   ONION_EPOLL_HANDLER_PUPPYFD,
    ONION_EPOLL_HANDLER_SHUTDOWN,
-   ONION_EPOLL_HANDLER_LOOP
+   ONION_EPOLL_HANDLER_UNKNOWN
 } onion_handler_ret_t;
 
 typedef void *(*onion_handler_t) (void *, onion_handler_ret_t);
+
+typedef struct {
+   onion_handler_ret_t type;
+   int fd;
+   void *user_data;
+} onion_epoll_tag_t;
 
 typedef struct {
    int fd;
@@ -41,7 +49,7 @@ typedef struct {
    time_t time_limit;
 } onion_epoll_slot_t;
 
-typedef struct __attribute__((aligned(32))) {
+typedef struct __attribute__((aligned(64))) {
    int fd;
    int eventfd;
    int core;
@@ -53,6 +61,7 @@ typedef struct __attribute__((aligned(32))) {
 
    struct epoll_event event;
    struct onion_block *slots;
+   struct onion_block *tags;
 
    onion_bitmask *bitmask;
    onion_handler_t handler;

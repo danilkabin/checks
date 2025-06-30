@@ -80,7 +80,15 @@ void *onion_block_alloc(struct onion_block *pool, int index) {
       DEBUG_FUNC("Memory pool is full!\n");
       return NULL;
    }
-
+   
+   if (index == -1) {
+    index = ffb(pool->bitmap, pool->block_max);
+    if (index < 0) {
+        DEBUG_FUNC("find_first_free_bit was failed!\n");
+        return NULL;
+    }
+   }
+   
    set_bit(pool->bitmap, index);
    pool->block_free--;
    pool->block_count++;

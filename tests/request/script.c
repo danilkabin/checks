@@ -1,8 +1,10 @@
 #include "epoll.h"
+#include "queue.h"
 #include "utils.h"
 #include <fcntl.h>
 #include <onion/onion.h>
 #include <onion/poll.h>
+#include <onion/queue.h>
 #include <onion/epoll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +13,7 @@
 #include <unistd.h>
 
 void *handler(void *arg, onion_handler_ret_t handler_ret) {
-   onion_epoll_t *ep = (onion_epoll_t*)arg;
+   // onion_epoll_t *ep = (onion_epoll_t*)arg;
    return NULL;
 }
 
@@ -21,6 +23,19 @@ int main() {
    onion_config_t onion_config1;
    onion_config_init(&onion_config1);
 
+   onion_ringbuff_t *buff = NULL;
+   int ret1 = onion_ringbuff_init(&buff, 100, false); 
+   if (ret1 < 0) {
+      return -1;
+   }
+   char ebalo[10] = {"Hello yes1"}; 
+   char src[10];
+   for (int index = 0; index < 10; index++) {
+      onion_ringbuff_memcpy(buff, &ebalo, sizeof(ebalo));
+   }
+   onion_ringbuff_extract(buff, src, 111);
+   DEBUG_FUNC("hhhello!! : %s free size: %zu\n", src, onion_ringbuff_bytes_free(buff));
+   sleep(131);
    int ret = onion_epoll_static_init(onion_config.core_count);
    if (ret < 0) {
       DEBUG_FUNC("No epoll!\n");
@@ -63,7 +78,7 @@ int main() {
          } else {
             DEBUG_FUNC("Added fd=%d to epoll core %d, index=%d\n", fd, i, j);
          }
-               usleep(1000);
+         usleep(1000);
       }
       usleep(10000);
    }

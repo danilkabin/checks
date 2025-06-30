@@ -49,6 +49,25 @@
       "-Iinclude",
       "-c",
       "-o",
+      "build/obj/src/onion/queue.o",
+      "src/onion/queue.c"
+    ],
+    "directory": "/home/danilka_bin/flowbin",
+    "file": "/home/danilka_bin/flowbin/src/onion/queue.c",
+    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/queue.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Isrc/onion",
+      "-Isrc/utils/include",
+      "-Iinclude",
+      "-c",
+      "-o",
       "build/obj/src/onion/send.o",
       "src/onion/send.c"
     ],
