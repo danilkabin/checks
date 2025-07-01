@@ -26,8 +26,10 @@
 
 struct onion_worker_pool {
    struct onion_block *workers;
-   size_t count;
-   size_t capable;
+   onion_epoll_static_t *epoll_static;
+   long count;
+   long capable;
+   int peers_capable;
 };
 
 struct onion_worker {
@@ -35,7 +37,7 @@ struct onion_worker {
    onion_epoll_t *epoll;
 };
 
-struct onion_worker_pool *onion_workers;
+extern struct onion_worker_pool *onion_workers;
 
 struct onion_peer_sock {
    struct onion_net_sock sock;
@@ -80,11 +82,9 @@ void onion_server_sock_release(struct onion_server_sock *);
 int onion_server_sock_accept(struct onion_server_sock *);
 
 void *onion_bs_onion_worker_thread(void *);
-int onion_sock_core_init(uint16_t port);
-void onion_sock_core_exit();
 
-int onion_sock_syst_init(void);
-void onion_sock_syst_exit(struct onion_server_sock *);
+int onion_device_init(uint16_t port, long core_count, int peers_capable);
+void onion_device_exit();
 
 #define ONION_CREATE_EPOLL(work, fd, event, flags) do { \
    fd = epoll_create1(flags); \

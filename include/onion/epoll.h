@@ -22,6 +22,8 @@
 #define ONION_EPOLL_TAG_QUEUE_CAPABLE 5
 #define ONION_TAG_QUEUE_CAPABLE 10
 
+struct onion_thread_args;
+
 typedef enum {
    ONION_EPOLL_HANDLER_EPFD = 4308,
    ONION_EPOLL_HANDLER_EVENTFD,
@@ -65,25 +67,33 @@ typedef struct __attribute__((aligned(64))) {
    struct onion_block *slots;
    struct onion_block *tags;
 
+   struct onion_thread_args *args;
+
    onion_bitmask *bitmask;
    onion_handler_t handler;
 
    bool active;
 } onion_epoll_t;
 
-static struct {
-   struct onion_slab *slots;
-   int current_slots;
-   int max_slots;
-} onion_epoll_static;
+typedef struct {
+   struct onion_slab *epolls;
+   struct onion_block *epolls_args;
+   long count;
+   long capable;
+} onion_epoll_static_t;
+
+struct onion_thread_args {
+   onion_epoll_static_t *ep_st;
+   onion_epoll_t *ep;
+};
 
 int onion_fd_is_valid(int fd);
 
-int onion_epoll_static_init(size_t);
-void onion_epoll_static_exit();
+int onion_epoll_static_init(onion_epoll_static_t **ep_st, long core_count);
+void onion_epoll_static_exit(onion_epoll_static_t *ep_st);
 
-onion_epoll_t *onion_epoll1_init(onion_handler_t, size_t conn_max);
-void onion_epoll1_exit(onion_epoll_t *);
+onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, size_t conn_max);
+void onion_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *);
 
 int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data);
 void onion_epoll_slot_del(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot);

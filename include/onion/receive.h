@@ -1,7 +1,7 @@
 #ifndef ONION_RECEIVE_H
 #define ONION_RECEIVE_H
 
-#include "poll.h"
+#include "device.h"
 #include "onion.h"
 #include <stddef.h>
 

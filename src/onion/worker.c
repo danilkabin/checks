@@ -1,5 +1,5 @@
 #include "utils.h"
-#include "poll.h"
+#include "device.h"
 
 #include "worker.h"
 #include "receive.h"
@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-
+/*
 void *onion_worker_thread(void *args) {
    struct onion_worker *work = (struct onion_worker*)args;
    if (!work) {
@@ -52,4 +52,4 @@ void *onion_worker_thread(void *args) {
    }
    return NULL;
 }
-
+*/

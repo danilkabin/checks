@@ -1,6 +1,6 @@
 #include "utils.h"
 #include "send.h"
-#include "poll.h"
+#include "device.h"
 
 #include <stddef.h>
 #include <sys/socket.h>

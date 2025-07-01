@@ -87,6 +87,25 @@
       "-Iinclude",
       "-c",
       "-o",
+      "build/obj/src/onion/device.o",
+      "src/onion/device.c"
+    ],
+    "directory": "/home/danilka_bin/flowbin",
+    "file": "/home/danilka_bin/flowbin/src/onion/device.c",
+    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/device.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Isrc/onion",
+      "-Isrc/utils/include",
+      "-Iinclude",
+      "-c",
+      "-o",
       "build/obj/src/onion/receive.o",
       "src/onion/receive.c"
     ],
@@ -112,25 +131,6 @@
     "directory": "/home/danilka_bin/flowbin",
     "file": "/home/danilka_bin/flowbin/src/onion/worker.c",
     "output": "/home/danilka_bin/flowbin/build/obj/src/onion/worker.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/poll.o",
-      "src/onion/poll.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/poll.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/poll.o"
   },
   {
     "arguments": [

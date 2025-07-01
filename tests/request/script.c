@@ -1,6 +1,7 @@
+#include "device.h"
 #include "utils.h"
 #include <onion/onion.h>
-#include <onion/poll.h>
+#include <onion/device.h>
 #include <onion/ringbuff.h>
 #include <onion/epoll.h>
 
@@ -11,16 +12,13 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-void *handler(void *arg, onion_epoll_tag_t *tag, onion_handler_ret_t handler_ret) {
-   // onion_epoll_t *ep = (onion_epoll_t*)arg;
-   return NULL;
-}
-
 #define TOTAL_SOCKETS_PER_CORE 1
 
 int main() {
    onion_config_t onion_config1;
    onion_config_init(&onion_config1);
+DEBUG_FUNC("dfsdfds : %d\n", onion_config.core_count);
+   int ret = onion_device_init(51234, onion_config.core_count, 20);
 
    sleep(100);
 

@@ -1,6 +1,6 @@
-#include "slab.h"
 #define _GNU_SOURCE
 
+#include "slab.h"
 #include "ringbuff.h"
 #include "epoll.h"
 #include "utils.h"
@@ -346,7 +346,7 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
       return NULL;
    }
 
-   long current_core = ep_st->capable;
+   long current_core = ep_st->count;
    size_t bitmask_size = (conn_max + 63) / 64; 
 
    onion_epoll_t *ep = onion_slab_malloc(ep_st->epolls, NULL, sizeof(onion_epoll_t));
@@ -380,6 +380,9 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
       DEBUG_ERR("args initialization failed.\n");
       goto please_free;
    }
+
+   ep->args->ep_st = ep_st;
+   ep->args->ep = ep;
 
    ret = onion_block_init(&ep->slots, ep->conn_max * sizeof(onion_epoll_slot_t), sizeof(onion_epoll_slot_t)); 
    if (ret < 0) {
