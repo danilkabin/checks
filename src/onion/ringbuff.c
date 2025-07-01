@@ -1,6 +1,5 @@
-#include "pool.h"
 #include "utils.h"
-#include "queue.h"
+#include "ringbuff.h"
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -136,6 +135,8 @@ uint8_t *onion_ringbuff_dmemcpy(onion_ringbuff_t *ringbuff, void *data, size_t s
       return NULL;
    }
 
+   void *ptr = ringbuff->head;
+
    if (onion_ringbuff_write(ringbuff, &header, sizeof(int)) == NULL) {
       DEBUG_FUNC("Size write failed\n");
       return NULL;
@@ -146,14 +147,14 @@ uint8_t *onion_ringbuff_dmemcpy(onion_ringbuff_t *ringbuff, void *data, size_t s
       return NULL;
    }
 
-   return ringbuff->head;
+   return ptr;
 }
 
-uint8_t *onion_ringbuff_omemcpy(onion_ringbuff_t *ringbuff, void *data, size_t size) {
-   return 0;
+void *onion_ringbuff_omemcpy(onion_ringbuff_t *ringbuff, void *data, size_t size) {
+   return NULL;
 }
 
-uint8_t *onion_ringbuff_memcpy(onion_ringbuff_t *ringbuff, void *data, size_t size) {
+void *onion_ringbuff_memcpy(onion_ringbuff_t *ringbuff, void *data, size_t size) {
    return ringbuff->overflow ? onion_ringbuff_omemcpy(ringbuff, data, size) : onion_ringbuff_dmemcpy(ringbuff, data, size);
 }
 
@@ -176,7 +177,6 @@ int onion_ringbuff_init(onion_ringbuff_t **ptr, size_t capacity, bool overflow) 
    }
 
    onion_ringbuff_reset(ringbuff);
-   DEBUG_FUNC("head: %p \n", ringbuff->head);
    *ptr = ringbuff;
    return 0;
 

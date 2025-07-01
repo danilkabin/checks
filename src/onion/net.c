@@ -1,7 +1,9 @@
 #include "net.h"
+#include "utils.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +16,27 @@ void onion_net_sock_zero(struct onion_net_sock *sock_struct) {
    sock_struct->type = -1;
    sock_struct->packets_sent = 0;
    sock_struct->packets_received = 0;
+}
+
+int onion_net_port_check(uint16_t port) {
+   int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+   if (sock_fd < 0) {
+      fprintf(stderr, "Failed to create socket: %s\n", strerror(errno));
+      return -1;
+   }
+
+   struct sockaddr_in sock_addr;
+   socklen_t addr_len = sizeof(sock_addr);
+   memset(&sock_addr, 0, addr_len);
+
+   sock_addr.sin_family = AF_INET;
+   sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+   sock_addr.sin_port = htons(port);
+
+   int ret = bind(sock_fd, (struct sockaddr*)&sock_addr, addr_len);
+   close(sock_fd);
+
+   return (ret == 0);
 }
 
 int onion_net_sock_tcp_create(struct onion_net_sock *sock_struct, struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
@@ -55,6 +78,7 @@ int onion_net_sock_tcp_create(struct onion_net_sock *sock_struct, struct onion_t
    onion_net_sock_zero(sock_struct);
    sock_struct->fd = sock_fd;
    sock_struct->type = port_conf->type;
+   sock_struct->queue_capable = queue_capable;
    sock_struct->sock_addr = sock_addr;
 
    return 0;
@@ -89,6 +113,7 @@ int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct o
    onion_net_sock_zero(client_sock);
    client_sock->fd = client_fd;
    client_sock->type = SOCK_STREAM;
+   client_sock->queue_capable = -1;
    client_sock->sock_addr = client_addr;
 
    return 0;

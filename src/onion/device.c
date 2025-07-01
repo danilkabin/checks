@@ -1,4 +1,5 @@
-#include "worker.h"
+#include "epoll.h"
+#include "onion.h"
 #define _GNU_SOURCE
 
 #include "net.h"
@@ -6,7 +7,7 @@
 #include "slab.h"
 #include "listhead.h"
 #include "lock.h"
-#include "poll.h"
+#include "device.h"
 #include "pool.h"
 #include "utils.h"
 
@@ -28,37 +29,9 @@
 #include <fcntl.h>
 
 int onion_dev_core_count = 6;
-struct onion_worker **server_sock_onion_workers;
 
 uint8_t *onion_get_peers_bitmap(struct onion_server_sock *server_sock) {
    return server_sock->peerIDs;
-}
-
-void onion_set_onion_worker_affinity(pthread_t thread, int core_id) {
-   cpu_set_t set_t;
-   CPU_ZERO(&set_t);
-   CPU_SET(core_id, &set_t);
-   int ret = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &set_t);
-   if (ret != 0) {
-      DEBUG_ERR("NO CORE!\n");
-   }
-}
-
-void onion_worker_release(struct onion_worker *work) {
-   if (work->server_sock) {
-      onion_server_sock_release(work->server_sock);
-   }
-   if (work->epoll_fd) {
-      close(work->epoll_fd);
-      work->epoll_fd = -1;
-   }
-   if (work->core.flow) {
-      pthread_cancel(work->core.flow);
-      pthread_join(work->core.flow, NULL);
-      work->core.flow = 0;
-   }
-   work->server_sock = NULL;
-   free(work);
 }
 
 struct onion_server_sock *onion_server_sock_create(struct onion_tcp_port_conf *port_conf, struct onion_worker *work, int work_index, int peer_capable) {
@@ -130,9 +103,9 @@ struct onion_server_sock *onion_server_sock_create(struct onion_tcp_port_conf *p
    DEBUG_FUNC("Server socket created successfully. Descriptor: %d\n", server_sock->sock.fd);
    return server_sock;
 
-   free_everything:
+free_everything:
    onion_server_sock_release(server_sock);
-   free_this_trash:
+free_this_trash:
    return NULL;
 }
 
@@ -198,9 +171,9 @@ struct onion_peer_sock *onion_peer_sock_create(struct onion_server_sock *server_
 
    return peer;
 
-   free_everything:
+free_everything:
    onion_peer_sock_release(server_sock, peer);
-   free_this_trash:
+free_this_trash:
    return NULL;
 }
 
@@ -262,83 +235,81 @@ int onion_server_sock_accept(struct onion_server_sock *server_sock) {
    DEBUG_FUNC("new peer fd %d added to epoll\n", peer->sock.fd);
 
    return peer->sock.fd;
-   free_everything:
+free_everything:
    onion_peer_sock_release(server_sock, peer);
    return ret;
-   free_sock:
+free_sock:
    close(onion_peer_sock.fd);
-   free_this_trash:
+free_this_trash:
    return ret;
 }
 
-int onion_sock_core_init() {
-   int max_peers = ONION_MAX_CLIENTS_CAPABLE / onion_dev_core_count;
-   int extra = ONION_MAX_CLIENTS_CAPABLE % onion_dev_core_count;
-
-   server_sock_onion_workers = malloc(sizeof(struct onion_worker *) * onion_dev_core_count);
-   if (!server_sock_onion_workers) {
-      DEBUG_INFO("no onion_workers\n");
-      goto free_this_trash;
+int onion_dev_worker_init(struct onion_worker_pool *onion_workers) {
+   struct onion_worker *worker = onion_block_alloc(onion_workers->workers, -1);
+   if (!worker) {
+      DEBUG_FUNC("Worker initialization failed.\n");
+      return -1;
    }
+
+   worker->epoll =  
+
+   onion_workers->count = onion_workers->count + 1;
+}
+
+void onion_dev_worker_exit() {
+
+}
+
+int onion_sock_core_init(uint16_t port, long core_count) {
+   if (core_count < 1) {
+      DEBUG_ERR("Core count is less than 1. Please initialize onion_config.\n");
+      return -1;
+   }
+
+   if (onion_workers) {
+      DEBUG_ERR("The onion_workers has already been initialized.\n");
+      return -1;
+   }
+
+   if (onion_net_port_check(port) <= 0) {
+      DEBUG_ERR("Port is invalid or already in use.\n");
+      return -1;
+   }
+
+   onion_workers = malloc(sizeof(struct onion_worker_pool));
+   if (!onion_workers) {
+      DEBUG_ERR("Onion_workers initialization failed.\n");
+      return -1;
+   }
+
+   onion_workers->workers = onion_block_init(&onion_workers->workers, sizeof(struct onion_worker) * core_count, sizeof(struct onion_worker));
+   if (!onion_workers->workers) {
+      DEBUG_ERR("Onion_workers initialization failed.\n");
+      goto unsuccessfull;
+   }
+
+   onion_workers->count = 0;
+   onion_workers->capable = core_count;
 
    struct onion_tcp_port_conf port_conf = {
       .domain = AF_INET,
       .type = SOCK_STREAM,
-      .port = htons(51235),
+      .port = htons(port),
       .addr.s_addr = htonl(INADDR_ANY)
    };
 
-   for (int work_index = 0; work_index < onion_dev_core_count; work_index++) {
-      server_sock_onion_workers[work_index] = malloc(sizeof(struct onion_worker));
-      if (!server_sock_onion_workers[work_index]) {
-         DEBUG_ERR("no malloc onion_worker\n");
-         goto free_everything;
-      }
-
-      struct onion_worker *work = server_sock_onion_workers[work_index];
-
-      work->epoll_fd = epoll_create1(0);
-      if (work->epoll_fd < 0) {
-         DEBUG_ERR("flows werent inited\n");
-         goto free_everything;
-      }
-
-      int capable = max_peers + (work_index < extra ? 1 : 0);
-
-      struct onion_server_sock *server_sock = onion_server_sock_create(&port_conf, work, work_index, capable);
-      if (!server_sock) {
-         DEBUG_INFO("where my sock!!\n");
-         goto free_everything;
-      }
-
-      work->server_sock = server_sock;
-      work->core_id = work_index;
-      work->peer_count = 0;
-      work->event.events = EPOLLIN | EPOLLET;
-
-      int thread_ret = pthread_create(&work->core.flow, NULL, onion_worker_thread, work);
-      if (thread_ret != 0) {
-         DEBUG_ERR("failed to create onion_worker thread %d: %s\n", work_index, strerror(thread_ret));
-         goto free_everything;
-      }
-      onion_set_onion_worker_affinity(work->core.flow, work->core_id);
+   for (long index = 0; index < onion_workers->count; index++) {
+      int success = onion_dev_worker_init(onion_workers);
    }
+
    return 0;
-   free_everything:
+unsuccessfull:
    onion_sock_core_exit();
-   free_this_trash:
    return -1;
 }
 
 void onion_sock_core_exit() {
-   for (int work_index = 0; work_index < onion_dev_core_count; work_index++) {
-      struct onion_worker *work = server_sock_onion_workers[work_index];
-      if (!work) {
-         DEBUG_ERR("work wasnt found in server_sock_onion_workers\n");
-         return;
-      }
-      onion_worker_release(work);
-   }
+
 }
 
 int onion_sock_syst_init(void) {
@@ -352,7 +323,7 @@ int onion_sock_syst_init(void) {
 
    return 0;
 
-   free_this_trash:
+free_this_trash:
    return ret;
 }
 

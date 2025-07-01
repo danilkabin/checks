@@ -21,10 +21,10 @@ size_t onion_ringbuff_bytes_free(onion_ringbuff_t *ringbuff);
 int onion_ringbuff_isEmpty(onion_ringbuff_t *ringbuff);
 int onion_ringbuff_isFull(onion_ringbuff_t *ringbuff);
 
-   int onion_ringbuff_init(onion_ringbuff_t **, size_t, bool);
+int onion_ringbuff_init(onion_ringbuff_t **, size_t, bool);
 void onion_ringbuff_exit(onion_ringbuff_t *);
 
-uint8_t *onion_ringbuff_memcpy(onion_ringbuff_t *ringbuff, void *data, size_t size);
+void *onion_ringbuff_memcpy(onion_ringbuff_t *ringbuff, void *data, size_t size);
 int onion_ringbuff_extract(onion_ringbuff_t *ringbuff, void *src, size_t size);
 
 #endif
