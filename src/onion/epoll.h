@@ -92,6 +92,7 @@ struct onion_thread_my_args {
 };
 
 int onion_fd_is_valid(int fd);
+onion_epoll_static_t *onion_get_static_by_epoll(onion_epoll_t *ep);
 
 int onion_epoll_static_init(onion_epoll_static_t **ep_st, long core_count);
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st);

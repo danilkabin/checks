@@ -43,6 +43,8 @@ typedef struct {
    long count;
 } onion_net_static_t;
 
+onion_net_static_t *onion_get_static_by_net(onion_server_net *net);
+
 int onion_accept_net(onion_server_net *net_server);
 
 onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_net_sock *sock);

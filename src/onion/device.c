@@ -160,6 +160,10 @@ free_this_trash:
 
 struct onion_worker_head *big_smoke;
 
+struct onion_worker_head *get_worker_head_by_worker(struct onion_worker *worker) {
+   return big_smoke;
+}
+
 struct onion_worker *onion_get_worker_by_epoll(onion_epoll_t *target) {
    for (long index = 0; index < big_smoke->capable; index++) {
       struct onion_worker *worker = (struct onion_worker*)onion_block_get(big_smoke->workers, index); 
@@ -200,7 +204,7 @@ void *onion_dev_handler(struct onion_thread_my_args *args) {
    return NULL;
 }
 
-int onion_dev_worker_init(struct onion_worker_head *onion_workers, struct onion_tcp_port_conf port_conf, int peers_capable, int queue_capable) {
+int onion_dev_worker_init(struct onion_worker_head *head, struct onion_tcp_port_conf port_conf, int peers_capable, int queue_capable) {
    int ret;
 
    if (peers_capable < 1) {
@@ -219,19 +223,19 @@ int onion_dev_worker_init(struct onion_worker_head *onion_workers, struct onion_
       .port_conf = port_conf
    };
 
-   struct onion_worker *worker = onion_block_alloc(onion_workers->workers, NULL);
+   struct onion_worker *worker = onion_block_alloc(head->workers, NULL);
    if (!worker) {
       DEBUG_FUNC("Worker initialization failed.\n");
       goto unsuccessfull;
    }
 
-   onion_epoll_t *epoll = onion_epoll1_init(onion_workers->epoll_static, onion_dev_handler, conf.peers_capable);
+   onion_epoll_t *epoll = onion_epoll1_init(head->epoll_static, onion_dev_handler, conf.peers_capable);
    if (!epoll) {
       DEBUG_FUNC("Epoll initialization failed.\n");
       goto free_worker;
    }
 
-   onion_server_net *net_server = onion_server_net_init(onion_workers->net_static, &conf);
+   onion_server_net *net_server = onion_server_net_init(head->net_static, &conf);
    if (!net_server) {
       DEBUG_FUNC("Server socket initialization failed.\n");
       goto free_worker;
@@ -239,25 +243,37 @@ int onion_dev_worker_init(struct onion_worker_head *onion_workers, struct onion_
 
    worker->epoll = epoll;
    worker->server_sock = net_server;
-   onion_workers->count = onion_workers->count + 1;
+   head->count = head->count + 1;
 
    DEBUG_FUNC("Worked allocated! Peer max: %d\n", peers_capable);
    return 0;
 free_worker:
-   onion_dev_worker_exit(onion_workers, worker);
+   onion_dev_worker_exit(head, worker);
 unsuccessfull:
    return -1;
 }
 
 void onion_dev_worker_exit(struct onion_worker_head *head, struct onion_worker *worker) {
+   onion_epoll_t *epoll = worker->epoll;
+   if (epoll && epoll->initialized) {
+      onion_epoll_static_t *epoll_static = onion_get_static_by_epoll(epoll);
+      onion_epoll1_exit(epoll_static, epoll); 
+   }
 
+   onion_server_net *net = worker->server_sock;
+   if (net && net->initialized) {
+      onion_net_static_t *net_static = onion_get_static_by_net(net);
+      onion_server_net_exit(net_static, net);
+   }
+
+   onion_block_free(head->workers, worker);
 }
 
-int onion_device_init(struct onion_worker_head **head, uint16_t port, long core_count, int peers_capable, int queue_capable) {
+int onion_device_init(struct onion_worker_head **ptr, uint16_t port, long core_count, int peers_capable, int queue_capable) {
    int ret;
 
    if (big_smoke) {
-      DEBUG_ERR("Head already initialized!!!\n");
+      DEBUG_ERR("Big smoke already existing!\n");
       return -1;
    }
 
@@ -276,34 +292,34 @@ int onion_device_init(struct onion_worker_head **head, uint16_t port, long core_
       return -1;
    }
 
-   struct onion_worker_head *onion_workers = malloc(sizeof(struct onion_worker_head));
-   if (!onion_workers) {
-      DEBUG_ERR("Onion_workers initialization failed.\n");
+   struct onion_worker_head *head = malloc(sizeof(struct onion_worker_head));
+   if (!head) {
+      DEBUG_ERR("head initialization failed.\n");
       return -1;
    }
 
-   ret = onion_block_init(&onion_workers->workers, sizeof(struct onion_worker) * core_count, sizeof(struct onion_worker));
+   ret = onion_block_init(&head->workers, sizeof(struct onion_worker) * core_count, sizeof(struct onion_worker));
    if (ret < 0) {
-      DEBUG_ERR("Onion_workers pool initialization failed.\n");
+      DEBUG_ERR("head pool initialization failed.\n");
       goto unsuccessfull;
    }
 
-   onion_workers->count = 0;
-   onion_workers->capable = core_count;
+   head->count = 0;
+   head->capable = core_count;
 
-   ret = onion_epoll_static_init(&onion_workers->epoll_static, onion_workers->capable);
+   ret = onion_epoll_static_init(&head->epoll_static, head->capable);
    if (ret < 0) {
       DEBUG_ERR("onion_epoll_static_t initialization failed.\n");
       goto unsuccessfull;
    }
 
-   ret = onion_net_static_init(&onion_workers->net_static, onion_workers->capable);
+   ret = onion_net_static_init(&head->net_static, head->capable);
    if (ret < 0) {
       DEBUG_ERR("onion_net_static_t initialization failed.\n");
       goto unsuccessfull;
    } 
 
-   DEBUG_FUNC("onion_workers size : %zu, epoll %zu, netstat: %zu\n", sizeof(*onion_workers), sizeof(*onion_workers->epoll_static), sizeof(*onion_workers->net_static));
+   DEBUG_FUNC("head size : %zu, epoll %zu, netstat: %zu\n", sizeof(*head), sizeof(*head->epoll_static), sizeof(*head->net_static));
    struct onion_tcp_port_conf port_conf = {
       .domain = AF_INET,
       .type = SOCK_STREAM,
@@ -311,36 +327,46 @@ int onion_device_init(struct onion_worker_head **head, uint16_t port, long core_
       .addr.s_addr = htonl(INADDR_ANY)
    };
 
-   int peers_per_core = peers_capable / onion_workers->capable;
-   int peers_remain = peers_capable % onion_workers->capable;
+   int peers_per_core = peers_capable / head->capable;
+   int peers_remain = peers_capable % head->capable;
 
-   for (long index = 0; index < onion_workers->capable ; index++) {
+   for (long index = 0; index < head->capable; index++) {
       int peers_for_this_core = peers_per_core + (index < peers_remain ? 1 : 0);
-      int success = onion_dev_worker_init(onion_workers, port_conf, peers_for_this_core, queue_capable);
+      int success = onion_dev_worker_init(head, port_conf, peers_for_this_core, queue_capable);
       if (success < 0) {
-         DEBUG_FUNC("Fail!!!!!1\n");
+         DEBUG_FUNC("SUCCESS FAIL!!!\n");
          goto unsuccessfull;
       }
    }
 
-   big_smoke = onion_workers;
-   *head = onion_workers;
+   big_smoke = head;
+   *ptr = head;
    return 0;
 unsuccessfull:
-   onion_device_exit(onion_workers);
+   onion_device_exit(head);
    return -1;
 }
 
 void onion_device_exit(struct onion_worker_head *head) {
+   big_smoke = NULL;
 
    for (int index = 0; index < head->capable; index++) {
       struct onion_worker *worker = onion_block_get(head->workers, index);
       if (!worker) {
          continue;
       }
-      onion_epoll_t *epoll = worker->epoll;
+      onion_dev_worker_exit(head, worker);
+   }
+
+   if (head->net_static) {
+      onion_net_static_exit(head->net_static);
+      head->net_static = NULL;
+   }
+
+   if (head->epoll_static) {
+      onion_epoll_static_exit(head->epoll_static);
+      head->epoll_static = NULL;
    }
 
    free(head);
-   big_smoke = NULL;
 }

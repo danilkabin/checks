@@ -3,6 +3,12 @@
 #include "socket.h"
 #include "utils.h"
 
+onion_net_static_t *big_smoke;
+
+onion_net_static_t *onion_get_static_by_epoll(onion_server_net *net) {
+   return big_smoke;
+}
+
 int onion_accept_net(onion_server_net *net_server) {
    int ret;
    
@@ -56,8 +62,8 @@ unsuccessfull:
    return NULL;
 }
 
-void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *ptr) {
-
+void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *peer) {
+   free(peer);
 }
 
 onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_server_net_conf *conf) {
@@ -134,6 +140,12 @@ void onion_server_net_exit(onion_net_static_t *net_static, onion_server_net *net
 
 int onion_net_static_init(onion_net_static_t **ptr, long capable) {
    int ret;
+ 
+   if (big_smoke) {
+      DEBUG_ERR("Big smoke already existing!\n");
+      return -1;
+   }
+ 
    onion_net_static_t *net_static = malloc(sizeof(*net_static));
    if (!net_static) {
       DEBUG_ERR("Failed to allocate net_static.\n");
@@ -151,6 +163,7 @@ int onion_net_static_init(onion_net_static_t **ptr, long capable) {
       goto unsuccessfull;
    }
 
+   big_smoke = net_static;
    *ptr = net_static;
    DEBUG_FUNC("onion_net_static_t initialized (%ld cores).\n", net_static->capable);
    return 0;
@@ -161,6 +174,8 @@ unsuccessfull:
 
 void onion_net_static_exit(onion_net_static_t *net_static) {
    if (!net_static) return;
+
+   big_smoke = NULL;
 
    if (net_static->nets) {
       for (size_t index = 0; index < (size_t)net_static->nets->block_max; ++index) {

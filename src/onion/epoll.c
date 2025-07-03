@@ -23,6 +23,8 @@
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
 
+onion_epoll_static_t *big_smoke;
+
 int onion_set_worker_core(pthread_t thread, int core_id) {
    cpu_set_t *set_t = CPU_ALLOC(core_id + 1);
    size_t setsize = CPU_ALLOC_SIZE(core_id + 1);
@@ -48,6 +50,11 @@ int onion_fd_is_valid(int fd) {
       return -1;
    }
    return 0;
+}
+
+// THIS FUNCTION WILL BE UPDATED MAYBE BABY
+onion_epoll_static_t *onion_get_static_by_epoll(onion_epoll_t *ep) {
+   return big_smoke;
 }
 
 void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t type, void *data) {
@@ -485,6 +492,12 @@ void onion_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *ep) {
 
 int onion_epoll_static_init(onion_epoll_static_t **ptr, long core_count) {
    int ret;
+   
+   if (big_smoke) {
+      DEBUG_ERR("Big smoke already existing!\n");
+      return -1;
+   }
+
    if (core_count < 1) {
       DEBUG_ERR("Core count must be at least 1. Please initialize onion_config.\n");
       return -1;
@@ -514,6 +527,7 @@ int onion_epoll_static_init(onion_epoll_static_t **ptr, long core_count) {
       goto unsuccessfull;
    }
 
+   big_smoke = ep_st;
    *ptr = ep_st;
    DEBUG_FUNC("onion_epoll_static initialized (%ld cores).\n", ep_st->capable);
    return 0;
@@ -524,6 +538,8 @@ unsuccessfull:
 
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st) {
    if (!ep_st) return;
+   
+   big_smoke = NULL;
 
    if (ep_st->epolls) {
       for (size_t index = 0; index < (size_t)ep_st->capable; ++index) {
