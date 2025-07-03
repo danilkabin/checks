@@ -1,7 +1,5 @@
 #define _GNU_SOURCE
 
-#include "slab.h"
-#include "ringbuff.h"
 #include "epoll.h"
 #include "utils.h"
 #include "pool.h"
@@ -60,7 +58,7 @@ void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t typ
 
 int onion_epoll_event_add(onion_epoll_t *ep, int fd, onion_handler_ret_t type, void *data) {
    int ret;
-   onion_epoll_tag_t *tag = (onion_epoll_tag_t*)onion_block_alloc(ep->tags, -1);
+   onion_epoll_tag_t *tag = (onion_epoll_tag_t*)onion_block_alloc(ep->tags, NULL);
    if (!tag) {
       DEBUG_ERR("Epoll tag initialization failed!\n");
       return -1;
@@ -134,7 +132,8 @@ onion_handler_ret_t onion_handle_timer(onion_epoll_t *ep) {
    struct onion_block *pool = ep->slots;
    size_t offset = 0;
    int start_pos = -1;
-   while ((start_pos = onion_ffb(ep->bitmask, offset, 1)) != -1) {
+   onion_bitmask *bitmask = ep->slots->bitmask;
+   while ((start_pos = onion_ffb(bitmask, offset, 1)) != -1) {
       offset = start_pos + 1;
       onion_epoll_slot_t *slot = (onion_epoll_slot_t*)onion_block_get(pool, start_pos);
       if (slot->start_pos != start_pos) {
@@ -229,19 +228,19 @@ void *onion_epoll_handler(void *arg) {
       DEBUG_ERR("Failed to set thread affinity inside handler, core = %d\n", ep->core);
       goto unsuccessfull;
    } else {
-      DEBUG_FUNC("Thread affinity set to core: %d\n", ep->core);
+      // DEBUG_FUNC("Thread affinity set to core: %d\n", ep->core);
    }
 
    struct epoll_event events[ONION_EPOLL_PER_MAX_EVENTS];
 
-   while (ep && ep->active) {
+   while (ep && ep->initialized) {
       int event_count = epoll_wait(ep->fd, events, ONION_EPOLL_PER_MAX_EVENTS, 1000);
       if (event_count < 0) {
          continue;
       }
 
-      for (int i = 0; i < event_count; i++) {
-         struct epoll_event *event = &events[i];
+      for (int index = 0; index < event_count; index++) {
+         struct epoll_event *event = &events[index];
          onion_epoll_tag_t *tag = event->data.ptr;
          if (!tag) {
             continue;
@@ -254,7 +253,13 @@ void *onion_epoll_handler(void *arg) {
          }
 
          if (ep->handler) {
-            ep->handler(ep, tag, tag_ret);
+            struct onion_thread_my_args args = {
+               .ep_st = ep_st,
+               .ep = ep,
+               .tag = tag,
+               .tag_ret = tag_ret
+            };
+            ep->handler(&args);
          }
       }
    }
@@ -270,16 +275,12 @@ int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (voi
       return -1;
    }
 
-   int start_pos = onion_bitmask_add(ep->bitmask, 1);
-   if (start_pos < 0) {
-      DEBUG_ERR("Failed to allocate bit in epoll bitmask!\n");
-      return -1;
-   }
-
-   onion_epoll_slot_t *ep_slot = onion_block_alloc(ep->slots, start_pos);
+   int start_pos = -1;
+   onion_epoll_slot_t *ep_slot = onion_block_alloc(ep->slots, &start_pos);
+   DEBUG_FUNC("START PSOITION NffffffffffffffNN :%d\n", start_pos);
    if (!ep_slot) {
       DEBUG_ERR("Failed to allocate epoll slot block!\n");
-      goto fail_bitmask;
+      goto unsuccessfull;
    }
 
    ep_slot->fd = fd;
@@ -305,8 +306,7 @@ int onion_epoll_slot_add(onion_epoll_t *ep, int fd, void *data, int (*func) (voi
 
 fail_slot:
    onion_block_free(ep->slots, ep_slot);
-fail_bitmask:
-   onion_bitmask_del(ep->bitmask, start_pos, 1);
+unsuccessfull:
    return -1;
 }
 
@@ -320,7 +320,6 @@ void onion_epoll_slot_del(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot) {
    }
 
    if (ep_slot->start_pos >= 0) {
-      onion_bitmask_del(ep->bitmask, ep_slot->start_pos, 1);
       ep->conn_count -= 1;
    }
 
@@ -347,15 +346,14 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
    }
 
    long current_core = ep_st->count;
-   size_t bitmask_size = (conn_max + 63) / 64; 
 
-   onion_epoll_t *ep = onion_slab_malloc(ep_st->epolls, NULL, sizeof(onion_epoll_t));
+   onion_epoll_t *ep = onion_block_alloc(ep_st->epolls, NULL);
    if (!ep) {
       DEBUG_ERR("Failed to allocate onion_epoll_t.\n");
       goto unsuccessfull;
    }
 
-   ep->active = false;
+   ep->initialized = false;
    ep->conn_count = 0;
    ep->conn_max = conn_max;
    ep->handler = handler;
@@ -375,7 +373,7 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
       goto please_free;
    }
 
-   ep->args = (struct onion_thread_args*)onion_block_alloc(ep_st->epolls_args, -1);
+   ep->args = (struct onion_thread_args*)onion_block_alloc(ep_st->epolls_args, NULL);
    if (!ep->args) {
       DEBUG_ERR("args initialization failed.\n");
       goto please_free;
@@ -402,12 +400,6 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
       goto please_free;
    }
 
-   ret = onion_bitmask_init(&ep->bitmask, bitmask_size, sizeof(uint64_t));
-   if (ret < 0) {
-      DEBUG_ERR("Failed to init bitmask.\n");
-      goto please_free;
-   }
-
    ret = pthread_create(&ep->flow, NULL, onion_epoll_handler, ep->args); 
    if (ret < 0) {
       DEBUG_ERR("pthread_create failed.\n");
@@ -423,7 +415,7 @@ onion_epoll_t *onion_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t ha
    }
 
    ep_st->count = ep_st->count + 1;
-   ep->active = true;
+   ep->initialized = true;
 
    DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu.\n", ep->fd, ep->core, sizeof(*ep));
    return ep;
@@ -445,16 +437,17 @@ void onion_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *ep) {
    onion_liquidate_timer(ep);
 
    if (ep->slots) {
+      onion_bitmask *bitmask = ep->slots->bitmask;
       onion_epoll_slot_t *slots = (onion_epoll_slot_t *)ep->slots->data;
       while (1) {
-         int index = onion_find_bit(ep->bitmask, 1);
+         int index = onion_find_bit(bitmask, 1);
          if (index == -1) break;
 
          int fd = slots[index].fd;
          if (onion_fd_is_valid(fd)) {
             onion_epoll_slot_del(ep, &slots[index]);
          }
-         onion_clear_bit(ep->bitmask, index);
+         onion_clear_bit(bitmask, index);
       }
       onion_block_exit(ep->slots);
       ep->slots = NULL;
@@ -478,16 +471,14 @@ void onion_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *ep) {
       ep->fd = -1;
    }
 
-   onion_bitmask_exit(ep->bitmask);
-
    onion_block_free(ep_st->epolls_args, ep->args);
-   onion_slab_free(ep_st->epolls, ep);
+   onion_block_free(ep_st->epolls, ep);
 
-   if (ep->active) {
+   if (ep->initialized) {
       ep_st->count = ep_st->count - 1; 
    }
 
-   ep->active = false;
+   ep->initialized = false;
 
    DEBUG_FUNC("epoll exit\n");
 }
@@ -511,9 +502,9 @@ int onion_epoll_static_init(onion_epoll_static_t **ptr, long core_count) {
    size_t epolls_size = sizeof(onion_epoll_t) * ep_st->capable;
    size_t epolls_args_size = sizeof(struct onion_thread_args) * ep_st->capable;
 
-   ep_st->epolls = onion_slab_init(epolls_size);
+   ret = onion_block_init(&ep_st->epolls, epolls_size, sizeof(onion_epoll_t));
    if (!ep_st->epolls) {
-      DEBUG_ERR("Failed to initialize epoll slab (size: %zu).\n", epolls_size);
+      DEBUG_ERR("Failed to initialize epoll block (size: %zu).\n", epolls_size);
       goto unsuccessfull;
    }
 
@@ -535,14 +526,14 @@ void onion_epoll_static_exit(onion_epoll_static_t *ep_st) {
    if (!ep_st) return;
 
    if (ep_st->epolls) {
-      onion_epoll_t *epolls = (onion_epoll_t *)ep_st->epolls->pool;
-      for (size_t i = 0; i < (size_t)ep_st->capable; ++i) {
-         if (epolls[i].active) {
-            onion_epoll1_exit(ep_st, &epolls[i]);
+      for (size_t index = 0; index < (size_t)ep_st->capable; ++index) {
+         onion_epoll_t *epoll = (onion_epoll_t*)onion_block_get(ep_st->epolls, index);
+         if (epoll->initialized) {
+            onion_epoll1_exit(ep_st, epoll);
          }
       }
 
-      onion_slab_exit(ep_st->epolls);
+      onion_block_exit(ep_st->epolls);
       ep_st->epolls = NULL;
    }
 

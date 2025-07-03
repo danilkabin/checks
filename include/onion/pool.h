@@ -2,6 +2,7 @@
 #define MEMORY_POOL_H
 
 #include "listhead.h"
+#include "sup.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -16,6 +17,7 @@ struct onion_block {
    size_t block_count;
    size_t block_free;
    uint8_t *bitmap;
+   onion_bitmask *bitmask;
 
    struct list_head list;
 };
@@ -28,7 +30,7 @@ size_t onion_block_getBusySize(struct onion_block *pool);
 
 int onion_block_init(struct onion_block **pool, size_t max_size, size_t block_size);
 
-void *onion_block_alloc(struct onion_block *pool, int);
+void *onion_block_alloc(struct onion_block *pool, int *write);
 void onion_block_free(struct onion_block *pool, void *ptr);
 
 void onion_block_exit(struct onion_block *pool);

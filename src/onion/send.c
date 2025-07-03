@@ -16,11 +16,11 @@ const char *response =
 
 size_t sentt = 0;
 
-size_t onion_peer_sock_send(struct onion_server_sock *bs, struct onion_peer_sock *peer, int flags) {
+/*size_t onion_peer_sock_send(struct onion_server_sock *bs, struct onion_peer_sock *peer, int flags) {
    if (!bs || !peer) {
       DEBUG_FUNC("no bs peer\n");
       return (size_t)-1;
    }
 
    return 0;
-}
+}*/

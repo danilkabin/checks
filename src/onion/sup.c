@@ -5,11 +5,11 @@
 #include <string.h>
 
 void onion_set_bit(onion_bitmask *bitmask, size_t offset) {
-   bitmask->mask[offset / 64] |= (1 << offset % 8);
+   bitmask->mask[offset / 64] |= (1ULL << (offset % 64));
 }
 
 void onion_clear_bit(onion_bitmask *bitmask, size_t offset) {
-   bitmask->mask[offset / 64] &= ~(1 << offset % 8);
+   bitmask->mask[offset / 64] &= ~(1ULL << (offset % 64));
 }
 
 int onion_ffb(onion_bitmask *bitmask, int offset, int type) {
@@ -24,7 +24,6 @@ int onion_ffb(onion_bitmask *bitmask, int offset, int type) {
 
    int frame_offset = offset / bitmask->size_per_frame;
    int bit_offset = offset % bitmask->size_per_frame;
-
    for (size_t frame = frame_offset; frame < count; frame++) {
       uint64_t mask = bitmask->mask[frame];
       if (type == 0) {
@@ -101,7 +100,7 @@ int onion_bitmask_init(onion_bitmask **ptr, size_t size, size_t size_per_frame) 
       DEBUG_FUNC("Size must be provided\n");
       goto unssuccessfull;
    }
-  
+
    onion_bitmask *bitmask = malloc(sizeof(onion_bitmask));
    if (!bitmask) {
       DEBUG_ERR("Bitmask initialization failed!\n");
@@ -112,12 +111,12 @@ int onion_bitmask_init(onion_bitmask **ptr, size_t size, size_t size_per_frame) 
    bitmask->size_per_frame = 8 * size_per_frame;
    bitmask->conv_size = (size + 63) / 64;
 
-   bitmask->mask = malloc(bitmask->size);
-   if (!bitmask->mask){
+   bitmask->mask = malloc(bitmask->conv_size * sizeof(uint64_t));
+   if (!bitmask->mask) {
       DEBUG_ERR("Mask initialization failed!\n");
       goto free_bitmask;
    }
-   memset(bitmask->mask, 0, bitmask->conv_size);
+   memset(bitmask->mask, 0, bitmask->conv_size * sizeof(uint64_t));
    *ptr = bitmask;
    return 0;
 free_bitmask:

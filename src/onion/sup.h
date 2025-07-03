@@ -1,7 +1,6 @@
 #ifndef ONION_SUP_H
 #define ONION_SUP_H
 
-#include "pool.h"
 #include <sys/types.h>
 
 typedef struct {

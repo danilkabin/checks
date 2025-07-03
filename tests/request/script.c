@@ -17,8 +17,9 @@
 int main() {
    onion_config_t onion_config1;
    onion_config_init(&onion_config1);
-DEBUG_FUNC("dfsdfds : %d\n", onion_config.core_count);
-   int ret = onion_device_init(51234, onion_config.core_count, 20);
+   DEBUG_FUNC("dfsdfds : %d\n", onion_config.core_count);
+   struct onion_worker_head *head;
+   int ret = onion_device_init(&head, 51235, onion_config.core_count, 20, 5);
 
    sleep(100);
 

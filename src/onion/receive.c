@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <string.h>
 
-size_t onion_peer_sock_recv(struct onion_server_sock *bs, struct onion_peer_sock *peer, int flags, size_t buff_size) {
+/*size_t onion_peer_sock_recv(struct onion_server_sock *bs, struct onion_peer_sock *peer, int flags, size_t buff_size) {
    if (!bs || !peer) {
       DEBUG_FUNC("no bs/peer\n");
       return (size_t)-1;
@@ -29,4 +29,4 @@ size_t onion_peer_sock_recv(struct onion_server_sock *bs, struct onion_peer_sock
       DEBUG_FUNC("recv failed: %s\n", strerror(errno));
    }
    return bytes_read;
-}
+}*/

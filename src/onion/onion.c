@@ -1,7 +1,6 @@
 #include "onion.h"
 #include "utils.h"
 #include <unistd.h>
-#include <stdio.h>
 
 onion_config_t onion_config = {0};
 

@@ -1,11 +1,8 @@
 #ifndef ONION_EPOLL_H
 #define ONION_EPOLL_H
 
-#include "ringbuff.h"
 #include "pool.h"
-#include "ringbuff.h"
-#include "slab.h"
-#include "sup.h"
+
 #include <bits/pthreadtypes.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -23,6 +20,7 @@
 #define ONION_TAG_QUEUE_CAPABLE 10
 
 struct onion_thread_args;
+struct onion_thread_my_args;
 
 typedef enum {
    ONION_EPOLL_HANDLER_EPFD = 4308,
@@ -52,8 +50,8 @@ typedef struct {
    time_t time_limit;
 } onion_epoll_slot_t;
 
-typedef void *(*onion_handler_t) (void *ep, onion_epoll_tag_t *tag, onion_handler_ret_t ret);
-typedef struct __attribute__((aligned(64))) {
+typedef void *(*onion_handler_t) (struct onion_thread_my_args *args);
+typedef struct {
    int fd;
    int eventfd;
    int core;
@@ -69,14 +67,13 @@ typedef struct __attribute__((aligned(64))) {
 
    struct onion_thread_args *args;
 
-   onion_bitmask *bitmask;
    onion_handler_t handler;
 
-   bool active;
+   bool initialized;
 } onion_epoll_t;
 
 typedef struct {
-   struct onion_slab *epolls;
+   struct onion_block *epolls;
    struct onion_block *epolls_args;
    long count;
    long capable;
@@ -85,6 +82,13 @@ typedef struct {
 struct onion_thread_args {
    onion_epoll_static_t *ep_st;
    onion_epoll_t *ep;
+};
+
+struct onion_thread_my_args {
+   onion_epoll_static_t *ep_st;
+   onion_epoll_t *ep;
+   onion_epoll_tag_t *tag;
+   onion_handler_ret_t tag_ret;
 };
 
 int onion_fd_is_valid(int fd);
