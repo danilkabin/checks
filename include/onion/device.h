@@ -18,6 +18,7 @@ struct onion_worker_head {
    struct onion_block *workers;
    onion_epoll_static_t *epoll_static;
    onion_net_static_t *net_static;
+   pthread_t flow;
    long count;
    long capable;
 };
@@ -28,6 +29,8 @@ struct onion_worker {
 };
 
 typedef void (*onion_accept_callback_sk)(int peer_fd, onion_peer_net *);
+
+int onion_accept_net(onion_server_net *net_server, onion_epoll_t *epoll);
 
 int onion_dev_worker_init(struct onion_worker_head *onion_workers, struct onion_tcp_port_conf port_conf, int peers_capable, int queue_capable);
 void onion_dev_worker_exit(struct onion_worker_head *onion_workers, struct onion_worker *worker);

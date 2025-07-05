@@ -1,8 +1,33 @@
+#include "onion.h"
+#define _GNU_SOURCE
+
 #include "utils.h"
 #include "sup.h"
+
+#include <pthread.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+int onion_cpu_set_core(pthread_t thread, long core) {
+   cpu_set_t set;
+   CPU_ZERO(&set);
+   CPU_SET(core, &set);
+   if (pthread_setaffinity_np(thread, sizeof(set), &set) != 0) {
+      DEBUG_ERR("Failed to set core affinity.\n");
+      return -1;
+   }
+   return 0;
+}
+
+long onion_get_real_sched() {
+   return onion_config.sched_core;
+}
+
+long onion_get_offset_sched() {
+   return onion_config.core_count == 1 ? onion_get_real_sched() : onion_config.sched_core + 1;
+}
 
 void onion_set_bit(onion_bitmask *bitmask, size_t offset) {
    bitmask->mask[offset / 64] |= (1ULL << (offset % 64));

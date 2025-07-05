@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include "onion.h"
 #include "net.h"
 #include "epoll.h"
 #include "socket.h"
@@ -23,141 +24,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-/*void onion_server_sock_release(struct onion_server_sock *server_sock) {
-  int ret;
-
-  if (server_sock->released) {
-  return;
-  }
-
-  server_sock->released = true;
-  server_sock->initialized = false;
-
-  ret = epoll_ctl(server_sock->onion_worker->epoll_fd, EPOLL_CTL_DEL, server_sock->sock.fd, &server_sock->onion_worker->event);
-  if (ret < 0 && errno != ENOENT) {
-  DEBUG_ERR("Failed to remove fd from epoll: %s\n", strerror(errno));
-  }
-
-  if (server_sock->peerIDs) {
-  free(server_sock->peerIDs);
-  server_sock->peerIDs = NULL;
-  }
-
-  if (server_sock->peer_pool) {
-  struct onion_peer_sock *pos, *temp;
-  list_for_each_entry_safe(pos, temp, &server_sock->peers, list) {
-  onion_peer_sock_release(server_sock, pos);
-  }
-  free(server_sock->peer_pool);
-  server_sock->peer_pool = NULL;
-  }
-
-  onion_net_sock_exit(&server_sock->sock);
-  free(server_sock);
-  }
-
-  struct onion_peer_sock *onion_peer_sock_create(struct onion_server_sock *server_sock, int fd) {
-  int ret;
-
-  struct onion_peer_sock *peer = (struct onion_peer_sock *)onion_block_alloc(server_sock->peer_pool, fd);
-  if (!peer) {
-  DEBUG_ERR("failed to allocate peer socket from peer pool\n");
-  goto free_this_trash;
-  }
-
-  peer->onion_worker = server_sock->onion_worker;
-  peer->proto_type = ONION_PEER_PROTO_TYPE_HTTP;
-
-  onion_http_parser_t *parser = &peer->parser;
-
-  if (peer->proto_type == ONION_PEER_PROTO_TYPE_HTTP) {
-  ret = onion_http_parser_init(parser, server_sock->request_allocator, server_sock->request_msg_allocator);
-  if (ret < 0) {
-  goto free_everything;
-  }
-  }
-
-  peer->sock.fd = fd;
-  peer->released = false;
-  peer->initialized = true;
-
-  list_add_tail(&peer->list, &server_sock->peers);
-
-  return peer;
-
-free_everything:
-onion_peer_sock_release(server_sock, peer);
-free_this_trash:
-return NULL;
-}
-
-void onion_peer_sock_release(struct onion_server_sock *server_sock, struct onion_peer_sock *peer) {
-if (peer->released) {
-return;
-}
-
-list_del(&peer->list);
-peer->released = true;
-
-onion_http_parser_exit(&peer->parser);
-
-if (peer->sock.fd > 0) {
-   struct onion_worker *work = peer->onion_worker;
-   if (work) {
-      epoll_ctl(work->epoll_fd, EPOLL_CTL_DEL, peer->sock.fd, NULL);
-      atomic_fetch_sub(&work->peer_count, 1);
-   }
-   onion_net_sock_exit(&peer->sock);
-}
-
-onion_block_free(server_sock->peer_pool, peer);
-DEBUG_FUNC("Peer fd %d released on core %d\n", peer->sock.fd, peer->onion_worker ? peer->onion_worker->core_id : -1);
-}
-
-int onion_server_sock_accept(struct onion_server_sock *server_sock) {
-   int ret = -1;
-   if (!server_sock) {
-      DEBUG_FUNC("no server socket provided\n");
-      goto free_this_trash;
-   }
-   DEBUG_FUNC("hello1\n");
-   struct onion_net_sock onion_peer_sock;
-   ret = onion_net_sock_accept(&server_sock->sock, &onion_peer_sock);
-   if (ret < 0) {
-      DEBUG_FUNC("Peer accepting failed.\n");
-      goto free_this_trash;
-   }
-   DEBUG_FUNC("hello122\n");
-   struct onion_peer_sock *peer = onion_peer_sock_create(server_sock, onion_peer_sock.fd);
-   if (!peer) {
-      DEBUG_ERR("peer initialization failed for fd %d\n", onion_peer_sock.fd);
-      goto free_sock;
-   }
-
-   peer->sock = onion_peer_sock;
-
-   struct epoll_event peer_event;
-   peer_event.events = EPOLLIN | EPOLLOUT | EPOLLET;
-   peer_event.data.ptr = peer;
-
-   ret = epoll_ctl(server_sock->onion_worker->epoll_fd, EPOLL_CTL_ADD, peer->sock.fd, &peer_event);
-   if (ret == -1) {
-      DEBUG_ERR("failed to add peer fd %d to epoll: %s\n", peer->sock.fd, strerror(errno));
-      goto free_everything;
-   }
-
-   DEBUG_FUNC("new peer fd %d added to epoll\n", peer->sock.fd);
-
-   return peer->sock.fd;
-free_everything:
-   onion_peer_sock_release(server_sock, peer);
-   return ret;
-free_sock:
-   close(onion_peer_sock.fd);
-free_this_trash:
-   return ret;
-}*/
-
 struct onion_worker_head *big_smoke;
 
 struct onion_worker_head *get_worker_head_by_worker(struct onion_worker *worker) {
@@ -174,12 +40,65 @@ struct onion_worker *onion_get_worker_by_epoll(onion_epoll_t *target) {
    return NULL;
 }
 
+int onion_accept_net(onion_server_net *net_server, onion_epoll_t *epoll) {
+   int ret;
+
+   struct onion_net_sock temp_sock;
+   ret = onion_net_sock_accept(net_server->sock, &temp_sock);
+   if (ret < 0) {
+      DEBUG_ERR("Peer finding failed.\n");
+      goto unsuccessfull;
+   }
+
+   onion_peer_net *peer = onion_peer_net_init(net_server, &temp_sock);
+   if (!peer) {
+      DEBUG_ERR("Peer init failed!\n");
+      goto unsuccessfull;
+   }
+
+   onion_epoll_slot_t *slot = onion_epoll_slot_add(epoll, peer->sock->fd, peer, NULL, NULL, NULL);
+   if (!slot) {
+      DEBUG_ERR("Slot initialization failed.\n");
+      goto free_peer;
+   }
+
+   DEBUG_FUNC("Peer inited!: %d current peers: %d\n", epoll->core, epoll->conn_count);
+
+   return 0;
+free_peer:
+   onion_peer_net_exit(net_server, peer);
+unsuccessfull:
+   return -1;
+}
+
+void *onion_device_head_flow(void *arg) {
+   struct onion_worker_head *head = (struct onion_worker_head*)arg;
+   while (1) {
+      usleep(10000);
+      int ret;
+      
+      onion_server_net *net = onion_get_weak_net(head->net_static);
+      if (!net) {
+         continue;
+      }
+      
+      onion_epoll_t *epoll = net->epoll;
+      
+      ret = onion_accept_net(net, epoll);
+      if (ret < 0) {
+         DEBUG_FUNC("No client!\n");
+         continue;
+      }  
+
+      DEBUG_FUNC("New client\n");
+   }
+   return NULL;
+}
+
 void *onion_dev_handler(struct onion_thread_my_args *args) {
    int ret;
    onion_epoll_static_t *epoll_static = args->ep_st;
    onion_epoll_t *epoll = args->ep;
-   onion_epoll_tag_t *tag = args->tag;
-   onion_handler_ret_t tag_ret = args->tag_ret;
 
    struct onion_worker *worker = onion_get_worker_by_epoll(epoll);
    if (!worker) {
@@ -193,14 +112,14 @@ void *onion_dev_handler(struct onion_thread_my_args *args) {
    }
 
    onion_server_net *net = worker->server_sock;
-   ret = onion_accept_net(net);
-   if (ret < 0) {
-      //DEBUG_FUNC("No client!\n");
-      return NULL;      
-   } 
+   onion_net_static_t *net_static = onion_get_static_by_net(net);
 
-   DEBUG_FUNC("CLIENTTT!\n");
-   DEBUG_FUNC("args: %ld worker data: %d\n", epoll_static->capable, worker->epoll->conn_max);
+   long core = sched_getcpu();
+   //DEBUG_FUNC("CORE: %ld\n", core);
+   for (int index = 0; index < net_static->capable; index++) {
+      onion_server_net *netka = onion_block_get(net_static->nets, index);
+   }
+
    return NULL;
 }
 
@@ -229,13 +148,13 @@ int onion_dev_worker_init(struct onion_worker_head *head, struct onion_tcp_port_
       goto unsuccessfull;
    }
 
-   onion_epoll_t *epoll = onion_epoll1_init(head->epoll_static, onion_dev_handler, conf.peers_capable);
+   onion_epoll_t *epoll = onion_slave_epoll1_init(head->epoll_static, onion_dev_handler, onion_config.sched_core, conf.peers_capable);
    if (!epoll) {
       DEBUG_FUNC("Epoll initialization failed.\n");
       goto free_worker;
    }
 
-   onion_server_net *net_server = onion_server_net_init(head->net_static, &conf);
+   onion_server_net *net_server = onion_server_net_init(head->net_static, epoll, &conf);
    if (!net_server) {
       DEBUG_FUNC("Server socket initialization failed.\n");
       goto free_worker;
@@ -245,7 +164,7 @@ int onion_dev_worker_init(struct onion_worker_head *head, struct onion_tcp_port_
    worker->server_sock = net_server;
    head->count = head->count + 1;
 
-   DEBUG_FUNC("Worked allocated! Peer max: %d\n", peers_capable);
+   DEBUG_FUNC("Worker allocated! Peer max: %d\n", peers_capable);
    return 0;
 free_worker:
    onion_dev_worker_exit(head, worker);
@@ -257,7 +176,7 @@ void onion_dev_worker_exit(struct onion_worker_head *head, struct onion_worker *
    onion_epoll_t *epoll = worker->epoll;
    if (epoll && epoll->initialized) {
       onion_epoll_static_t *epoll_static = onion_get_static_by_epoll(epoll);
-      onion_epoll1_exit(epoll_static, epoll); 
+      onion_slave_epoll1_exit(epoll_static, epoll); 
    }
 
    onion_server_net *net = worker->server_sock;
@@ -305,7 +224,7 @@ int onion_device_init(struct onion_worker_head **ptr, uint16_t port, long core_c
    }
 
    head->count = 0;
-   head->capable = core_count;
+   head->capable = core_count > 1 ? core_count - 1 : core_count;
 
    ret = onion_epoll_static_init(&head->epoll_static, head->capable);
    if (ret < 0) {
@@ -317,7 +236,13 @@ int onion_device_init(struct onion_worker_head **ptr, uint16_t port, long core_c
    if (ret < 0) {
       DEBUG_ERR("onion_net_static_t initialization failed.\n");
       goto unsuccessfull;
-   } 
+   }
+
+   ret = pthread_create(&head->flow, NULL, onion_device_head_flow, head);
+   if (ret < 0) {
+      DEBUG_ERR("pthread_create faield.\n");
+      goto unsuccessfull;
+   }
 
    DEBUG_FUNC("head size : %zu, epoll %zu, netstat: %zu\n", sizeof(*head), sizeof(*head->epoll_static), sizeof(*head->net_static));
    struct onion_tcp_port_conf port_conf = {
@@ -349,6 +274,11 @@ unsuccessfull:
 
 void onion_device_exit(struct onion_worker_head *head) {
    big_smoke = NULL;
+
+   if (head->flow) {
+      pthread_join(head->flow, NULL);
+      head->flow = 0;
+   }
 
    for (int index = 0; index < head->capable; index++) {
       struct onion_worker *worker = onion_block_get(head->workers, index);

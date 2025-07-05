@@ -1,37 +1,29 @@
 #include "net.h"
+#include "epoll.h"
 #include "pool.h"
 #include "socket.h"
 #include "utils.h"
 
-onion_net_static_t *big_smoke;
+onion_net_static_t *net_smoke;
 
-onion_net_static_t *onion_get_static_by_epoll(onion_server_net *net) {
-   return big_smoke;
+onion_net_static_t *onion_get_static_by_net(onion_server_net *net) {
+   return net_smoke;
 }
 
-int onion_accept_net(onion_server_net *net_server) {
-   int ret;
-   
-   struct onion_net_sock temp_sock;
-   ret = onion_net_sock_accept(net_server->sock, &temp_sock);
-   if (ret < 0) {
-      DEBUG_ERR("Peer finding failed.\n");
-      goto unsuccessfull;
+onion_server_net *onion_get_weak_net(onion_net_static_t *net_static) {
+   onion_server_net *net = NULL; 
+   int max_peers = 0xFFFFFFF;
+   for (int index = 0; index < net_static->capable; index++) {
+      onion_server_net *netka = onion_block_get(net_static->nets, index);
+      if (!netka) {
+         continue;
+      }
+      if (netka->peer_current < max_peers) {
+         net = netka;
+         max_peers = netka->peer_current;
+      } 
    }
-
-   onion_peer_net *peer = onion_peer_net_init(net_server, &temp_sock);
-   if (!peer) {
-     DEBUG_ERR("Peer init failed!\n");
-     goto free_sock;
-   }
-
-   DEBUG_FUNC("Peer inited!: %d", peer->initialized);
-
-   return 0;
-free_sock:
-   onion_net_sock_exit(&temp_sock);
-unsuccessfull:
-   return -1;
+   return net;
 }
 
 onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_net_sock *sock) {
@@ -55,6 +47,7 @@ onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_n
 
    peer->sock = sock;
    peer->initialized = true;
+   net_server->peer_current = net_server->peer_current + 1;
    return peer;
 free_please:
    onion_peer_net_exit(net_server, peer);
@@ -66,7 +59,7 @@ void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *peer) {
    free(peer);
 }
 
-onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_server_net_conf *conf) {
+onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_epoll_t *epoll, onion_server_net_conf *conf) {
    int ret;
    if (conf->peers_capable < 1) {
       DEBUG_ERR("Peers capable is less than 1.\n");
@@ -108,6 +101,7 @@ onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_se
       goto please_free;
    }
 
+   net_server->epoll = epoll;
    net_server->peer_current = 0;
    net_server->peer_capable = conf->peers_capable;
    net_server->initialized = true;
@@ -140,12 +134,12 @@ void onion_server_net_exit(onion_net_static_t *net_static, onion_server_net *net
 
 int onion_net_static_init(onion_net_static_t **ptr, long capable) {
    int ret;
- 
-   if (big_smoke) {
+
+   if (net_smoke) {
       DEBUG_ERR("Big smoke already existing!\n");
       return -1;
    }
- 
+
    onion_net_static_t *net_static = malloc(sizeof(*net_static));
    if (!net_static) {
       DEBUG_ERR("Failed to allocate net_static.\n");
@@ -163,7 +157,7 @@ int onion_net_static_init(onion_net_static_t **ptr, long capable) {
       goto unsuccessfull;
    }
 
-   big_smoke = net_static;
+   net_smoke = net_static;
    *ptr = net_static;
    DEBUG_FUNC("onion_net_static_t initialized (%ld cores).\n", net_static->capable);
    return 0;
@@ -175,7 +169,7 @@ unsuccessfull:
 void onion_net_static_exit(onion_net_static_t *net_static) {
    if (!net_static) return;
 
-   big_smoke = NULL;
+   net_smoke = NULL;
 
    if (net_static->nets) {
       for (size_t index = 0; index < (size_t)net_static->nets->block_max; ++index) {

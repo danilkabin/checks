@@ -29,7 +29,8 @@
 #define ONION_MAX_PEER_QUEUE_CAPABLE 16
 
 typedef struct {
-   int core_count;
+   long sched_core;
+   long core_count;
 
    int max_peer_per_core;
    int max_peer_queue_capable;
