@@ -36,43 +36,5 @@
     "directory": "/home/danilka_bin/flowbin",
     "file": "/home/danilka_bin/flowbin/src/onion/epoll.c",
     "output": "/home/danilka_bin/flowbin/build/obj/src/onion/epoll.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/parser.o",
-      "src/onion/parser.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/parser.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/parser.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/device.o",
-      "src/onion/device.c"
-    ],
-    "directory": "/home/danilka_bin/flowbin",
-    "file": "/home/danilka_bin/flowbin/src/onion/device.c",
-    "output": "/home/danilka_bin/flowbin/build/obj/src/onion/device.o"
   }
 ]

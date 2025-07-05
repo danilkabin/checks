@@ -15,7 +15,7 @@ HEADERS := $(shell find src/onion -name '*.h')
 
 .PHONY: all clean headers
 
-all: headers $(TARGET) $(TEST_EXE)
+all: headers $(TARGET) $(TEST_EXE) copy_config
 
 # Копировать заголовки
 headers:
@@ -32,6 +32,10 @@ $(OBJ_DIR)/%.o: %.c
 
 $(TEST_EXE): tests/request/script.c $(TARGET)
 	$(CC) $(CFLAGS) tests/request/script.c -L$(LIB_DIR) -lonion -lurcu -pthread -o $@
+
+copy_config:
+	@mkdir -p $(BUILD_DIR)
+	@cp user/config.ini $(BUILD_DIR)/
 
 clean:
 	rm -rf $(BUILD_DIR) $(TEST_EXE)

@@ -72,7 +72,7 @@ typedef struct {
    struct onion_block *slots;
    struct onion_thread_args *args;
 
-   onion_handler_t handler;
+   onion_handler_t hann_dler;
 
    bool initialized;
 } onion_epoll_t;
@@ -80,30 +80,31 @@ typedef struct {
 typedef struct {
    struct onion_block *epolls;
    struct onion_block *epolls_args;
-   long count;
    long capable;
 } onion_epoll_static_t;
 
 struct onion_thread_args {
-   onion_epoll_static_t *ep_st;
-   onion_epoll_t *ep;
+   onion_epoll_static_t *epoll_static;
+   onion_epoll_t *epoll;
 };
 
 struct onion_thread_my_args {
-   onion_epoll_static_t *ep_st;
-   onion_epoll_t *ep;
+   onion_epoll_static_t *epoll_static;
+   onion_epoll_t *epoll;
 };
 
 int onion_fd_is_valid(int fd);
+void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t type, void *data);
+
 onion_epoll_static_t *onion_get_static_by_epoll(onion_epoll_t *ep);
 
-int onion_epoll_static_init(onion_epoll_static_t **ep_st, long core_count);
+onion_epoll_static_t *onion_epoll_static_init(long core_count);
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st);
 
 int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t TAG_MAX_SIZE, size_t TAG_PER_SIZE);
 void onion_epoll1_exit(onion_epoll_data_t *data);
 
-onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, long sched_core, size_t conn_max);
+onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, size_t conn_max);
 void onion_slave_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *);
 
 onion_epoll_slot_t *onion_epoll_data_slot(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data);

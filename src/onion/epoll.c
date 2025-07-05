@@ -19,12 +19,6 @@
 #include "pool.h"
 #include "sup.h"
 
-onion_epoll_static_t *epoll_smoke;
-
-onion_epoll_static_t *onion_get_static_by_epoll(onion_epoll_t *ep) {
-   return epoll_smoke;
-}
-
 time_t onion_tick() {
    struct timespec time;
    clock_gettime(CLOCK_MONOTONIC_RAW, &time);
@@ -32,20 +26,25 @@ time_t onion_tick() {
 }
 
 int onion_fd_is_valid(int fd) {
-    if (fd < 0) return -1;
-    if (fcntl(fd, F_GETFD) == -1 && errno == EBADF) {
-        DEBUG_ERR("Fd descriptor is invalid\n");
-        return -1;
-    }
-    return 0;
+   if (fd < 0) return -1;
+   if (fcntl(fd, F_GETFD) == -1 && errno == EBADF) {
+      DEBUG_ERR("Fd descriptor is invalid\n");
+      return -1;
+   }
+   return 0;
 }
 
-void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t type, void *data) {
-   tag->fd = fd;
-   tag->type = type;
-   tag->user_data = data;
-}
-
+/**
+ * @section onion_epoll_event
+ * @brief Epoll event registration and removal helpers.
+ *
+ * These functions provide convenient wrappers for adding/removing file descriptors
+ * to/from an epoll instance using tag-based metadata structures.
+ *
+ * - onion_epoll_event_add:  Allocates and associates an event tag, then adds the file descriptor to epoll.
+ * - onion_epoll_event_del:  Removes the file descriptor from epoll, clears the tag, and frees its memory.
+ *
+ */
 int onion_epoll_event_add(int fd, int set_fd, struct onion_block *tags, onion_handler_ret_t type, void *data) {
    int ret;
    onion_epoll_tag_t *tag = (onion_epoll_tag_t*)onion_block_alloc(tags, NULL);
@@ -74,10 +73,22 @@ void onion_epoll_event_del(int fd, struct onion_block *tags, onion_epoll_tag_t *
    onion_block_free(tags, tag);
 }
 
-int onion_epoll_add_timer(onion_epoll_t *ep) {
+/**
+ * @section onion_epoll_timer
+ * @brief Timer management for epoll event loop.
+ *
+ * These functions provide periodic timer integration for the epoll-based event loop, enabling
+ * timeouts and scheduled cleanup of inactive connections.
+ *
+ * - onion_epoll_add_timer:      Creates and adds a timerfd to the epoll instance for periodic events.
+ * - onion_epoll_remove_timer:   Removes and closes the timerfd from the epoll instance.
+ * - onion_handle_timer:         Callback to handle timer events, cleaning up expired slots.
+ *
+ */
+int onion_epoll_add_timer(onion_epoll_t *epoll) {
    int ret;
-   ep->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-   if (onion_fd_is_valid(ep->timerfd) == -1) {
+   epoll->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+   if (onion_fd_is_valid(epoll->timerfd) == -1) {
       DEBUG_FUNC("Epoll timer failed!\n");
       return -1;
    }
@@ -87,13 +98,13 @@ int onion_epoll_add_timer(onion_epoll_t *ep) {
       .it_value = {ONION_TIMER_INTERVAL, 0}
    };
 
-   ret = timerfd_settime(ep->timerfd, 0, &timer_spec, NULL);
+   ret = timerfd_settime(epoll->timerfd, 0, &timer_spec, NULL);
    if (ret < 0) {
       DEBUG_ERR("Epoll timerfd settime failed!\n");
       return -1;
    }
 
-   ret = onion_epoll_event_add(ep->data.epoll_fd, ep->timerfd, ep->data.tags, ONION_EPOLL_HANDLER_TIMERFD, NULL);
+   ret = onion_epoll_event_add(epoll->data.epoll_fd, epoll->timerfd, epoll->data.tags, ONION_EPOLL_HANDLER_TIMERFD, NULL);
    if (ret < 0) {
       DEBUG_ERR("Epoll tag initialization failed!\n");
       return -1;
@@ -102,164 +113,207 @@ int onion_epoll_add_timer(onion_epoll_t *ep) {
    return 0;
 }
 
-void onion_epoll_remove_timer(onion_epoll_t *ep) {
-   onion_epoll_data_t *data = &ep->data;
-   if (onion_fd_is_valid(ep->timerfd) == 0) {
+void onion_epoll_remove_timer(onion_epoll_t *epoll) {
+   onion_epoll_data_t *data = &epoll->data;
+   if (onion_fd_is_valid(epoll->timerfd) == 0) {
       if (onion_fd_is_valid(data->epoll_fd) == 0) {
-         epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, ep->timerfd, NULL);
+         epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, epoll->timerfd, NULL);
       }
-      close(ep->timerfd);
-      ep->timerfd = -1;
+      close(epoll->timerfd);
+      epoll->timerfd = -1;
    }
 }
 
-onion_handler_ret_t onion_handle_timer(onion_epoll_t *ep) {
-   struct onion_block *pool = ep->slots;
-   size_t offset = 0;
-   int start_pos = -1;
-   onion_bitmask *bitmask = ep->slots->bitmask;
-   while ((start_pos = onion_ffb(bitmask, offset, 1)) != -1) {
-      offset = start_pos + 1;
-      onion_epoll_slot_t *slot = (onion_epoll_slot_t*)onion_block_get(pool, start_pos);
-      if (slot->start_pos != start_pos) {
-         continue;
-      }
+onion_handler_ret_t onion_handle_timer(onion_epoll_t *epoll) {
+    struct onion_block *slots_block = epoll->slots;
+    onion_bitmask *bitmask = epoll->slots->bitmask;
 
-      // DEBUG_FUNC("from core: %d hello: %ld\n", ep->core, onion_tick() - slot->time_alive);
+    size_t offset = 0;
+    int pos = -1;
 
-      time_t sleepy = onion_tick() - slot->time_alive;
-      if (sleepy >= slot->time_limit) {
-         DEBUG_FUNC("Anonymous is offline man!\n");
-         onion_epoll_remove_slot(ep, slot);
-      }
-   }
-   return ONION_EPOLL_HANDLER_TIMERFD;
-}
+    while ((pos = onion_ffb(bitmask, offset, 1)) != -1) {
+        offset = pos + 1;
 
-onion_handler_ret_t onion_epoll_tag_handler(onion_epoll_t *ep, onion_epoll_tag_t *tag, struct epoll_event *event) {
-    onion_handler_ret_t ret = ONION_EPOLL_HANDLER_UNKNOWN;
+        onion_epoll_slot_t *slot = (onion_epoll_slot_t *)onion_block_get(slots_block, pos);
 
-    if (onion_fd_is_valid(tag->fd) != 0) {
-        return -1;
-    }
-
-    if (event->events & EPOLLIN) {
-        uint64_t expirations;
-        ssize_t read_bytes = read(tag->fd, &expirations, sizeof(expirations));
-
-        if (read_bytes < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return 0;
-            }
-            return -1;
-        }
-        if (read_bytes == 0) {
-            return -1;
-        }
-    }
-
-    switch (tag->type) {
-        case ONION_EPOLL_HANDLER_EPFD:
-            break;
-        case ONION_EPOLL_HANDLER_EVENTFD:
-            break;
-        case ONION_EPOLL_HANDLER_TIMERFD:
-            ret = onion_handle_timer(ep);
-            break;
-        case ONION_EPOLL_HANDLER_PUPPYFD:
-            break;
-        case ONION_EPOLL_HANDLER_UNKNOWN:
-        default:
-            ret = ONION_EPOLL_HANDLER_UNKNOWN;
-            break;
-    }
-
-    return ret;
-}
-
-static int onion_epoll_handler_check_args(void *arg, onion_epoll_static_t **ep_st, onion_epoll_t **ep) {
-    if (!arg) {
-        DEBUG_ERR("Thread argument is NULL!\n");
-        return -1;
-    }
-    struct onion_thread_args *thread_args = (struct onion_thread_args *)arg;
-    if (!thread_args) {
-        DEBUG_ERR("Thread argument structure is NULL!\n");
-        return -1;
-    }
-    *ep_st = thread_args->ep_st;
-    if (!*ep_st) {
-        DEBUG_ERR("onion_epoll_static pointer is NULL!\n");
-        return -1;
-    }
-    *ep = thread_args->ep;
-    if (!*ep) {
-        DEBUG_ERR("onion_epoll pointer is NULL!\n");
-        return -1;
-    }
-    return 0;
-}
-
-static void onion_epoll_handle_event(onion_epoll_t *ep, onion_epoll_data_t *data, struct epoll_event *event) {
-    onion_epoll_tag_t *tag = (onion_epoll_tag_t *)event->data.ptr;
-    if (!tag) return;
-
-    onion_handler_ret_t tag_ret = onion_epoll_tag_handler(ep, tag, event);
-    if (tag_ret == ONION_EPOLL_HANDLER_UNKNOWN || tag_ret < 0) {
-        onion_epoll_event_del(data->epoll_fd, data->tags, tag);
-    }
-}
-
-void *onion_epoll_handler(void *arg) {
-    onion_epoll_static_t *ep_st = NULL;
-    onion_epoll_t *ep = NULL;
-
-    if (onion_epoll_handler_check_args(arg, &ep_st, &ep) < 0) {
-        return NULL;
-    }
-
-    onion_epoll_data_t *data = &ep->data;
-
-    if (onion_cpu_set_core(ep->flow, ep->core) < 0) {
-        DEBUG_ERR("Failed to set thread affinity inside handler, core = %d\n", ep->core);
-        onion_slave_epoll1_exit(ep_st, ep);
-        return NULL;
-    }
-
-    struct epoll_event events[ONION_EPOLL_PER_MAX_EVENTS];
-
-    while (ep && ep->initialized) {
-        int event_count = epoll_wait(data->epoll_fd, events, ONION_EPOLL_PER_MAX_EVENTS, 100);
-
-        if (ep->handler) {
-            struct onion_thread_my_args args = {
-                .ep_st = ep_st,
-                .ep = ep,
-            };
-            ep->handler(&args);
-        }
-
-        if (event_count <= 0) {
+        if (slot->start_pos != pos) {
             continue;
         }
 
-        for (int i = 0; i < event_count; i++) {
-            onion_epoll_handle_event(ep, data, &events[i]);
+        time_t alive_time = onion_tick() - slot->time_alive;
+        if (alive_time >= slot->time_limit) {
+            DEBUG_FUNC("Anonymous is offline man! (fd=%d, alive=%ld)\n", slot->fd, alive_time);
+            onion_epoll_remove_slot(epoll, slot);
         }
     }
-
-    onion_slave_epoll1_exit(ep_st, ep);
-    return NULL;
+    return ONION_EPOLL_HANDLER_TIMERFD;
 }
 
-onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data) {
-   if (ep->conn_count + 1 >= ep->conn_max) {
+/**
+ * @section onion_epoll_tag
+ * @brief Tag-based epoll event dispatching and management.
+ *
+ * These functions provide a mechanism to associate metadata ("tags") with epoll events,
+ * enabling flexible and type-safe dispatching of multiple event types (eventfd, timerfd, etc).
+ *
+ * - onion_epoll_tag_set:     Set fields of the tag structure for an epoll event.
+ * - onion_epoll_tag_handler: Dispatch handler logic based on the tag's type and the incoming epoll event.
+ *
+ */
+void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t type, void *data) {
+   tag->fd = fd;
+   tag->type = type;
+   tag->user_data = data;
+}
+
+onion_handler_ret_t onion_epoll_tag_handler(onion_epoll_t *epoll, onion_epoll_tag_t *tag, struct epoll_event *event) {
+   onion_handler_ret_t ret = ONION_EPOLL_HANDLER_UNKNOWN;
+
+   if (onion_fd_is_valid(tag->fd) != 0) {
+      return -1;
+   }
+
+   if (event->events & EPOLLIN) {
+      uint64_t expirations;
+      ssize_t read_bytes = read(tag->fd, &expirations, sizeof(expirations));
+
+      if (read_bytes < 0) {
+         if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+         }
+         return -1;
+      }
+      if (read_bytes == 0) {
+         return -1;
+      }
+   }
+
+   switch (tag->type) {
+      case ONION_EPOLL_HANDLER_EPFD:
+         break;
+      case ONION_EPOLL_HANDLER_EVENTFD:
+         break;
+      case ONION_EPOLL_HANDLER_TIMERFD:
+         ret = onion_handle_timer(epoll);
+         break;
+      case ONION_EPOLL_HANDLER_PUPPYFD:
+         break;
+      case ONION_EPOLL_HANDLER_UNKNOWN:
+      default:
+         ret = ONION_EPOLL_HANDLER_UNKNOWN;
+         break;
+   }
+
+   return ret;
+}
+
+/**
+ * @section onion_epoll_thread
+ * @brief Epoll thread handler and event dispatching.
+ *
+ * These internal functions manage the lifecycle and event loop of an epoll worker thread.
+ * They handle argument checking, and proper cleanup on shutdown.
+ *
+ * - onion_epoll_handler_check_args:  Validates and extracts thread arguments for an epoll worker.
+ * - onion_epoll_handle_event:        Handles a single epoll event, dispatches to tag handler and cleans up on error.
+ * - onion_epoll_handler:             Main thread function for the epoll worker; 
+ *
+ */
+static int onion_epoll_handler_check_args(void *arg, onion_epoll_static_t **epoll_static, onion_epoll_t **epoll) {
+   if (!arg) {
+      DEBUG_ERR("Thread argument is NULL!\n");
+      return -1;
+   }
+   struct onion_thread_args *thread_args = (struct onion_thread_args *)arg;
+   if (!thread_args) {
+      DEBUG_ERR("Thread argument structure is NULL!\n");
+      return -1;
+   }
+   *epoll_static = thread_args->epoll_static;
+   if (!*epoll_static) {
+      DEBUG_ERR("onion_epoll_static pointer is NULL!\n");
+      return -1;
+   }
+   *epoll = thread_args->epoll;
+   if (!*epoll) {
+      DEBUG_ERR("onion_epoll pointer is NULL!\n");
+      return -1;
+   }
+   return 0;
+}
+
+static void onion_epoll_handle_event(onion_epoll_t *epoll, onion_epoll_data_t *data, struct epoll_event *event) {
+   onion_epoll_tag_t *tag = (onion_epoll_tag_t *)event->data.ptr;
+   if (!tag) return;
+
+   onion_handler_ret_t tag_ret = onion_epoll_tag_handler(epoll, tag, event);
+   if (tag_ret == ONION_EPOLL_HANDLER_UNKNOWN || tag_ret < 0) {
+      onion_epoll_event_del(data->epoll_fd, data->tags, tag);
+   }
+}
+
+void *onion_epoll_handler(void *arg) {
+   onion_epoll_static_t *epoll_static = NULL;
+   onion_epoll_t *epoll = NULL;
+
+   if (onion_epoll_handler_check_args(arg, &epoll_static, &epoll) < 0) {
+      return NULL;
+   }
+
+   onion_epoll_data_t *data = &epoll->data;
+
+   if (onion_cpu_set_core(epoll->flow, epoll->core) < 0) {
+      DEBUG_ERR("Failed to set thread affinity inside handler, core = %d\n", epoll->core);
+      onion_slave_epoll1_exit(epoll_static, epoll);
+      return NULL;
+   }
+
+   struct epoll_event events[ONION_EPOLL_PER_MAX_EVENTS];
+
+   while (epoll && epoll->initialized) {
+      int event_count = epoll_wait(data->epoll_fd, events, ONION_EPOLL_PER_MAX_EVENTS, 100);
+
+      if (epoll->handler) {
+         struct onion_thread_my_args args = {
+            .epoll_static = epoll_static,
+            .epoll = epoll,
+         };
+         epoll->handler(&args);
+      }
+
+      if (event_count <= 0) {
+         continue;
+      }
+
+      for (int index = 0; index < event_count; index++) {
+         onion_epoll_handle_event(epoll, data, &events[index]);
+      }
+   }
+
+   onion_slave_epoll1_exit(epoll_static, epoll);
+   return NULL;
+}
+
+/**
+ * @section onion_epoll_slot_management
+ * @brief Epoll slot management for dynamic file descriptor handling.
+ *
+ * These functions manage the allocation, initialization, and cleanup of per-connection
+ * epoll slots within an epoll worker instance. Each slot represents an active file descriptor
+ * and associated callbacks/state.
+ *
+ * - onion_epoll_add_slot:     Allocates and sets up a new epoll slot, registers it with epoll.
+ * - onion_epoll_remove_slot:  Removes an epoll slot from epoll and frees all associated resources.
+ *
+ */
+onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data) {
+   if (epoll->conn_count + 1 >= epoll->conn_max) {
       DEBUG_ERR("Epoll slot limit reached!\n");
       return NULL;
    }
 
    int start_pos = -1;
-   onion_epoll_slot_t *ep_slot = onion_block_alloc(ep->slots, &start_pos);
+   onion_epoll_slot_t *ep_slot = onion_block_alloc(epoll->slots, &start_pos);
    if (!ep_slot) {
       DEBUG_ERR("Failed to allocate epoll slot block!\n");
       goto unsuccessfull;
@@ -269,7 +323,7 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *ep, int fd, void *data, 
    ep_slot->start_pos = start_pos;
 
 
-   if (onion_epoll_event_add(ep->data.epoll_fd, fd, ep->data.tags, ONION_EPOLL_HANDLER_PUPPYFD, ep_slot) < 0) {
+   if (onion_epoll_event_add(epoll->data.epoll_fd, fd, epoll->data.tags, ONION_EPOLL_HANDLER_PUPPYFD, ep_slot) < 0) {
       DEBUG_ERR("epoll_ctl ADD failed for fd %d\n", fd);
       goto fail_slot;
    }
@@ -282,20 +336,20 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *ep, int fd, void *data, 
    ep_slot->time_alive = onion_tick();
    ep_slot->time_limit = ONION_ANONYMOUS_TIME_ALIVE;
 
-   ep->conn_count += 1;
+   epoll->conn_count += 1;
    atomic_store(&ep_slot->initialized, 1);
 
    DEBUG_FUNC("Epoll slot added (fd=%d, pos=%d)\n", fd, start_pos);
 
    return ep_slot;
 fail_slot:
-   onion_block_free(ep->slots, ep_slot);
+   onion_block_free(epoll->slots, ep_slot);
 unsuccessfull:
    return NULL;
 }
 
-void onion_epoll_remove_slot(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot) {
-   onion_epoll_data_t *data = &ep->data;
+void onion_epoll_remove_slot(onion_epoll_t *epoll, onion_epoll_slot_t *ep_slot) {
+   onion_epoll_data_t *data = &epoll->data;
    if (onion_fd_is_valid(ep_slot->fd) == 0) {
       if (onion_fd_is_valid(data->epoll_fd) == 0) {
          epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, ep_slot->fd, NULL);
@@ -305,19 +359,25 @@ void onion_epoll_remove_slot(onion_epoll_t *ep, onion_epoll_slot_t *ep_slot) {
    }
 
    if (ep_slot->start_pos >= 0) {
-      ep->conn_count -= 1;
+      epoll->conn_count -= 1;
    }
 
-   onion_block_free(ep->slots, ep_slot);
+   onion_block_free(epoll->slots, ep_slot);
    DEBUG_FUNC("Epoll slot removed\n");
 }
 
-void onion_epoll1_data_set(onion_epoll_data_t *data) {
-   data->epoll_fd = -1;
-   data->event_fd = -1;
-   data->tags = NULL;
-}
-
+/**
+ * @section onion_epoll1
+ * @brief General abstraction for creating and managing an epoll instance.
+ *
+ * This section provides a simplified interface for initializing and cleaning up
+ * a single epoll structure, as well as managing its associated eventfd and tag queue.
+ *
+ * Main functions:
+ *  - onion_epoll1_init:   Create and initialize an epoll instance with eventfd and tag queue.
+ *  - onion_epoll1_exit:   Destroy the epoll instance and free all resources.
+ *  - onion_epoll1_data_set: Reset epoll data structure to initial state.
+ */
 int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t TAG_MAX_SIZE, size_t TAG_PER_SIZE) {
    int ret;
 
@@ -376,7 +436,23 @@ void onion_epoll1_exit(onion_epoll_data_t *data) {
    }
 }
 
-onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t handler, long sched_core, size_t conn_max) {
+void onion_epoll1_data_set(onion_epoll_data_t *data) {
+   data->epoll_fd = -1;
+   data->event_fd = -1;
+   data->tags = NULL;
+}
+
+/**
+ * @section onion_epoll_worker
+ * @brief Epoll worker lifecycle management.
+ *
+ * These functions are responsible for creating, initializing, running,
+ * and properly cleaning up an individual epoll worker instance.
+ *
+ * - onion_slave_epoll1_init: Allocates, initializes, and launches an epoll worker thread.
+ * - onion_slave_epoll1_exit: Cleans up, stops, and frees all resources associated with an epoll worker.
+ */
+onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion_handler_t handler, size_t conn_max) {
    int ret;
 
    if (conn_max < 1 || conn_max >= INT_MAX) {
@@ -384,7 +460,7 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handle
       return NULL;
    }
 
-   if (ep_st->count + 1 > ep_st->capable) {
+   if (epoll_static->count + 1 > epoll_static->capable) {
       DEBUG_ERR("Exceeded onion_epoll_t slot limit.\n");
       return NULL;
    }
@@ -394,24 +470,24 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handle
       return NULL;
    }
 
-   long current_core = onion_get_offset_sched() + ep_st->count;
+   long current_core = onion_get_offset_sched() + epoll_static->count;
 
-   onion_epoll_t *ep = onion_block_alloc(ep_st->epolls, NULL);
-   if (!ep) {
+   onion_epoll_t *epoll = onion_block_alloc(epoll_static->epolls, NULL);
+   if (!epoll) {
       DEBUG_ERR("Failed to allocate onion_epoll_t.\n");
       goto unsuccessfull;
    }
 
-   onion_epoll_data_t *data = &ep->data;
+   onion_epoll_data_t *data = &epoll->data;
    size_t tag_max_size = ONION_TAG_QUEUE_CAPABLE * sizeof(onion_epoll_tag_t);
    size_t tag_per_size = sizeof(onion_epoll_tag_t);
 
    onion_epoll1_data_set(data);
-   ep->initialized  = false;
-   ep->conn_count   = 0;
-   ep->conn_max     = conn_max;
-   ep->handler      = handler;
-   ep->core         = current_core;
+   epoll->initialized  = false;
+   epoll->conn_count   = 0;
+   epoll->conn_max     = conn_max;
+   epoll->handler      = handler;
+   epoll->core         = current_core;
 
    ret = onion_epoll1_init(data, EPOLL_CLOEXEC, EFD_CLOEXEC | EFD_NONBLOCK, tag_max_size, tag_per_size);
    if (ret < 0) {
@@ -421,63 +497,64 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handle
 
    data->event.events = EPOLLIN | EPOLLOUT | EPOLLET;
 
-   ep->args = (struct onion_thread_args *)onion_block_alloc(ep_st->epolls_args, NULL);
-   if (!ep->args) {
+   epoll->args = (struct onion_thread_args *)onion_block_alloc(epoll_static->epolls_args, NULL);
+   if (!epoll->args) {
       DEBUG_ERR("args initialization failed.\n");
       goto please_free;
    }
 
-   ep->args->ep_st = ep_st;
-   ep->args->ep    = ep;
+   epoll->args->epoll_static = epoll_static;
+   epoll->args->epoll        = epoll;
 
-   ret = onion_block_init(&ep->slots, ep->conn_max * sizeof(onion_epoll_slot_t), sizeof(onion_epoll_slot_t));
+   ret = onion_block_init(&epoll->slots, epoll->conn_max * sizeof(onion_epoll_slot_t), sizeof(onion_epoll_slot_t));
    if (ret < 0) {
       DEBUG_ERR("Failed to init epoll slots block.\n");
       goto please_free;
    }
 
-   ret = pthread_create(&ep->flow, NULL, onion_epoll_handler, ep->args);
+   ret = pthread_create(&epoll->flow, NULL, onion_epoll_handler, epoll->args);
    if (ret < 0) {
       DEBUG_ERR("pthread_create failed.\n");
       goto please_free;
    }
 
-   ret = onion_epoll_add_timer(ep);
+   ret = onion_epoll_add_timer(epoll);
    if (ret < 0) {
       DEBUG_ERR("Failed to integrate timer.\n");
       goto please_free;
    }
 
-   ep_st->count += 1;
-   ep->initialized = true;
+   epoll_static->count = epoll_static->count + 1;
+   epoll->initialized = true;
 
    DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu, Current core: %ld.\n",
-         data->epoll_fd, ep->core, sizeof(*ep), current_core);
-   return ep;
+         data->epoll_fd, epoll->core, sizeof(*epoll), current_core);
+   return epoll;
 
 please_free:
-   onion_slave_epoll1_exit(ep_st, ep);
+   onion_slave_epoll1_exit(epoll_static, epoll);
 
 unsuccessfull:
    return NULL;
 }
 
-void onion_slave_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *ep) {
-   if (!ep)
+void onion_slave_epoll1_exit(onion_epoll_static_t *epoll_static, onion_epoll_t *epoll) {
+   if (!epoll) {
       return;
-
-   onion_epoll_data_t *data = &ep->data;
-
-   if (ep->flow) {
-      pthread_join(ep->flow, NULL);
-      ep->flow = 0;
    }
 
-   onion_epoll_remove_timer(ep);
+   onion_epoll_data_t *data = &epoll->data;
 
-   if (ep->slots) {
-      onion_bitmask *bitmask = ep->slots->bitmask;
-      onion_epoll_slot_t *slots = (onion_epoll_slot_t *)ep->slots->data;
+   if (epoll->flow) {
+      pthread_join(epoll->flow, NULL);
+      epoll->flow = 0;
+   }
+
+   onion_epoll_remove_timer(epoll);
+
+   if (epoll->slots) {
+      onion_bitmask *bitmask = epoll->slots->bitmask;
+      onion_epoll_slot_t *slots = (onion_epoll_slot_t *)epoll->slots->data;
 
       while (1) {
          int index = onion_find_bit(bitmask, 1);
@@ -486,103 +563,103 @@ void onion_slave_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *ep) {
 
          int fd = slots[index].fd;
          if (onion_fd_is_valid(fd)) {
-            onion_epoll_remove_slot(ep, &slots[index]);
+            onion_epoll_remove_slot(epoll, &slots[index]);
          }
          onion_clear_bit(bitmask, index);
       }
 
-      onion_block_exit(ep->slots);
-      ep->slots = NULL;
+      onion_block_exit(epoll->slots);
+      epoll->slots = NULL;
    }
 
    onion_epoll1_exit(data);
 
-   onion_block_free(ep_st->epolls_args, ep->args);
-   onion_block_free(ep_st->epolls, ep);
+   onion_block_free(epoll_static->epolls_args, epoll->args);
+   onion_block_free(epoll_static->epolls, epoll);
 
-   if (ep->initialized) {
-      ep_st->count -= 1;
+   if (epoll->initialized) {
+      epoll_static->count -= 1;
    }
 
-   ep->initialized = false;
+   epoll->initialized = false;
 
    DEBUG_FUNC("epoll exit\n");
 }
 
-int onion_epoll_static_init(onion_epoll_static_t **ptr, long core_count) {
-    int ret;
+/**
+ * @section onion_epoll_static
+ * @brief Global epoll static state management.
+ *
+ * These functions manage the lifecycle of the global epoll static structure, which contains
+ * all epoll workers and thread argument pools for the process.
+ *
+ * - onion_epoll_static_init:  Allocates and initializes the global static state for epoll workers.
+ * - onion_epoll_static_exit:  Cleans up and frees all resources associated with the global static state.
+ */
+onion_epoll_static_t *onion_epoll_static_init(long core_count) {
+   int ret;
 
-    if (epoll_smoke) {
-        DEBUG_ERR("Big smoke already existing!\n");
-        return -1;
-    }
+   if (core_count < 1) {
+      DEBUG_ERR("Core count must be at least 1. Please initialize onion_config.\n");
+      return NULL;
+   }
 
-    if (core_count < 1) {
-        DEBUG_ERR("Core count must be at least 1. Please initialize onion_config.\n");
-        return -1;
-    }
+   onion_epoll_static_t *epoll_static = malloc(sizeof(*epoll_static));
+   if (!epoll_static) {
+      DEBUG_ERR("Failed to allocate onion_epoll_static.\n");
+      return NULL;
+   }
 
-    onion_epoll_static_t *ep_st = malloc(sizeof(*ep_st));
-    if (!ep_st) {
-        DEBUG_ERR("Failed to allocate onion_epoll_static.\n");
-        return -1;
-    }
+   epoll_static->count = 0;
+   epoll_static->capable = core_count;
 
-    ep_st->count = 0;
-    ep_st->capable = core_count;
+   size_t epolls_size = sizeof(onion_epoll_t) * epoll_static->capable;
+   size_t epolls_args_size = sizeof(struct onion_thread_args) * epoll_static->capable;
 
-    size_t epolls_size = sizeof(onion_epoll_t) * ep_st->capable;
-    size_t epolls_args_size = sizeof(struct onion_thread_args) * ep_st->capable;
+   ret = onion_block_init(&epoll_static->epolls, epolls_size, sizeof(onion_epoll_t));
+   if (!epoll_static->epolls) {
+      DEBUG_ERR("Failed to initialize epoll block (size: %zu).\n", epolls_size);
+      goto unsuccessfull;
+   }
 
-    ret = onion_block_init(&ep_st->epolls, epolls_size, sizeof(onion_epoll_t));
-    if (!ep_st->epolls) {
-        DEBUG_ERR("Failed to initialize epoll block (size: %zu).\n", epolls_size);
-        goto unsuccessfull;
-    }
+   ret = onion_block_init(&epoll_static->epolls_args, epolls_args_size, sizeof(struct onion_thread_args));
+   if (ret < 0) {
+      DEBUG_ERR("Failed to initialize epoll args (size: %zu).\n", epolls_args_size);
+      goto unsuccessfull;
+   }
 
-    ret = onion_block_init(&ep_st->epolls_args, epolls_args_size, sizeof(struct onion_thread_args));
-    if (ret < 0) {
-        DEBUG_ERR("Failed to initialize epoll args (size: %zu).\n", epolls_args_size);
-        goto unsuccessfull;
-    }
-
-    epoll_smoke = ep_st;
-    *ptr = ep_st;
-
-    DEBUG_FUNC("onion_epoll_static initialized (%ld cores).\n", ep_st->capable);
-    return 0;
-
+   DEBUG_FUNC("onion_epoll_static initialized (%ld cores).\n", epoll_static->capable);
+   return epoll_static;
 unsuccessfull:
-    onion_epoll_static_exit(ep_st);
-    return -1;
+   onion_epoll_static_exit(epoll_static);
+   return NULL;
 }
 
-void onion_epoll_static_exit(onion_epoll_static_t *ep_st) {
-    if (!ep_st)
-        return;
+void onion_epoll_static_exit(onion_epoll_static_t *epoll_static) {
+   if (!epoll_static) {
+      return;
+   }
 
-    epoll_smoke = NULL;
+   if (epoll_static->epolls) {
+      for (size_t index = 0; index < (size_t)epoll_static->capable; ++index) {
+         onion_epoll_t *epoll = (onion_epoll_t *)onion_block_get(epoll_static->epolls, index);
+         if (epoll->initialized) {
+            onion_slave_epoll1_exit(epoll_static, epoll);
+         }
+      }
 
-    if (ep_st->epolls) {
-        for (size_t index = 0; index < (size_t)ep_st->capable; ++index) {
-            onion_epoll_t *epoll = (onion_epoll_t *)onion_block_get(ep_st->epolls, index);
-            if (epoll->initialized) {
-                onion_slave_epoll1_exit(ep_st, epoll);
-            }
-        }
+      onion_block_exit(epoll_static->epolls);
+      epoll_static->epolls = NULL;
+   }
 
-        onion_block_exit(ep_st->epolls);
-        ep_st->epolls = NULL;
-    }
+   if (epoll_static->epolls_args) {
+      onion_block_exit(epoll_static->epolls_args);
+      epoll_static->epolls_args = NULL;
+   }
 
-    if (ep_st->epolls_args) {
-        onion_block_exit(ep_st->epolls_args);
-        ep_st->epolls_args = NULL;
-    }
+   epoll_static->count = 0;
+   epoll_static->capable = 0;
 
-    ep_st->count = 0;
-    ep_st->capable = 0;
-
-    free(ep_st);
-    DEBUG_FUNC("onion_epoll_static exited.\n");
+   free(epoll_static);
+   DEBUG_FUNC("onion_epoll_static exited.\n");
 }

@@ -28,6 +28,19 @@
 #define ONION_MAX_PEER_PER_COUNT 16
 #define ONION_MAX_PEER_QUEUE_CAPABLE 16
 
+#define ONION_ENTRY_LINE_SIZE 64
+
+typedef enum {
+   ONION_INT_TYPE,
+   ONION_STRING_TYPE
+} onion_conf_val_type;
+
+typedef struct {
+   char key[ONION_ENTRY_LINE_SIZE];
+   onion_conf_val_type type;
+   void *ptr;
+} onion_config_entry_t;
+
 typedef struct {
    long sched_core;
    long core_count;
