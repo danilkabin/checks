@@ -1,7 +1,6 @@
 #ifndef ONION_DEVICE_H
 #define ONION_DEVICE_H
 
-#include "onion/epoll.h"
 #include "pool.h"
 #include "socket.h"
 #include "net.h"
@@ -13,6 +12,14 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+
+#define ONION_DEFAULT_CORE_SCHED 0
+
+typedef struct {
+    int count;
+    int sched;
+    int worker_count;
+} onion_core_conf_t;
 
 typedef void *(*onion_thread_func_t)(void*);
 
@@ -37,6 +44,8 @@ struct onion_worker {
 
 typedef void (*onion_accept_callback_sk)(int peer_fd, onion_peer_net *);
 
+int onion_core_conf_init(onion_core_conf_t *core_conf);
+
 int onion_static_worker_stack_init(onion_worker_stack *stack, onion_server_net_conf conf, onion_thread_func_t func, void *ptr);
 void onion_static_worker_stack_exit(onion_worker_stack *stack);
 
@@ -45,7 +54,7 @@ int onion_accept_net(onion_server_net *net_server, onion_epoll_t *epoll);
 int onion_dev_worker_init(struct onion_worker_head *onion_workers, struct onion_tcp_port_conf port_conf, int peers_capable, int queue_capable);
 void onion_dev_worker_exit(struct onion_worker_head *onion_workers, struct onion_worker *worker);
 
-struct onion_worker_head *onion_device_init(uint16_t port, long core_count, int peers_capable, int queue_capable);
+struct onion_worker_head *onion_device_init(onion_core_conf_t *core_conf);
 void onion_device_exit(struct onion_worker_head *head);
 
 #endif

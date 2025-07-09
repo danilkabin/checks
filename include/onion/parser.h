@@ -1,4 +1,4 @@
-#ifndef HTTP_PARSER_H
+/*#ifndef HTTP_PARSER_H
 #define HTTP_PARSER_H
 
 #include "onion.h"
@@ -23,4 +23,4 @@ void onion_http_parser_exit(onion_http_parser_t *);
 
 int onion_http_parser_request(onion_http_parser_t *, char *, size_t);
 
-#endif
+#endif*/

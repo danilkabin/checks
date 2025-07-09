@@ -3,8 +3,32 @@
 
 #include "slab.h"
 
-#include "onion.h"
 #include <stddef.h>
+
+#define ONION_DEFAULT_METHOD_SIZE 32
+#define ONION_DEFAULT_URL_SIZE 464
+#define ONION_DEFAULT_VERSION_SIZE 16
+#define ONION_DEFAULT_HEADER_NAME_SIZE 64
+#define ONION_DEFAULT_HEADER_VALUE_SIZE 128
+#define ONION_DEFAULT_MAX_HEADERS 24
+#define ONION_DEFAULT_INIT_BODY_SIZE 256
+#define ONION_DEFAULT_MAX_BODY_SIZE 8192
+#define ONION_DEFAULT_MAX_REQUESTS 8
+
+typedef struct {
+    size_t method_size;
+    size_t url_size;
+    size_t version_size;
+
+    size_t header_name_size;
+    size_t header_value_size;
+    size_t max_headers;
+
+    size_t init_body_size;
+    size_t max_body_size;
+
+    int max_requests;
+} onion_http_conf_t;
 
 struct onion_http_choice {
    char *name;

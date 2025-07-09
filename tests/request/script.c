@@ -13,10 +13,10 @@
 
 int main() {
    onion_config_t onion_config1;
-   onion_config_init(&onion_config1);
-   DEBUG_FUNC("dfsdfds : %d\n", onion_config.core_count);
+   onion_config_init();
+   //DEBUG_FUNC("dfsdfds : %d\n", onion_config.core_count);
    struct onion_worker_head *head;
-   int ret = onion_device_init(&head, 51235, onion_config.core_count, 100, 5);
+  // int ret = onion_device_init(&head, 51235, onion_config.core_count, 100, 5);
 
    sleep(100);
 

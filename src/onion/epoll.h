@@ -1,5 +1,4 @@
 #ifndef ONION_EPOLL_H
-
 #define ONION_EPOLL_H
 
 #include "pool.h"
@@ -11,14 +10,21 @@
 #include <sys/epoll.h>
 #include <time.h>
 
-#define ONION_PTHREAD_ENABLED true
+#define ONION_DEFAULT_EVENTS_PER_FRAME 32
+#define ONION_DEFAULT_TAG_QUEUE_CAPABLE 10
+#define ONION_DEFAULT_SEC_INTERVAL 1
+#define ONION_DEFAULT_NSEC_INTERVAL 0
+#define ONION_DEFAULT_SEC_VALUE 1
+#define ONION_DEFAULT_NSEC_VALUE 0
 
-#define ONION_EPOLL_PER_MAX_EVENTS 32
-#define ONION_TIMER_INTERVAL 1
-#define ONION_ANONYMOUS_TIME_ALIVE 3
-
-#define ONION_EPOLL_TAG_QUEUE_CAPABLE 5
-#define ONION_TAG_QUEUE_CAPABLE 10
+typedef struct {
+   int events_per_frame;
+   int tag_queue_capable;
+   int sec_interval;
+   int nsec_interval;
+   int sec_value;
+   int nsec_value;
+} onion_epoll_conf_t;
 
 struct onion_thread_args;
 struct onion_thread_my_args;
@@ -72,7 +78,7 @@ typedef struct {
    struct onion_block *slots;
    struct onion_thread_args *args;
 
-   onion_handler_t hann_dler;
+   onion_handler_t handler;
 
    bool initialized;
 } onion_epoll_t;
@@ -81,6 +87,7 @@ typedef struct {
    struct onion_block *epolls;
    struct onion_block *epolls_args;
    long capable;
+   long count;
 } onion_epoll_static_t;
 
 struct onion_thread_args {
@@ -98,13 +105,13 @@ void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t typ
 
 onion_epoll_static_t *onion_get_static_by_epoll(onion_epoll_t *ep);
 
-onion_epoll_static_t *onion_epoll_static_init(long core_count);
+onion_epoll_static_t *onion_epoll_static_init(int core_count);
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st);
 
 int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t TAG_MAX_SIZE, size_t TAG_PER_SIZE);
 void onion_epoll1_exit(onion_epoll_data_t *data);
 
-onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, size_t conn_max);
+onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, int sched_core, size_t conn_max);
 void onion_slave_epoll1_exit(onion_epoll_static_t *ep_st, onion_epoll_t *);
 
 onion_epoll_slot_t *onion_epoll_data_slot(onion_epoll_t *ep, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data);

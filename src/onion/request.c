@@ -1,4 +1,4 @@
-#include "request.h"
+/*#include "request.h"
 #include "http.h"
 
 #include "onion.h"
@@ -464,4 +464,4 @@ void onion_http_request_exit(onion_http_request_t *request) {
       onion_slab_free_and_null(allocator, (void**)&header->name);
       onion_slab_free_and_null(allocator, (void**)&header->value);
    }
-}
+}*/

@@ -17,7 +17,16 @@
 #include "epoll.h"
 #include "utils.h"
 #include "pool.h"
-#include "sup.h"
+
+int onion_epoll_conf_init(onion_epoll_conf_t *epoll_conf) {
+   epoll_conf->events_per_frame = epoll_conf->events_per_frame < 0 ? ONION_DEFAULT_EVENTS_PER_FRAME : epoll_conf->events_per_frame;
+   epoll_conf->tag_queue_capable = epoll_conf->tag_queue_capable < 0 ? ONION_DEFAULT_TAG_QUEUE_CAPABLE : epoll_conf->tag_queue_capable;
+   epoll_conf->sec_interval = epoll_conf->sec_interval < 0 ? ONION_DEFAULT_SEC_INTERVAL : epoll_conf->sec_interval;
+   epoll_conf->nsec_interval = epoll_conf->nsec_interval < 0 ? ONION_DEFAULT_NSEC_INTERVAL : epoll_conf->nsec_interval;
+   epoll_conf->sec_value = epoll_conf->sec_value < 0 ? ONION_DEFAULT_SEC_VALUE : epoll_conf->sec_value;
+   epoll_conf->nsec_value = epoll_conf->nsec_value < 0 ? ONION_DEFAULT_NSEC_VALUE : epoll_conf->nsec_value;
+   return 0;
+}
 
 time_t onion_tick() {
    struct timespec time;
@@ -125,28 +134,28 @@ void onion_epoll_remove_timer(onion_epoll_t *epoll) {
 }
 
 onion_handler_ret_t onion_handle_timer(onion_epoll_t *epoll) {
-    struct onion_block *slots_block = epoll->slots;
-    onion_bitmask *bitmask = epoll->slots->bitmask;
+   struct onion_block *slots_block = epoll->slots;
+   onion_bitmask *bitmask = epoll->slots->bitmask;
 
-    size_t offset = 0;
-    int pos = -1;
+   size_t offset = 0;
+   int pos = -1;
 
-    while ((pos = onion_ffb(bitmask, offset, 1)) != -1) {
-        offset = pos + 1;
+   while ((pos = onion_ffb(bitmask, offset, 1)) != -1) {
+      offset = pos + 1;
 
-        onion_epoll_slot_t *slot = (onion_epoll_slot_t *)onion_block_get(slots_block, pos);
+      onion_epoll_slot_t *slot = (onion_epoll_slot_t *)onion_block_get(slots_block, pos);
 
-        if (slot->start_pos != pos) {
-            continue;
-        }
+      if (slot->start_pos != pos) {
+         continue;
+      }
 
-        time_t alive_time = onion_tick() - slot->time_alive;
-        if (alive_time >= slot->time_limit) {
-            DEBUG_FUNC("Anonymous is offline man! (fd=%d, alive=%ld)\n", slot->fd, alive_time);
-            onion_epoll_remove_slot(epoll, slot);
-        }
-    }
-    return ONION_EPOLL_HANDLER_TIMERFD;
+      time_t alive_time = onion_tick() - slot->time_alive;
+      if (alive_time >= slot->time_limit) {
+         DEBUG_FUNC("Anonymous is offline man! (fd=%d, alive=%ld)\n", slot->fd, alive_time);
+         onion_epoll_remove_slot(epoll, slot);
+      }
+   }
+   return ONION_EPOLL_HANDLER_TIMERFD;
 }
 
 /**
@@ -452,7 +461,7 @@ void onion_epoll1_data_set(onion_epoll_data_t *data) {
  * - onion_slave_epoll1_init: Allocates, initializes, and launches an epoll worker thread.
  * - onion_slave_epoll1_exit: Cleans up, stops, and frees all resources associated with an epoll worker.
  */
-onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion_handler_t handler, size_t conn_max) {
+onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion_handler_t handler, int sched_core, size_t conn_max) {
    int ret;
 
    if (conn_max < 1 || conn_max >= INT_MAX) {
@@ -470,7 +479,7 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
       return NULL;
    }
 
-   long current_core = onion_get_offset_sched() + epoll_static->count;
+   int current_core = sched_core + epoll_static->count;
 
    onion_epoll_t *epoll = onion_block_alloc(epoll_static->epolls, NULL);
    if (!epoll) {
@@ -527,7 +536,7 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
    epoll_static->count = epoll_static->count + 1;
    epoll->initialized = true;
 
-   DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu, Current core: %ld.\n",
+   DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu, Current core: %d.\n",
          data->epoll_fd, epoll->core, sizeof(*epoll), current_core);
    return epoll;
 
@@ -596,7 +605,7 @@ void onion_slave_epoll1_exit(onion_epoll_static_t *epoll_static, onion_epoll_t *
  * - onion_epoll_static_init:  Allocates and initializes the global static state for epoll workers.
  * - onion_epoll_static_exit:  Cleans up and frees all resources associated with the global static state.
  */
-onion_epoll_static_t *onion_epoll_static_init(long core_count) {
+onion_epoll_static_t *onion_epoll_static_init(int core_count) {
    int ret;
 
    if (core_count < 1) {

@@ -10,6 +10,20 @@ onion_net_static_t *onion_get_static_by_net(onion_server_net *net) {
    return net_smoke;
 }
 
+int onion_net_conf_init(onion_net_conf_t *net_conf) {
+   const char *ip_phrase = "default";
+   size_t ip_phrase_size = strlen(ip_phrase);
+   if (strncasecmp(net_conf->ip_address, ip_phrase, ip_phrase_size) == 0) {
+      strncpy(net_conf->ip_address, ONION_DEFAULT_IP_ADDRESS, ONION_IP_ADDRESS_SIZE - 1);
+      net_conf->ip_address[ONION_IP_ADDRESS_SIZE - 1] = '\0';
+   }
+   net_conf->port = net_conf->port < 0 ? ONION_DEFAULT_PORT : net_conf->port;
+   net_conf->max_peers = net_conf->max_peers < 0 ? ONION_DEFAULT_MAX_PEERS : net_conf->max_peers;
+   net_conf->max_queue = net_conf->max_queue < 0 ? ONION_DEFAULT_MAX_QUEUE : net_conf->max_queue;
+   net_conf->timeout = net_conf->timeout < 0 ? ONION_DEFAULT_TIMEOUT : net_conf->timeout;
+   return 0;
+}
+
 onion_server_net *onion_get_weak_net(onion_net_static_t *net_static) {
    onion_server_net *net = NULL; 
    int max_peers = 0xFFFFFFF;

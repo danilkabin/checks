@@ -24,10 +24,33 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-struct onion_worker_head *big_smoke;
+int onion_core_conf_init(onion_core_conf_t *core_conf) {
+   int core_count;
+   int core_sched;
+   if (core_conf->count < 0) {
+      core_count = sysconf(_SC_NPROCESSORS_CONF);
+      if (core_count < 1) {
+         DEBUG_FUNC("onion_config_init: no CPU cores found (core_count = %d)\n", core_count);
+         return -1;
+      }
+      core_conf->count = core_count;
+   }
 
-struct onion_worker_head *get_worker_head_by_worker(struct onion_worker *worker) {
-   return big_smoke;
+   if (core_conf->sched < 0) {
+      core_sched = ONION_DEFAULT_CORE_SCHED;
+      if (onion_cpu_set_core(pthread_self(), core_sched) == -1) {
+         DEBUG_FUNC("failed to set CPU affinity.\n");
+         return -1;
+      }
+
+      if (core_sched >= core_count) {
+         DEBUG_FUNC("sched_core (%d) >= core_count (%d)\n", core_sched, core_count);
+         return -1;
+      }
+      core_conf->sched = core_sched;
+   }
+
+   return 0;
 }
 
 struct onion_worker *onion_get_worker_by_epoll(onion_epoll_t *target) {
@@ -164,8 +187,8 @@ void *onion_device_head_flow(void *arg) {
 
 void *onion_dev_handler(struct onion_thread_my_args *args) {
    int ret;
-   onion_epoll_static_t *epoll_static = args->ep_st;
-   onion_epoll_t *epoll = args->ep;
+   onion_epoll_static_t *epoll_static = args->epoll_static;
+   onion_epoll_t *epoll = args->epoll;
 
    struct onion_worker *worker = onion_get_worker_by_epoll(epoll);
    if (!worker) {
@@ -267,7 +290,7 @@ static int onion_device_check_args(uint16_t port, long core_count, int peers_cap
    return 0;
 }
 
-struct onion_worker_head *onion_device_init(uint16_t port, long core_count, int peers_capable, int queue_capable) {
+struct onion_worker_head *onion_device_init(onion_core_conf_t *core_conf) {
    int ret;
 
    if (onion_device_check_args(port, core_count, peers_capable) == -1) {
@@ -305,9 +328,7 @@ struct onion_worker_head *onion_device_init(uint16_t port, long core_count, int 
       goto unsuccessfull;
    }
 
-   if (onion_worker_stack_push(&head->stack, conf, void *ptr, long per_size))
-
-      DEBUG_FUNC("head size : %zu, epoll %zu, netstat: %zu\n", sizeof(*head));
+   //DEBUG_FUNC("head size : %zu, epoll %zu, netstat: %zu\n", sizeof(*head));
 
    return head;
 unsuccessfull:

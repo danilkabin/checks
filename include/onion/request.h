@@ -1,4 +1,4 @@
-#ifndef ONION_REQUEST_H 
+/*#ifndef ONION_REQUEST_H 
 #define ONION_REQUEST_H
 
 #include "onion.h"
@@ -65,4 +65,4 @@ int onion_http_request_append(onion_http_request_t *, size_t);
 
 void onion_http_request_reset(onion_http_request_t *);
 
-#endif
+#endif*/

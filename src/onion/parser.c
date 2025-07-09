@@ -1,4 +1,4 @@
-#include "http.h"
+/*#include "http.h"
 #include "parser.h"
 #include "request.h"
 #include "slab.h"
@@ -118,4 +118,4 @@ void onion_http_parser_exit(onion_http_parser_t *parser) {
    if (parser->req_allocator) {
       parser->req_allocator = NULL;
    }
-}
+}*/

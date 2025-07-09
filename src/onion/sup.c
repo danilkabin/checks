@@ -1,6 +1,6 @@
-#include "onion.h"
 #define _GNU_SOURCE
 
+#include "onion.h"
 #include "utils.h"
 #include "sup.h"
 
@@ -19,14 +19,6 @@ int onion_cpu_set_core(pthread_t thread, long core) {
       return -1;
    }
    return 0;
-}
-
-long onion_get_real_sched() {
-   return onion_config.sched_core;
-}
-
-long onion_get_offset_sched() {
-   return onion_config.core_count == 1 ? onion_get_real_sched() : onion_config.sched_core + 1;
 }
 
 void onion_set_bit(onion_bitmask *bitmask, size_t offset) {

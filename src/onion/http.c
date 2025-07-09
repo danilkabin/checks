@@ -18,27 +18,6 @@ struct onion_http_choice ONION_HTTP_VERSION_LIST[] = {
   {"HTTP/1.1", ONION_HTTP_VERSION_1_1},
 };
 
-char *onion_chacha(char *start, size_t size, char target) {
-  for (size_t offset = 0; offset < size; offset++) {
-    if (start[offset] == target) {
-      return &start[offset];
-    }
-  }
-  return NULL;
-}
-
-char *onion_stringa(char *start, size_t size, char *target, size_t target_size) {
-  if (target_size <= 0 || size < target_size) {
-    return NULL;
-  }
-  for (size_t offset = 0; offset <= size - target_size; offset++) {
-    if (memcmp(&start[offset], target, target_size) == 0) {
-      return &start[offset];
-    }
-  }
-  return NULL;
-}
-
 int onion_http_choice_get(struct onion_http_choice *choice, size_t choice_count, const char *name, size_t size) {
    for (size_t index = 0; index < choice_count; index++) {
       struct onion_http_choice target = choice[index];
@@ -48,6 +27,27 @@ int onion_http_choice_get(struct onion_http_choice *choice, size_t choice_count,
       }
    }
    return -1;
+}
+
+char *onion_chacha(char *start, size_t size, char target) {
+   for (size_t offset = 0; offset < size; offset++) {
+      if (start[offset] == target) {
+         return &start[offset];
+      }
+   }
+   return NULL;
+}
+
+char *onion_stringa(char *start, size_t size, char *target, size_t target_size) {
+   if (target_size <= 0 || size < target_size) {
+      return NULL;
+   }
+   for (size_t offset = 0; offset <= size - target_size; offset++) {
+      if (memcmp(&start[offset], target, target_size) == 0) {
+         return &start[offset];
+      }
+   }
+   return NULL;
 }
 
 int onion_http_get_valid_method(const char *name, size_t size) {

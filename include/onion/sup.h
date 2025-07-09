@@ -11,8 +11,6 @@ typedef struct {
 } onion_bitmask;
 
 int onion_cpu_set_core(pthread_t thread, long core);
-long onion_get_real_sched();
-long onion_get_offset_sched();
 
 void onion_set_bit(onion_bitmask *, size_t);
 void onion_clear_bit(onion_bitmask *, size_t);

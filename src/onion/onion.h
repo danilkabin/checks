@@ -3,68 +3,51 @@
 
 #include <stddef.h>
 
-#define ONION_HTTP_LINE_METHOD_MAX_SIZE     32
-#define ONION_HTTP_LINE_URL_MAX_SIZE       464
-#define ONION_HTTP_LINE_VERSION_MAX_SIZE    16
+#include "device.h"
+#include "epoll.h"
+#include "net.h"
+#include "http.h"
 
 #define ONION_HTTP_LINE_MAX_SIZE          (ONION_HTTP_LINE_METHOD_MAX_SIZE + ONION_HTTP_LINE_URL_MAX_SIZE + ONION_HTTP_LINE_VERSION_MAX_SIZE)
-
-#define ONION_HTTP_HEADER_NAME_SIZE        64
-#define ONION_HTTP_HEADER_VALUE_SIZE       128
-#define ONION_HTTP_MAX_HEADERS             24
 
 #define ONION_HTTP_MAX_HEADER_SIZE        (ONION_HTTP_MAX_HEADERS * (ONION_HTTP_HEADER_NAME_SIZE + ONION_HTTP_HEADER_VALUE_SIZE))
 #define ONION_HTTP_INITIAL_HEADER_SIZE    (ONION_HTTP_MAX_HEADER_SIZE / 8)
 
-#define ONION_HTTP_INIT_BODY_SIZE      256
-#define ONION_HTTP_MAX_BODY_SIZE          8192
-
 #define ONION_HTTP_INIT_MESSAGE_SIZE  (ONION_HTTP_LINE_MAX_SIZE + ONION_HTTP_INITIAL_HEADER_SIZE + ONION_HTTP_INITIAL_BODY_SIZE)
 #define ONION_HTTP_MAX_MESSAGE_SIZE      (ONION_HTTP_LINE_MAX_SIZE + ONION_HTTP_MAX_HEADER_SIZE + ONION_HTTP_MAX_BODY_SIZE)
 
-#define ONION_HTTP_MAX_REQUESTS             8
 #define ONION_HTTP_MAX_REQUESTS_SIZE      (ONION_HTTP_MAX_REQUESTS * ONION_HTTP_MAX_MESSAGE_SIZE)
 
-#define ONION_MAX_PEER_PER_COUNT 16
-#define ONION_MAX_PEER_QUEUE_CAPABLE 16
-
-#define ONION_ENTRY_LINE_SIZE 64
+typedef int (*qsort_compare)(const void *a, const void *b);
 
 typedef enum {
    ONION_INT_TYPE,
    ONION_STRING_TYPE
 } onion_conf_val_type;
 
+#define ONION_ENTRY_NAME_SIZE 64
+#define ONION_ENTRY_VALUE_SIZE 64
+#define ONION_ENTRY_LINE_SIZE ONION_ENTRY_NAME_SIZE + ONION_ENTRY_VALUE_SIZE
+
+typedef struct {
+   char name[ONION_ENTRY_NAME_SIZE];
+   char value[ONION_ENTRY_VALUE_SIZE];
+} onion_conf_pair_t;
+
 typedef struct {
    char key[ONION_ENTRY_LINE_SIZE];
    onion_conf_val_type type;
    void *ptr;
-} onion_config_entry_t;
+} onion_conf_entry_t;
 
 typedef struct {
-   long sched_core;
-   long core_count;
-
-   int max_peer_per_core;
-   int max_peer_queue_capable;
-
-   int http_max_requests;
-
-   size_t http_line_method_max_size;
-   size_t http_line_url_max_size;
-   size_t http_line_version_max_size;
-
-   size_t http_header_name_size;
-   size_t http_header_value_size;
-   size_t http_header_max_headers;
-
-   size_t http_init_body_size;
-   size_t http_max_body_size;
+    onion_core_conf_t core;
+    onion_net_conf_t net;
+    onion_http_conf_t http;
 } onion_config_t;
 
-extern onion_config_t onion_config;
 
-int onion_config_init(onion_config_t *onion_config);
+onion_config_t *onion_config_init();
 void onion_config_exit();
 
 #endif
