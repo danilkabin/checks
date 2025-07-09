@@ -1,14 +1,9 @@
 #include "net.h"
-#include "epoll.h"
 #include "pool.h"
 #include "socket.h"
 #include "utils.h"
-
-onion_net_static_t *net_smoke;
-
-onion_net_static_t *onion_get_static_by_net(onion_server_net *net) {
-   return net_smoke;
-}
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 int onion_net_conf_init(onion_net_conf_t *net_conf) {
    const char *ip_phrase = "default";
@@ -20,8 +15,11 @@ int onion_net_conf_init(onion_net_conf_t *net_conf) {
    net_conf->port = net_conf->port < 0 ? ONION_DEFAULT_PORT : net_conf->port;
    net_conf->max_peers = net_conf->max_peers < 0 ? ONION_DEFAULT_MAX_PEERS : net_conf->max_peers;
    net_conf->max_queue = net_conf->max_queue < 0 ? ONION_DEFAULT_MAX_QUEUE : net_conf->max_queue;
-   net_conf->timeout = net_conf->timeout < 0 ? ONION_DEFAULT_TIMEOUT : net_conf->timeout;
    return 0;
+}
+
+onion_net_static_t *onion_net_priv(onion_server_net *net) {
+   return net->parent;
 }
 
 onion_server_net *onion_get_weak_net(onion_net_static_t *net_static) {
@@ -73,19 +71,22 @@ void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *peer) {
    free(peer);
 }
 
-onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_epoll_t *epoll, onion_server_net_conf *conf) {
+onion_server_net *onion_server_net_init(onion_net_static_t *net_static) {
    int ret;
-   if (conf->peers_capable < 1) {
-      DEBUG_ERR("Peers capable is less than 1.\n");
+   onion_net_conf_t *net_conf = net_static->conf;
+   
+   struct onion_tcp_port_conf port_conf = {
+      .domain = AF_INET,
+      .type = SOCK_STREAM,
+      .port = net_conf->port,
+   };
+
+   if (inet_pton(AF_INET, net_conf->ip_address, &port_conf.addr) <= 0) {
+      DEBUG_ERR("Ip address bind failed.\n");
       goto unsuccessfull;
    }
 
-   if (conf->queue_capable < 1) {
-      DEBUG_ERR("Queue capable is less than 1.\n");
-      goto unsuccessfull;
-   }
-
-   if (onion_tcp_port_conf_check(&conf->port_conf) < 0) {
+   if (onion_tcp_port_conf_check(&port_conf) < 0) {
       DEBUG_ERR("Port configuration is invalid.\n");
       goto unsuccessfull;
    }
@@ -103,23 +104,23 @@ onion_server_net *onion_server_net_init(onion_net_static_t *net_static, onion_ep
 
    net_server->initialized = false;
 
-   ret = onion_block_init(&net_server->peer_barracks, conf->peers_capable * sizeof(onion_peer_net), sizeof(onion_peer_net));
+   ret = onion_block_init(&net_server->peer_barracks, net_conf->max_peers * sizeof(onion_peer_net), sizeof(onion_peer_net));
    if (ret < 0) {
       DEBUG_ERR("Net peers initialization failed.\n");
       goto please_free;
    }
 
-   ret = onion_net_sock_init(&net_server->sock, &conf->port_conf, conf->queue_capable);
+   ret = onion_net_sock_init(&net_server->sock, &port_conf, net_conf->max_queue);
    if (ret < 0) {
       DEBUG_ERR("Server socket initialization failed.\n");
       goto please_free;
    }
 
-   net_server->epoll = epoll;
    net_server->peer_current = 0;
-   net_server->peer_capable = conf->peers_capable;
-   net_server->initialized = true;
-   net_static->count = net_static->count + 1;
+   net_server->peer_capable = net_conf->max_peers;
+   net_server->initialized  = true;
+   net_server->parent       = net_static;
+   net_static->count        = net_static->count + 1;
 
    //DEBUG_FUNC("Net server: fd=%d, core=%d, struct size=%zu.\n");
    return net_server;
@@ -146,20 +147,16 @@ void onion_server_net_exit(onion_net_static_t *net_static, onion_server_net *net
    net_static->count = net_static->count - 1;
 }
 
-int onion_net_static_init(onion_net_static_t **ptr, long capable) {
+onion_net_static_t *onion_net_static_init(onion_net_conf_t *net_conf, long capable) {
    int ret;
-
-   if (net_smoke) {
-      DEBUG_ERR("Big smoke already existing!\n");
-      return -1;
-   }
 
    onion_net_static_t *net_static = malloc(sizeof(*net_static));
    if (!net_static) {
       DEBUG_ERR("Failed to allocate net_static.\n");
-      return -1;
+      return NULL;
    }
 
+   net_static->conf = net_conf;
    net_static->count = 0;
    net_static->capable = capable;
 
@@ -171,19 +168,15 @@ int onion_net_static_init(onion_net_static_t **ptr, long capable) {
       goto unsuccessfull;
    }
 
-   net_smoke = net_static;
-   *ptr = net_static;
    DEBUG_FUNC("onion_net_static_t initialized (%ld cores).\n", net_static->capable);
-   return 0;
+   return net_static;
 unsuccessfull:
    onion_net_static_exit(net_static);
-   return -1;
+   return NULL;
 }
 
 void onion_net_static_exit(onion_net_static_t *net_static) {
    if (!net_static) return;
-
-   net_smoke = NULL;
 
    if (net_static->nets) {
       for (size_t index = 0; index < (size_t)net_static->nets->block_max; ++index) {

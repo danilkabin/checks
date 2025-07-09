@@ -7,6 +7,7 @@
 #include <strings.h>
 #include <unistd.h>
 
+#include "device.h"
 #include "http.h"
 #include "onion.h"
 #include "sup.h"
@@ -131,30 +132,47 @@ onion_config_t *onion_config_init() {
       DEBUG_FUNC("Config initialization failed.\n");
       goto unsucccessfull;
    }
-
-   onion_core_conf_t *core_conf = &config->core;
-   onion_net_conf_t *net_conf = &config->net;
-   onion_http_conf_t *http_conf = &config->http;
+   if (onion_conf_triad_init(&config->server_triad) == -1) {
+      DEBUG_FUNC("Triad initialization failed.\n");
+      goto unsucccessfull;
+   }
+   ONION_UNPACK_TRIAD(&config->server_triad);
 
    onion_conf_entry_t entry[] = {
-      {.key = "core_count", .type = ONION_INT_TYPE, .ptr = &core_conf->count},
-      {.key = "core_sched", .type = ONION_INT_TYPE, .ptr = &core_conf->sched},
+      // CORE
+      {.key = "core_count",   .type = ONION_INT_TYPE, .ptr = &core_conf->count},
+      {.key = "core_sched",   .type = ONION_INT_TYPE, .ptr = &core_conf->sched},
       {.key = "worker_count", .type = ONION_INT_TYPE, .ptr = &core_conf->worker_count},
-
+      
+      // NET
       {.key = "ip_address", .type = ONION_STRING_TYPE, .ptr = &net_conf->ip_address},
-      {.key = "port", .type = ONION_INT_TYPE, .ptr = &net_conf->port},
-      {.key = "max_peers", .type = ONION_INT_TYPE, .ptr = &net_conf->max_peers},
-      {.key = "max_queue", .type = ONION_INT_TYPE, .ptr = &net_conf->max_queue},
-      {.key = "peer_timeout", .type = ONION_INT_TYPE, .ptr = &net_conf->timeout},
+      {.key = "port",       .type = ONION_INT_TYPE,    .ptr = &net_conf->port},
+      {.key = "max_peers",  .type = ONION_INT_TYPE,    .ptr = &net_conf->max_peers},
+      {.key = "max_queue",  .type = ONION_INT_TYPE,    .ptr = &net_conf->max_queue},
+
+      // EPOLL
+      {.key = "max_events_per_frame",  .type = ONION_INT_TYPE, .ptr = &epoll_conf->events_per_frame},
+      {.key = "max_tag_queue_capable", .type = ONION_INT_TYPE, .ptr = &epoll_conf->tag_queue_capable},
+      {.key = "peer_timeout",          .type = ONION_INT_TYPE, .ptr = &epoll_conf->timeout},
+      {.key = "timer_sec_interval",    .type = ONION_INT_TYPE, .ptr = &epoll_conf->sec_interval},
+      {.key = "timer_nsec_interval",   .type = ONION_INT_TYPE, .ptr = &epoll_conf->nsec_interval},
+      {.key = "timer_sec_value",       .type = ONION_INT_TYPE, .ptr = &epoll_conf->sec_value},
+      {.key = "timer_nsec_value",      .type = ONION_INT_TYPE, .ptr = &epoll_conf->nsec_value},
    };
    size_t entry_size = sizeof(entry) / sizeof(entry[0]);
    qsort(entry, entry_size, sizeof(entry[0]), onion_config_cmp);
-
+  
    onion_read_ini(config_path, entry, entry_size, sizeof(entry[0]));
 
    ret = onion_core_conf_init(core_conf);
    if (ret < 0) {
       DEBUG_ERR("Onion core configuration initialization failed.\n");
+      goto free_conf;
+   }
+  
+   ret = onion_epoll_conf_init(epoll_conf);
+   if (ret < 0) {
+      DEBUG_ERR("Onion epoll configuration initialization failed.\n");
       goto free_conf;
    }
    
@@ -165,8 +183,10 @@ onion_config_t *onion_config_init() {
    }
 
    DEBUG_FUNC("core_count: %d, core_sched: %d\n", core_conf->count, core_conf->sched);
-   DEBUG_FUNC("ip_address: %s, port: %d, max_peers: %d, max_queue: %d, timeout: %d\n", 
-         net_conf->ip_address, net_conf->port, net_conf->max_peers, net_conf->max_queue, net_conf->timeout);
+   DEBUG_FUNC("ip_address: %s, port: %d, max_peers: %d, max_queue: %d\n", 
+         net_conf->ip_address, net_conf->port, net_conf->max_peers, net_conf->max_queue);
+   DEBUG_FUNC("events_per_frame: %d, tag %d, timeout %d, sec int %d, nsec int %d, sec val %d, nsec val %d\n",
+         epoll_conf->events_per_frame, epoll_conf->tag_queue_capable, epoll_conf->timeout, epoll_conf->sec_interval, epoll_conf->nsec_interval, epoll_conf->sec_value, epoll_conf->nsec_value);
 
    return config;
 free_conf:

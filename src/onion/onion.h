@@ -41,9 +41,8 @@ typedef struct {
 } onion_conf_entry_t;
 
 typedef struct {
-    onion_core_conf_t core;
-    onion_net_conf_t net;
-    onion_http_conf_t http;
+   onion_server_conf_triad_t server_triad; 
+   onion_http_conf_t http;
 } onion_config_t;
 
 
