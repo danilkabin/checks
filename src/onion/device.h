@@ -37,23 +37,45 @@ typedef struct {
    onion_server_conf_triad_t *triad_conf = (triad); \
    ONION_UNPACK_TRIAD(triad);
 
+#define ONION_WORK_UNPACK(worker) \
+   onion_server_net *net = worker->server_sock; \
+   onion_epoll_t *epoll = worker->epoll; 
+
 typedef void *(*onion_thread_func_t)(void*);
 
 typedef struct {
+   int conn;
+   int index;
+   int real_index;
+} onion_work_info_t;
+
+typedef struct {
+   struct onion_net_sock *sock;
+   onion_epoll_data_t *epoll_data;
+} onion_hermit_pair_t;
+
+typedef struct {
+   onion_hermit_pair_t hermit;
    onion_epoll_static_t *epoll_static;
    onion_net_static_t *net_static;
    pthread_t flow;
-} onion_worker_stack;
+   atomic_bool should_stop;
+} onion_worker_stack_t;
 
-struct onion_worker_head {
-   onion_server_conf_triad_t *triad_conf;
+typedef struct {
    struct onion_block *workers;
-   onion_worker_stack stack;
+   struct onion_block *workers_info;
+} onion_worker_pair_t;
+
+struct onion_worker_head_t {
+   onion_server_conf_triad_t *triad_conf;
+   onion_worker_pair_t worker_pair;
+   onion_worker_stack_t stack;
    long count;
    long capable;
 };
 
-struct onion_worker {
+struct onion_worker_t {
    onion_server_net *server_sock;
    onion_epoll_t *epoll;
 };
@@ -64,15 +86,19 @@ int onion_conf_triad_init(onion_server_conf_triad_t *triad);
 void onion_conf_triad_exit(onion_server_conf_triad_t *triad);
 int onion_core_conf_init(onion_core_conf_t *core_conf);
 
-int onion_static_worker_stack_init(struct onion_worker_head *head, onion_thread_func_t func, void *ptr);
-void onion_static_worker_stack_exit(onion_worker_stack *stack);
+int onion_static_worker_stack_init(struct onion_worker_head_t *head, onion_thread_func_t func, void *ptr);
+void onion_static_worker_stack_exit(onion_worker_stack_t *stack);
 
-int onion_accept_net(onion_server_net *net_server, onion_epoll_t *epoll);
+int onion_worker_pair_init(struct onion_worker_head_t *head, size_t total, size_t size);
+void onion_worker_pair_exit(onion_worker_pair_t *pair, int count);
 
-int onion_dev_worker_init(struct onion_worker_head *head, int max_peers);
-void onion_dev_worker_exit(struct onion_worker_head *onion_workers, struct onion_worker *worker);
+int onion_dev_worker_init(struct onion_worker_head_t *head, int max_peers);
+void onion_dev_worker_exit(struct onion_block *onion_workers, struct onion_worker_t *worker);
 
-struct onion_worker_head *onion_device_init(onion_server_conf_triad_t *triad_conf);
-void onion_device_exit(struct onion_worker_head *head);
+struct onion_block *onion_worker_init(struct onion_worker_head_t *head, size_t total, size_t size);
+void onion_worker_exit(struct onion_block *workers, int count);
+
+struct onion_worker_head_t *onion_device_init(onion_server_conf_triad_t *triad_conf);
+void onion_device_exit(struct onion_worker_head_t *head);
 
 #endif

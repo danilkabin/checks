@@ -29,10 +29,8 @@ void onion_conf_entry_set(onion_conf_entry_t *entry, void *data) {
          number = -1;
       }   
       *(int*)entry->ptr = number;
-      DEBUG_FUNC("name: %s value: %d\n", entry->key, *(int*)entry->ptr);
    } else if (entry->type == ONION_STRING_TYPE) {
       strncpy((char*)entry->ptr, data, ONION_ENTRY_VALUE_SIZE);
-      DEBUG_FUNC("name: %s value: %s\n", entry->key, (char*)entry->ptr);
    }
 }
 
@@ -143,7 +141,7 @@ onion_config_t *onion_config_init() {
       {.key = "core_count",   .type = ONION_INT_TYPE, .ptr = &core_conf->count},
       {.key = "core_sched",   .type = ONION_INT_TYPE, .ptr = &core_conf->sched},
       {.key = "worker_count", .type = ONION_INT_TYPE, .ptr = &core_conf->worker_count},
-      
+
       // NET
       {.key = "ip_address", .type = ONION_STRING_TYPE, .ptr = &net_conf->ip_address},
       {.key = "port",       .type = ONION_INT_TYPE,    .ptr = &net_conf->port},
@@ -161,7 +159,7 @@ onion_config_t *onion_config_init() {
    };
    size_t entry_size = sizeof(entry) / sizeof(entry[0]);
    qsort(entry, entry_size, sizeof(entry[0]), onion_config_cmp);
-  
+
    onion_read_ini(config_path, entry, entry_size, sizeof(entry[0]));
 
    ret = onion_core_conf_init(core_conf);
@@ -169,24 +167,33 @@ onion_config_t *onion_config_init() {
       DEBUG_ERR("Onion core configuration initialization failed.\n");
       goto free_conf;
    }
-  
+
    ret = onion_epoll_conf_init(epoll_conf);
    if (ret < 0) {
       DEBUG_ERR("Onion epoll configuration initialization failed.\n");
       goto free_conf;
    }
-   
+
    ret = onion_net_conf_init(net_conf);
    if (ret < 0) {
       DEBUG_ERR("Onion net configuration initialization failed.\n");
       goto free_conf;
    }
 
-   DEBUG_FUNC("core_count: %d, core_sched: %d\n", core_conf->count, core_conf->sched);
-   DEBUG_FUNC("ip_address: %s, port: %d, max_peers: %d, max_queue: %d\n", 
-         net_conf->ip_address, net_conf->port, net_conf->max_peers, net_conf->max_queue);
-   DEBUG_FUNC("events_per_frame: %d, tag %d, timeout %d, sec int %d, nsec int %d, sec val %d, nsec val %d\n",
-         epoll_conf->events_per_frame, epoll_conf->tag_queue_capable, epoll_conf->timeout, epoll_conf->sec_interval, epoll_conf->nsec_interval, epoll_conf->sec_value, epoll_conf->nsec_value);
+
+DEBUG_INFO( "\n"
+    "Core configuration:    count = %-3d,  sched = %d;\n"
+    "Network configuration: IP    = %-15s, port  = %-5d, max_peers = %-5d, max_queue = %d;\n"
+    "Epoll configuration:   events_per_frame = %-3d, tag_queue_capable = %-3d, timeout = %-3d, "
+    "sec_interval = %-3d, nsec_interval = %-3d, sec_value = %-3d, nsec_value = %d;\n",
+    core_conf->count, core_conf->sched,
+    net_conf->ip_address, net_conf->port, net_conf->max_peers, net_conf->max_queue,
+    epoll_conf->events_per_frame, epoll_conf->tag_queue_capable, epoll_conf->timeout,
+    epoll_conf->sec_interval, epoll_conf->nsec_interval, epoll_conf->sec_value, epoll_conf->nsec_value
+);
+
+
+
 
    return config;
 free_conf:

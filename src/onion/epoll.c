@@ -292,7 +292,7 @@ void *onion_epoll_handler(void *arg) {
 
    struct epoll_event events[epoll_conf->events_per_frame];
 
-   while (epoll && epoll->initialized) {
+   while (epoll && !atomic_load(&epoll->should_stop)) {
       int event_count = epoll_wait(data->epoll_fd, events, epoll_conf->events_per_frame, 100);
 
       if (epoll->handler) {
@@ -335,7 +335,6 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *dat
       return NULL;
    }
    onion_epoll_conf_t *epoll_conf = epoll_static->conf;
-
    if (epoll->conn_count + 1 >= epoll->conn_max) {
       DEBUG_ERR("Epoll slot limit reached!\n");
       return NULL;
@@ -365,7 +364,7 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *dat
    ep_slot->time_alive = onion_tick();
    ep_slot->time_limit = epoll_conf->timeout;
 
-   epoll->conn_count += 1;
+   epoll->conn_count = epoll->conn_count + 1;
    atomic_store(&ep_slot->initialized, 1);
 
    DEBUG_FUNC("Epoll slot added (fd=%d, pos=%d)\n", fd, start_pos);
@@ -407,8 +406,11 @@ void onion_epoll_remove_slot(onion_epoll_t *epoll, onion_epoll_slot_t *ep_slot) 
  *  - onion_epoll1_exit:   Destroy the epoll instance and free all resources.
  *  - onion_epoll1_data_set: Reset epoll data structure to initial state.
  */
-int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t TAG_MAX_SIZE, size_t TAG_PER_SIZE) {
+int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t tag_max_count) {
    int ret;
+
+   size_t tag_max_size = tag_max_count * sizeof(onion_epoll_tag_t);
+   size_t tag_per_size = sizeof(onion_epoll_tag_t);
 
    ret = epoll_create1(EPOLL_FLAGS);
    if (onion_fd_is_valid(ret) == -1) {
@@ -424,8 +426,8 @@ int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS
    }
    data->event_fd = ret;
 
-   ret = onion_block_init(&data->tags, TAG_MAX_SIZE, TAG_PER_SIZE);
-   if (ret < 0) {
+   data->tags = onion_block_init(TAG_MAX_SIZE, TAG_PER_SIZE);
+   if (!data->tags) {
       DEBUG_ERR("Failed to init tag queue.\n");
       goto please_free;
    }
@@ -501,7 +503,10 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
       return NULL;
    }
 
-   int current_core = sched_core + epoll_static->count;
+   int curr_core = epoll_static->capable > 1 ? (epoll_static->count >= sched_core ? epoll_static->count + 1 : epoll_static->count) : epoll_static->count;
+   if (curr_core >= epoll_static->capable) {
+         return NULL;
+   }
 
    onion_epoll_t *epoll = onion_block_alloc(epoll_static->epolls, NULL);
    if (!epoll) {
@@ -510,18 +515,17 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
    }
 
    onion_epoll_data_t *data = &epoll->data;
-   size_t tag_max_size = epoll_conf->tag_queue_capable * sizeof(onion_epoll_tag_t);
-   size_t tag_per_size = sizeof(onion_epoll_tag_t);
 
    onion_epoll1_data_set(data);
    epoll->initialized  = false;
    epoll->conn_count   = 0;
    epoll->conn_max     = conn_max;
    epoll->handler      = handler;
-   epoll->core         = current_core;
+   epoll->core         = curr_core;
    epoll->parent       = epoll_static;
+   atomic_store(&epoll->should_stop, false);
 
-   ret = onion_epoll1_init(data, EPOLL_CLOEXEC, EFD_CLOEXEC | EFD_NONBLOCK, tag_max_size, tag_per_size);
+   ret = onion_epoll1_init(data, EPOLL_CLOEXEC, EFD_CLOEXEC | EFD_NONBLOCK, epoll_conf->tag_queue_capable);
    if (ret < 0) {
       DEBUG_ERR("epoll_create1 failed.\n");
       goto please_free;
@@ -538,8 +542,11 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
    epoll->args->epoll_static = epoll_static;
    epoll->args->epoll        = epoll;
 
-   ret = onion_block_init(&epoll->slots, epoll->conn_max * sizeof(onion_epoll_slot_t), sizeof(onion_epoll_slot_t));
-   if (ret < 0) {
+   size_t size = sizeof(onion_epoll_slot_t);
+   size_t capable = size * epoll->conn_max;
+   DEBUG_FUNC("CPABLE EESYEYS:%zu\n", capable / size);
+   epoll->slots = onion_block_init(capable, size);
+   if (!epoll->slots) {
       DEBUG_ERR("Failed to init epoll slots block.\n");
       goto please_free;
    }
@@ -559,8 +566,8 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
    epoll_static->count = epoll_static->count + 1;
    epoll->initialized = true;
 
-   DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu, Current core: %d.\n",
-         data->epoll_fd, epoll->core, sizeof(*epoll), current_core);
+   DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu.\n",
+         data->epoll_fd, epoll->core, sizeof(*epoll));
    return epoll;
 
 please_free:
@@ -576,7 +583,9 @@ void onion_slave_epoll1_exit(onion_epoll_static_t *epoll_static, onion_epoll_t *
    }
 
    onion_epoll_data_t *data = &epoll->data;
-
+  
+   atomic_store(&epoll->should_stop, true);
+  
    if (epoll->flow) {
       pthread_join(epoll->flow, NULL);
       epoll->flow = 0;
@@ -649,14 +658,14 @@ onion_epoll_static_t *onion_epoll_static_init(onion_epoll_conf_t *epoll_conf, in
    size_t epolls_size = sizeof(onion_epoll_t) * epoll_static->capable;
    size_t epolls_args_size = sizeof(struct onion_thread_args) * epoll_static->capable;
 
-   ret = onion_block_init(&epoll_static->epolls, epolls_size, sizeof(onion_epoll_t));
+   epoll_static->epolls = onion_block_init(epolls_size, sizeof(onion_epoll_t));
    if (!epoll_static->epolls) {
       DEBUG_ERR("Failed to initialize epoll block (size: %zu).\n", epolls_size);
       goto unsuccessfull;
    }
 
-   ret = onion_block_init(&epoll_static->epolls_args, epolls_args_size, sizeof(struct onion_thread_args));
-   if (ret < 0) {
+   epoll_static->epolls_args = onion_block_init(epolls_args_size, sizeof(struct onion_thread_args));
+   if (!epoll_static->epolls_args) {
       DEBUG_ERR("Failed to initialize epoll args (size: %zu).\n", epolls_args_size);
       goto unsuccessfull;
    }

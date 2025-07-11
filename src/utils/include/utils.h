@@ -144,18 +144,24 @@ static inline void onion_clear_bit64(uint64_t *bitmap, size_t offset) {
    bitmap[offset / 64] &= ~((uint64_t)1 << (offset % 64));
 }
 
+#define COLOR_RESET   "\033[0m"
+#define COLOR_RED     "\033[1;31m"
+#define COLOR_GREEN   "\033[1;32m"
+#define COLOR_YELLOW  "\033[1;33m"
+#define COLOR_BLUE    "\033[1;34m"
+#define COLOR_CYAN    "\033[1;36m"
 
 #define DEBUG_INFO(fmt, ...) do { \
-   printf(fmt, ##__VA_ARGS__); \
-} while(0)
+    fprintf(stdout, COLOR_GREEN "[INFO] " COLOR_RESET fmt "\n", ##__VA_ARGS__); \
+} while (0)
 
 #define DEBUG_FUNC(fmt, ...) do { \
-   printf("\n%s: " fmt, __func__, ##__VA_ARGS__); \
-} while(0)
+    fprintf(stdout, COLOR_CYAN "[FUNC] %s: " COLOR_RESET fmt "\n", __func__, ##__VA_ARGS__); \
+} while (0)
 
 #define DEBUG_ERR(fmt, ...) do { \
-   printf("\n%s: err:  %s  " fmt, __func__, strerror(errno), ##__VA_ARGS__); \
-} while(0)
+    fprintf(stderr, COLOR_RED "[ERROR] %s: (%s) " COLOR_RESET fmt "\n", __func__, strerror(errno), ##__VA_ARGS__); \
+} while (0)
 
 #define CHECK_NULL_RETURN(ptr, msg) do { \
    if (!(ptr)) { \

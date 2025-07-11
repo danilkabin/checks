@@ -10,6 +10,7 @@ extern struct list_head onion_block_list;
 
 struct onion_block {
    void *data;
+   void *swap;
    size_t max_size;
    size_t current_size;
    size_t block_max;
@@ -28,8 +29,9 @@ int onion_block_isFree(struct onion_block *pool);
 size_t onion_block_getFreeSize(struct onion_block *pool);
 size_t onion_block_getBusySize(struct onion_block *pool);
 
-int onion_block_init(struct onion_block **pool, size_t max_size, size_t block_size);
+struct onion_block *onion_block_init(size_t max_size, size_t block_size);
 
+void onion_block_swap(struct onion_block *pool, void *block1, void *block2);
 void *onion_block_alloc(struct onion_block *pool, int *write);
 void onion_block_free(struct onion_block *pool, void *ptr);
 

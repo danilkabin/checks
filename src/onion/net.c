@@ -22,22 +22,6 @@ onion_net_static_t *onion_net_priv(onion_server_net *net) {
    return net->parent;
 }
 
-onion_server_net *onion_get_weak_net(onion_net_static_t *net_static) {
-   onion_server_net *net = NULL; 
-   int max_peers = 0xFFFFFFF;
-   for (int index = 0; index < net_static->capable; index++) {
-      onion_server_net *netka = onion_block_get(net_static->nets, index);
-      if (!netka) {
-         continue;
-      }
-      if (netka->peer_current < max_peers) {
-         net = netka;
-         max_peers = netka->peer_current;
-      } 
-   }
-   return net;
-}
-
 onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_net_sock *sock) {
    int ret;
 
@@ -68,17 +52,17 @@ unsuccessfull:
 }
 
 void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *peer) {
-   free(peer);
+   onion_block_free(net_server->peer_barracks, peer); 
 }
 
 onion_server_net *onion_server_net_init(onion_net_static_t *net_static) {
    int ret;
    onion_net_conf_t *net_conf = net_static->conf;
-   
+
    struct onion_tcp_port_conf port_conf = {
       .domain = AF_INET,
       .type = SOCK_STREAM,
-      .port = net_conf->port,
+      .port = htons(net_conf->port),
    };
 
    if (inet_pton(AF_INET, net_conf->ip_address, &port_conf.addr) <= 0) {
@@ -104,14 +88,17 @@ onion_server_net *onion_server_net_init(onion_net_static_t *net_static) {
 
    net_server->initialized = false;
 
-   ret = onion_block_init(&net_server->peer_barracks, net_conf->max_peers * sizeof(onion_peer_net), sizeof(onion_peer_net));
-   if (ret < 0) {
+   size_t size = sizeof(onion_peer_net);
+   size_t capable = size * net_conf->max_peers;
+
+   net_server->peer_barracks = onion_block_init(capable, size);
+   if (!net_server->peer_barracks) {
       DEBUG_ERR("Net peers initialization failed.\n");
       goto please_free;
    }
 
-   ret = onion_net_sock_init(&net_server->sock, &port_conf, net_conf->max_queue);
-   if (ret < 0) {
+   net_server->sock = onion_net_sock_init(&port_conf, net_conf->max_queue);
+   if (!net_server->sock) {
       DEBUG_ERR("Server socket initialization failed.\n");
       goto please_free;
    }
@@ -162,8 +149,8 @@ onion_net_static_t *onion_net_static_init(onion_net_conf_t *net_conf, long capab
 
    size_t nets_size = sizeof(onion_server_net) * net_static->capable;
 
-   ret = onion_block_init(&net_static->nets, net_static->capable * sizeof(onion_server_net), sizeof(onion_server_net)); 
-   if (ret < 0) {
+   net_static->nets = onion_block_init(net_static->capable * sizeof(onion_server_net), sizeof(onion_server_net)); 
+   if (!net_static->nets) {
       DEBUG_ERR("Failed to initialize nets slab (size: %zu).\n", nets_size);
       goto unsuccessfull;
    }

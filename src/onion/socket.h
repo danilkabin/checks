@@ -28,7 +28,7 @@ int onion_tcp_port_conf_check(struct onion_tcp_port_conf *conf);
 int onion_net_port_check(uint16_t port);
 int onion_net_sock_accept(struct onion_net_sock *onion_server_sock, struct onion_net_sock *client_sock);
 
-int onion_net_sock_init(struct onion_net_sock **sock_struct, struct onion_tcp_port_conf *port_conf, size_t queue_capable);
+struct onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_t queue_capable);
 void onion_net_sock_exit(struct onion_net_sock *sock_struct);
 
 #endif

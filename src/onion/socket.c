@@ -50,7 +50,7 @@ int onion_net_port_check(uint16_t port) {
    return (ret == 0);
 }
 
-int onion_net_sock_tcp_create(struct onion_net_sock **sock_struct, struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
+struct onion_net_sock *onion_net_sock_tcp_create(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
    struct sockaddr_in sock_addr;
    socklen_t addr_len = sizeof(sock_addr);
    memset(&sock_addr, 0, addr_len);
@@ -110,14 +110,13 @@ int onion_net_sock_tcp_create(struct onion_net_sock **sock_struct, struct onion_
    new_struct->queue_capable = queue_capable;
    new_struct->sock_addr = sock_addr;
 
-   *sock_struct = new_struct;
-   return 0;
+   return new_struct;
 close_sock:
    close(sock_fd);
 free_struct:
    free(new_struct);
 unsuccessfull:
-   return -1;
+   return NULL;
 }
 
 int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct onion_net_sock *client_sock) {
@@ -126,7 +125,7 @@ int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct o
    
    int client_fd = accept(onion_server_sock->fd, (struct sockaddr *)&client_addr, &client_len);
    if (client_fd < 0) {
-      fprintf(stderr, "Failed to accept connection: %s\n", strerror(errno));
+     // fprintf(stderr, "Failed to accept connection: %s\n", strerror(errno));
       return -1;
    }
 
@@ -147,7 +146,7 @@ int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct o
    client_sock->type = SOCK_STREAM;
    client_sock->queue_capable = -1;
    client_sock->sock_addr = client_addr;
-
+   
    return 0;
 }
 
@@ -165,11 +164,11 @@ int onion_net_sock_accept(struct onion_net_sock *onion_server_sock, struct onion
    return -1;
 }
 
-int onion_net_sock_init(struct onion_net_sock **sock_struct, struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
+struct onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
    if (port_conf->type == SOCK_STREAM) {
-      return onion_net_sock_tcp_create(sock_struct, port_conf, queue_capable);
+      return onion_net_sock_tcp_create(port_conf, queue_capable);
    }
-   return -1;
+   return NULL;
 }
 
 void onion_net_sock_exit(struct onion_net_sock *sock_struct) {

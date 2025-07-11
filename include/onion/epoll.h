@@ -84,7 +84,8 @@ typedef struct {
    int timerfd;
 
    pthread_t flow;
-   atomic_int conn_count;
+   atomic_bool should_stop;
+   int conn_count;
    int conn_max;
 
    struct onion_block *slots;

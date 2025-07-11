@@ -37,7 +37,7 @@ int onion_ffb(onion_bitmask *bitmask, int offset, int type) {
 
    size_t size = bitmask->conv_size;
    size_t bit_size = bitmask->size_per_frame;
-   size_t count = (size + (bit_size - 1)) / bit_size; 
+   size_t count = bitmask->conv_size;
 
    int frame_offset = offset / bitmask->size_per_frame;
    int bit_offset = offset % bitmask->size_per_frame;

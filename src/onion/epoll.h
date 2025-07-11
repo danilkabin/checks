@@ -84,7 +84,8 @@ typedef struct {
    int timerfd;
 
    pthread_t flow;
-   atomic_int conn_count;
+   atomic_bool should_stop;
+   int conn_count;
    int conn_max;
 
    struct onion_block *slots;
@@ -114,7 +115,7 @@ onion_epoll_static_t *onion_epoll_priv(onion_epoll_t *epoll);
 onion_epoll_static_t *onion_epoll_static_init(onion_epoll_conf_t *epoll_conf, int core_count);
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st);
 
-int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t TAG_MAX_SIZE, size_t TAG_PER_SIZE);
+int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t tag_max_count);
 void onion_epoll1_exit(onion_epoll_data_t *data);
 
 onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, int sched_core, size_t conn_max);

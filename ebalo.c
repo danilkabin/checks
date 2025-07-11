@@ -8,10 +8,10 @@
 #include <sys/socket.h>
 #include <time.h>
 
-#define NUM_CLIENTS 3000       // Количество клиентов
-#define SLEEP_MS 100         // Задержка между запросами (мс)
+#define NUM_CLIENTS 7556       // Количество клиентов
+#define SLEEP_MS 100        // Задержка между запросами (мс)
 #define TARGET_IP "127.0.0.1"
-#define TARGET_PORT 51235
+#define TARGET_PORT 8080 
 
 void msleep(int ms) {
     struct timespec ts;

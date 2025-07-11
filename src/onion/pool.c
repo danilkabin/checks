@@ -13,13 +13,19 @@ struct list_head onion_block_list = LIST_HEAD_INIT(onion_block_list);
 
 size_t onion_bs_malloc_current_size = 0;
 
-int onion_block_init(struct onion_block **poolPtr, size_t max_size, size_t block_size) {
+struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
    int ret = -1;
 
    struct onion_block *pool = malloc(sizeof(*pool));
    if (!pool) {
       DEBUG_FUNC("The pool is null!\n");
       goto free_this_trash;
+   }
+
+   pool->swap = malloc(block_size);
+   if (!pool->swap) {
+      DEBUG_ERR("Swap initialization failed.\n");
+      goto free_pool;
    }
 
    size_t maxSize = round_size_pow2(max_size);
@@ -31,19 +37,18 @@ int onion_block_init(struct onion_block **poolPtr, size_t max_size, size_t block
    pool->block_free = pool->block_max;
    pool->block_size = blockSize;
 
-   ret = onion_bitmask_init(&pool->bitmask, pool->block_max, sizeof(uint64_t));
+   ret = onion_bitmask_init(&pool->bitmask, max_size / block_size, sizeof(uint64_t));
    if (ret < 0) {
       DEBUG_ERR("Failed to init bitmask.\n");
       goto free_pool;
    }
    size_t bitmap_size = (pool->block_max + 63) / 64;
-
-   pool->bitmap = malloc(bitmap_size);
+   DEBUG_FUNC("BLOCK MAX: %zu, BIT MAP SIZE: %zu\n", blockSize, bitmap_size);
+   pool->bitmap = calloc(bitmap_size, sizeof(uint64_t));
    if (!pool->bitmap) {
       DEBUG_FUNC("The bitmap is null!\n");
       goto free_pool;
    }
-   memset(pool->bitmap, 0, bitmap_size);
 
    pool->data = malloc(maxSize);
    if (!pool->data) {
@@ -51,13 +56,12 @@ int onion_block_init(struct onion_block **poolPtr, size_t max_size, size_t block
       goto free_pool;
    }
 
-   *poolPtr = pool; 
    ret = 0;
-   return ret;
+   return pool;
 free_pool:
    onion_block_exit(pool);
 free_this_trash:
-   return ret;
+   return NULL;
 }
 
 void onion_block_exit(struct onion_block *pool) {
@@ -67,15 +71,32 @@ void onion_block_exit(struct onion_block *pool) {
       free(pool->data);
       pool->data = NULL;
    }
+
    if (pool->bitmask) {
       onion_bitmask_exit(pool->bitmask);
       pool->bitmask = NULL;
    }
+
+   if (pool->swap) {
+      free(pool->swap);
+      pool->swap = NULL;
+   }
+
    free(pool);
 }
 
 void *onion_block_get(struct onion_block *pool, int index) {
    return (void*)((uint8_t*)pool->data + index * pool->block_size);
+}
+
+void onion_block_swap(struct onion_block *pool, void *block1, void *block2) {
+   if (!pool || !block1 || !block2 || block1 == block2) {
+      return;
+   }
+   void *temp = pool->swap;
+   memcpy(temp, block1, pool->block_size);
+   memcpy(block1, block2, pool->block_size);
+   memcpy(block2, temp, pool->block_size);
 }
 
 void *onion_block_alloc(struct onion_block *pool, int *write) {
@@ -85,28 +106,27 @@ void *onion_block_alloc(struct onion_block *pool, int *write) {
       return NULL;
    }
 
-   int index1 = onion_bitmask_add(pool->bitmask, 1);
-   if (index1 < 0) {
-      DEBUG_ERR("Failed to allocate bit in pidor bitmask!\n");
-    //  return NULL;
-   }
-
-   int index = ffb(pool->bitmap, pool->block_max);
+   int index = onion_bitmask_add(pool->bitmask, 1);
    if (index < 0) {
-      DEBUG_FUNC("find_first_free_bit was failed!\n");
+      DEBUG_ERR("Failed to allocate bit in pidor bitmask!\n");
       return NULL;
    }
 
-   //DEBUG_FUNC("INDEXX:%d  index nemoi: %d\n", index1, index);
-   set_bit(pool->bitmap, index);
+  /* int index = ffb(pool->bitmap, pool->block_max);
+   if (index < 0) {
+      DEBUG_FUNC("find_first_free_bit was failed!\n");
+      return NULL;
+   }*/
 
+   //DEBUG_FUNC("INDEXX:%d  index nemoi: %d\n", index1, index);
+   //set_bit(pool->bitmap, index);
    pool->block_free--;
    pool->block_count++;
    pool->current_size += pool->block_size;
    onion_bs_malloc_current_size = onion_bs_malloc_current_size + pool->block_size;
    //if (write) {
    //   write = &index;
-  // }
+   // }
    return (void*)((uint8_t*)pool->data + index * pool->block_size);
 }
 

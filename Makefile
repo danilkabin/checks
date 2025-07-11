@@ -1,6 +1,6 @@
 CC := gcc
 AR := ar
-CFLAGS := -Wall -Wextra -O2 -fPIC -Isrc/onion -Isrc/utils/include -Iinclude
+CFLAGS := -Wall -Wextra -O2 -fPIC -Wno-unused-parameter -Wno-unused-variable -Isrc/onion -Isrc/utils/include -Iinclude
 SRC_DIRS := src/onion src/utils/src
 BUILD_DIR := build
 LIB_DIR := build/lib
