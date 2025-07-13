@@ -31,7 +31,7 @@ $(OBJ_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TEST_EXE): tests/request/script.c $(TARGET)
-	$(CC) $(CFLAGS) tests/request/script.c -L$(LIB_DIR) -lonion -lurcu -pthread -o $@
+	$(CC) $(CFLAGS) tests/request/script.c -L$(LIB_DIR) -lonion -pthread -o $@
 
 copy_config:
 	@mkdir -p $(BUILD_DIR)

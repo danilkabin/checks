@@ -79,7 +79,7 @@ typedef struct {
 
 typedef struct {
    onion_epoll_static_t *parent;
-   onion_epoll_data_t data;
+   onion_epoll_data_t *data;
    int core;
    int timerfd;
 
@@ -106,6 +106,8 @@ struct onion_thread_my_args {
    onion_epoll_t *epoll;
 };
 
+void onion_epoll1_data_set(onion_epoll_data_t *data);
+
 int onion_epoll_conf_init(onion_epoll_conf_t *epoll_conf);
 int onion_fd_is_valid(int fd);
 void onion_epoll_tag_set(onion_epoll_tag_t *tag, int fd, onion_handler_ret_t type, void *data);
@@ -115,7 +117,7 @@ onion_epoll_static_t *onion_epoll_priv(onion_epoll_t *epoll);
 onion_epoll_static_t *onion_epoll_static_init(onion_epoll_conf_t *epoll_conf, int core_count);
 void onion_epoll_static_exit(onion_epoll_static_t *ep_st);
 
-int onion_epoll1_init(onion_epoll_data_t *data, int EPOLL_FLAGS, int EVENT_FLAGS, size_t tag_max_count);
+onion_epoll_data_t *onion_epoll1_init(int EPOLL_FLAGS, int EVENT_FLAGS, size_t tag_max_count);
 void onion_epoll1_exit(onion_epoll_data_t *data);
 
 onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *ep_st, onion_handler_t, int sched_core, size_t conn_max);

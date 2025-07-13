@@ -1,5 +1,4 @@
 #include "pool.h"
-#include "listhead.h"
 #include "sup.h"
 #include "utils.h"
 #include <stddef.h>
@@ -8,8 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
-struct list_head onion_block_list = LIST_HEAD_INIT(onion_block_list);
 
 size_t onion_bs_malloc_current_size = 0;
 
@@ -42,8 +39,9 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
       DEBUG_ERR("Failed to init bitmask.\n");
       goto free_pool;
    }
+
    size_t bitmap_size = (pool->block_max + 63) / 64;
-   DEBUG_FUNC("BLOCK MAX: %zu, BIT MAP SIZE: %zu\n", blockSize, bitmap_size);
+  // DEBUG_FUNC("BLOCK MAX: %zu, BIT MAP SIZE: %zu\n", blockSize, bitmap_size);
    pool->bitmap = calloc(bitmap_size, sizeof(uint64_t));
    if (!pool->bitmap) {
       DEBUG_FUNC("The bitmap is null!\n");
@@ -58,6 +56,7 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
 
    ret = 0;
    return pool;
+
 free_pool:
    onion_block_exit(pool);
 free_this_trash:
@@ -65,7 +64,7 @@ free_this_trash:
 }
 
 void onion_block_exit(struct onion_block *pool) {
-   list_del(&pool->list);
+   if (!pool) return;
 
    if (pool->data) {
       free(pool->data);
@@ -80,6 +79,11 @@ void onion_block_exit(struct onion_block *pool) {
    if (pool->swap) {
       free(pool->swap);
       pool->swap = NULL;
+   }
+
+   if (pool->bitmap) {
+      free(pool->bitmap);
+      pool->bitmap = NULL;
    }
 
    free(pool);
@@ -108,25 +112,15 @@ void *onion_block_alloc(struct onion_block *pool, int *write) {
 
    int index = onion_bitmask_add(pool->bitmask, 1);
    if (index < 0) {
-      DEBUG_ERR("Failed to allocate bit in pidor bitmask!\n");
+      DEBUG_ERR("Failed to allocate bit in bitmask!\n");
       return NULL;
    }
 
-  /* int index = ffb(pool->bitmap, pool->block_max);
-   if (index < 0) {
-      DEBUG_FUNC("find_first_free_bit was failed!\n");
-      return NULL;
-   }*/
-
-   //DEBUG_FUNC("INDEXX:%d  index nemoi: %d\n", index1, index);
-   //set_bit(pool->bitmap, index);
    pool->block_free--;
    pool->block_count++;
    pool->current_size += pool->block_size;
-   onion_bs_malloc_current_size = onion_bs_malloc_current_size + pool->block_size;
-   //if (write) {
-   //   write = &index;
-   // }
+   onion_bs_malloc_current_size += pool->block_size;
+
    return (void*)((uint8_t*)pool->data + index * pool->block_size);
 }
 
@@ -145,7 +139,7 @@ void onion_block_free(struct onion_block *pool, void *ptr) {
    pool->block_count--;
    pool->current_size -= pool->block_size;
 
-   onion_bs_malloc_current_size = onion_bs_malloc_current_size - pool->block_size;
+   onion_bs_malloc_current_size -= pool->block_size;
 }
 
 int onion_block_isFull(struct onion_block *pool) {
@@ -162,17 +156,4 @@ size_t onion_block_getBusySize(struct onion_block *pool) {
 
 size_t onion_block_getFreeSize(struct onion_block *pool) {
    return pool->block_free * pool->block_size;
-}
-
-int onion_blocks_init() {
-   INIT_LIST_HEAD(&onion_block_list);
-   return 0;
-}
-
-void onion_blocks_release() {
-   struct onion_block *node, *tmp;
-   list_for_each_entry_safe(node, tmp, &onion_block_list, list) {
-      DEBUG_FUNC("pool deleting! \n");
-      onion_block_exit(node);
-   }
 }

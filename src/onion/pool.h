@@ -1,12 +1,9 @@
 #ifndef MEMORY_POOL_H
 #define MEMORY_POOL_H
 
-#include "listhead.h"
 #include "sup.h"
 #include <stddef.h>
 #include <stdint.h>
-
-extern struct list_head onion_block_list;
 
 struct onion_block {
    void *data;
@@ -19,8 +16,6 @@ struct onion_block {
    size_t block_free;
    uint8_t *bitmap;
    onion_bitmask *bitmask;
-
-   struct list_head list;
 };
 
 void *onion_block_get(struct onion_block *pool, int index);

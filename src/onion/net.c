@@ -3,6 +3,7 @@
 #include "socket.h"
 #include "utils.h"
 #include <arpa/inet.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 
 int onion_net_conf_init(onion_net_conf_t *net_conf) {
@@ -22,7 +23,7 @@ onion_net_static_t *onion_net_priv(onion_server_net *net) {
    return net->parent;
 }
 
-onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_net_sock *sock) {
+onion_peer_net *onion_peer_net_init(onion_server_net *net_server,  onion_net_sock *sock) {
    int ret;
 
    if (!net_server->initialized) {

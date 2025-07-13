@@ -1,0 +1,417 @@
+#define _GNU_SOURCE
+
+#include "net.h"
+#include "epoll.h"
+#include "socket.h"
+#include "device.h"
+#include "pool.h"
+#include "utils.h"
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <sched.h>
+#include <stdatomic.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+int onion_core_conf_init(onion_core_conf_t *core_conf) {
+   int core_count;
+   int core_sched;
+   if (core_conf->count < 0) {
+      core_count = sysconf(_SC_NPROCESSORS_CONF);
+      if (core_count < 1) {
+         DEBUG_FUNC("onion_config_init: no CPU cores found (core_count = %d)\n", core_count);
+         return -1;
+      }
+      core_conf->count = core_count;
+   }
+
+   if (core_conf->sched < 0) {
+      core_sched = ONION_DEFAULT_CORE_SCHED;
+      if (onion_cpu_set_core(pthread_self(), core_sched) == -1) {
+         DEBUG_FUNC("failed to set CPU affinity.\n");
+         return -1;
+      }
+
+      if (core_sched >= core_count) {
+         DEBUG_FUNC("sched_core (%d) >= core_count (%d)\n", core_sched, core_count);
+         return -1;
+      }
+      core_conf->sched = core_sched;
+   }
+
+   return 0;
+}
+
+int onion_conf_triad_init(onion_server_conf_triad_t *triad) {
+   triad->core = malloc(sizeof(onion_core_conf_t));
+   triad->epoll = malloc(sizeof(onion_epoll_conf_t));
+   triad->net = malloc(sizeof(onion_net_conf_t));
+   if (!triad->core || !triad->epoll || !triad->net) {
+      onion_conf_triad_exit(triad);
+      return -1;
+   }
+   return 0;
+}
+
+void onion_conf_triad_exit(onion_server_conf_triad_t *triad) {
+   if (triad->core) {free(triad->core); triad->core = NULL;}
+   if (triad->epoll) {free(triad->epoll); triad->epoll = NULL;}
+   if (triad->net) {free(triad->net); triad->net = NULL;}
+}
+
+int onion_worker_create(struct onion_worker_t *worker,  onion_net_sock *temp_sock) {
+   int ret;
+
+   ONION_WORK_UNPACK(worker);
+
+   onion_peer_net *peer = onion_peer_net_init(net, temp_sock);
+   if (!peer) {
+      DEBUG_ERR("Peer init failed!\n");
+      goto unsuccessfull;
+   }
+
+   onion_epoll_slot_t *slot = onion_epoll_add_slot(epoll, peer->sock->fd, peer, NULL, NULL, NULL);
+   if (!slot) {
+      DEBUG_ERR("Slot initialization failed.\n");
+      goto free_peer;
+   }
+
+   /*  for (size_t i = 0; i < epoll->slots->bitmask->conv_size; ++i) {
+       printf("Frame %zu: ", i);
+       for (int b = 63; b >= 0; --b) {
+       putchar((epoll->slots->bitmask->mask[i] & (1ULL << b)) ? '1' : '0');
+       }
+       printf("\n");
+       }*/
+   DEBUG_FUNC("Peer inited!: %d current peers: %d\n", epoll->core, epoll->conn_count);
+
+   return 0;
+free_peer:
+   //onion_peer_net_exit(net, peer);
+unsuccessfull:
+   return -1;
+}
+
+void onion_dev_peer_accept(struct onion_worker_head_t *head) {
+   int ret;
+   int index = 0;
+
+   onion_worker_stack_t *stack = &head->stack;
+   onion_worker_pair_t *pair = &head->worker_pair;
+
+   struct onion_worker_t *worker = onion_block_get(pair->workers, index); 
+   if (!worker) {
+      return;
+   }
+
+   onion_work_info_t *info = onion_block_get(pair->workers_info, index); 
+   if (!info) {
+      return;
+   }
+
+   ONION_WORK_UNPACK(worker);
+   if (!net || !epoll) {
+      return;
+   }
+
+   onion_net_sock temp_sock;
+   ret = onion_net_sock_accept(net->sock, &temp_sock);
+   if (ret < 0) {
+      //DEBUG_ERR("Peer finding failed.\n");
+      return;
+   }
+
+   ret = onion_worker_create(worker, &temp_sock);
+   if (ret < 0) {
+      DEBUG_ERR("No!\n");
+      return;
+   }
+
+   DEBUG_FUNC("New client!!!!\n");
+}
+
+void *onion_device_head_flow(void *arg) {
+   struct onion_worker_head_t *head = (struct onion_worker_head_t*)arg;
+
+   if (!head) {
+      DEBUG_ERR("Head argument is null!\n");
+      return NULL;
+   }
+
+   while (!atomic_load(&head->stack.should_stop)) {
+      usleep(10900);
+      int ret;
+
+      onion_dev_peer_accept(head);
+   }
+   return NULL;
+}
+
+void *onion_dev_handler(struct onion_thread_my_args *args) {
+   return NULL;
+}
+
+struct onion_block *onion_workers_info_init(int count) {
+   if (count < 1) {
+      return NULL;
+   }
+
+   size_t size = sizeof(onion_work_info_t);
+   size_t capable = size * count;
+   struct onion_block *work_info = onion_block_init(capable, size);
+   if (!work_info) {
+      DEBUG_ERR("Onion worker info initialization failed.\n");
+      return NULL;
+   }
+
+   for (int index = 0; index < count; index++) {
+      onion_work_info_t *info = onion_block_get(work_info, index); 
+      info->conn = 0;
+      info->index = index;
+      info->real_index = index;
+   }
+
+   return work_info;
+}
+
+void onion_workers_info_exit(struct onion_block *work_info) {
+   onion_block_exit(work_info);
+}
+
+void onion_work_info_add(onion_work_info_t *work_info) {
+
+}
+
+void onion_work_info_del(onion_work_info_t *work_info) {
+
+}
+
+int onion_static_worker_stack_init(struct onion_worker_head_t *head, onion_thread_func_t func, void *ptr) {
+   int ret;
+   onion_worker_stack_t *stack = &head->stack;
+   ONION_UNPACK_TRIAD_FULL(head->triad_conf);
+
+   atomic_store(&stack->should_stop, false);
+
+   ret = pthread_create(&stack->flow, NULL, func, ptr);
+   if (ret != 0) {
+      DEBUG_ERR("pthread_create failed with code %d.\n", ret);
+      onion_net_static_exit(stack->net_static);
+      stack->net_static = NULL;
+      onion_epoll_static_exit(stack->epoll_static);
+      stack->epoll_static = NULL;
+      return -1;
+   }
+
+   return 0;
+}
+
+void onion_static_worker_stack_exit(onion_worker_stack_t *stack) {
+   atomic_store(&stack->should_stop, true);
+
+   if (stack->flow) {
+      pthread_join(stack->flow, NULL);
+      stack->flow = 0;
+   }
+
+   if (stack->net_static) {
+      onion_net_static_exit(stack->net_static);
+      stack->net_static = NULL;
+   }
+
+   if (stack->epoll_static) {
+      onion_epoll_static_exit(stack->epoll_static);
+      stack->epoll_static = NULL;
+   }
+}
+
+int onion_dev_worker_init(struct onion_worker_head_t *head, struct onion_block *workers, int max_peers) {
+   struct onion_worker_t *worker = onion_block_alloc(workers, NULL);
+   if (!worker) {
+      DEBUG_ERR("Worker allocation failed.\n");
+      return -1;
+   }
+
+   worker->epoll = onion_slave_epoll1_init(stack->epoll_static, onion_dev_handler, core_conf->sched, max_peers);
+   if (!worker->epoll) {
+      DEBUG_ERR("Epoll initialization failed.\n");
+      onion_block_free(pair->workers, worker);
+      return -1;
+   }
+
+   worker->server_sock = onion_server_net_init(stack->net_static);
+   if (!worker->server_sock) {
+      DEBUG_ERR("Server socket initialization failed.\n");
+      onion_slave_epoll1_exit(onion_epoll_priv(worker->epoll), worker->epoll);
+      onion_block_free(pair->workers, worker);
+      return -1;
+   }
+
+   head->count = head->count + 1;
+
+   DEBUG_FUNC("Worker allocated! Peer max: %d\n", max_peers);
+   return 0;
+}
+
+void onion_dev_worker_exit(struct onion_block *workers, struct onion_worker_t *worker) {
+   if (!worker) return;
+
+   if (worker->epoll && worker->epoll->initialized) {
+      onion_slave_epoll1_exit(onion_epoll_priv(worker->epoll), worker->epoll);
+   }
+
+   if (worker->server_sock && worker->server_sock->initialized) {
+      onion_server_net_exit(onion_net_priv(worker->server_sock), worker->server_sock);
+   }
+
+   onion_block_free(workers, worker);
+}
+
+struct onion_block *onion_workers_init(struct onion_worker_head_t *head) {
+   ONION_UNPACK_TRIAD_FULL(head);
+
+   size_t size = sizeof(struct onion_worker_t);
+   size_t total = size * head->capable;
+   struct onion_block *workers = onion_block_init(total, size);
+   if (!pair->workers) {
+      DEBUG_ERR("Workers pool initialization failed.\n");
+      return NULL;
+   }
+
+   int max_peers = net_conf->max_peers;
+   int peers_per_core = max_peers / head->capable;
+   int peers_remain = max_peers % head->capable;
+
+   for (int index = 0; index < head->capable; index++) {
+      int peers_for_core = peers_per_core + (index < peers_remain ? 1 : 0);
+      if (onion_dev_worker_init(head, workers, peers_for_core) < 0) {
+         DEBUG_ERR("Failed to initialize worker at core %d\n", index);
+         onion_worker_exit(pair->workers, head->capable);
+         return NULL;
+      }
+   }
+
+   return workers;
+}
+
+void onion_workers_exit(struct onion_block *workers) {
+   if (!workers) return;
+
+   for (int i = 0; i < workers->block_max; i++) {
+      struct onion_worker_t *worker = onion_block_get(workers, i);
+      if (worker) {
+         onion_dev_worker_exit(workers, worker);
+      }
+   }
+
+   onion_block_exit(workers);
+}
+
+onion_worker_stack_t *onion_worker_stack_init(struct onion_worker_head_t *head) {
+   onion_worker_stack_t *worker = calloc(1, sizeof(onion_worker_stack_t));
+   if (!worker) {
+      DEBUG_ERR("Worker struct initialization failed.\n"); 
+      goto unsuccessfull;
+   }
+
+   worker->epoll_static = onion_epoll_static_init(epoll_conf, head->capable);
+   if (!stack->epoll_static) {
+      DEBUG_ERR("Failed to initialize onion_epoll_static_t.\n");
+      goto free_stack;
+   }
+
+   worker->net_static = onion_net_static_init(net_conf, head->capable);
+   if (!stack->net_static) {
+      DEBUG_ERR("Failed to initialize onion_net_static_t.\n");
+      goto free_stack;
+   }
+
+   worker->workers = onion_workers_init(head);
+   if (!worker->workers) {
+      DEBUG_ERR("Workers initialization failed.\n");
+      goto free_stack;
+   }
+
+   worker->workers_info = onion_workers_info_init(core_count);
+   if (!worker->workers_info) {
+      DEBUG_ERR("Workers info initialization failed.\n");
+      goto free_stack;
+   }
+
+   return worker;
+free_stack:
+   onion_worker_stack_exit(worker);
+unsuccessfull:
+   return NULL;
+}
+
+void onion_worker_stack_exit(onion_worker_stack_t *worker) {
+   if (worker->workers_info) {
+      onion_workers_info_exit(worker->workers_info);
+      worker->workers_info = NULL;
+   }
+
+   if (worker->workers) {
+      onion_workers_exit(worker->workers);
+      worker->workers = NULL;
+   }
+
+   if (worker->net_static) {
+      onion_net_static_exit(stack->net_static);
+      stack->net_static = NULL;
+   }
+
+   if (worker->epoll_static) {
+      onion_epoll_static_exit(stack->epoll_static);
+      stack->epoll_static = NULL;
+   }
+}
+
+struct onion_worker_head_t *onion_device_init(onion_server_conf_triad_t *triad_conf) {
+   int ret; 
+   ONION_UNPACK_TRIAD(triad_conf);
+
+   struct onion_worker_head_t *head = malloc(sizeof(*head));
+   if (!head) {
+      DEBUG_ERR("Failed to allocate onion_worker_head_t.\n");
+      return NULL;
+   }
+   memset(head, 0, sizeof(*head));
+
+   head->triad_conf = triad_conf;
+   head->count = 0;
+   head->capable = core_conf->count > 1 ? core_conf->count - 1 : core_conf->count;
+
+   head->worker = onion_worker_stack_init(head);
+   if (!head->worker) {
+      DEBUG_ERR("Head worker initialization failed.\n");
+      goto free_head;
+   } 
+
+
+   DEBUG_FUNC("Initialized onion_worker_head_t of size %zu bytes\n", sizeof(*head));
+   return head;
+
+free_head:
+   onion_device_exit(head);
+unsuccessfull:
+   return NULL;
+}
+
+void onion_device_exit(struct onion_worker_head_t *head) {
+   if (!head) return;
+
+   onion_worker_pair_exit(&head->worker_pair, head->capable);
+   onion_static_worker_stack_exit(&head->stack);
+   free(head);
+}

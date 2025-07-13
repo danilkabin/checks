@@ -24,7 +24,7 @@ typedef struct {
 } onion_net_conf_t;
 
 typedef struct {
-   struct onion_net_sock *sock;
+    onion_net_sock *sock;
    struct onion_server_net *server_sock;
 
    bool initialized;
@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
    onion_net_static_t *parent;
-   struct onion_net_sock *sock;
+    onion_net_sock *sock;
 
    struct onion_block *peer_barracks;
    int peer_current;
@@ -53,7 +53,7 @@ int onion_net_conf_init(onion_net_conf_t *net_conf);
 onion_net_static_t *onion_net_priv(onion_server_net *net);
 onion_server_net *onion_get_weak_net(onion_net_static_t *net_static);
 
-onion_peer_net *onion_peer_net_init(onion_server_net *net_server, struct onion_net_sock *sock);
+onion_peer_net *onion_peer_net_init(onion_server_net *net_server,  onion_net_sock *sock);
 
 void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *ptr);
 

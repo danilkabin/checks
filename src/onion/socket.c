@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-void onion_net_sock_zero(struct onion_net_sock *sock_struct) {
+void onion_net_sock_zero( onion_net_sock *sock_struct) {
    sock_struct->fd = -1;
    sock_struct->type = -1;
    sock_struct->packets_sent = 0;
@@ -50,7 +50,7 @@ int onion_net_port_check(uint16_t port) {
    return (ret == 0);
 }
 
-struct onion_net_sock *onion_net_sock_tcp_create(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
+ onion_net_sock *onion_net_sock_tcp_create(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
    struct sockaddr_in sock_addr;
    socklen_t addr_len = sizeof(sock_addr);
    memset(&sock_addr, 0, addr_len);
@@ -59,7 +59,7 @@ struct onion_net_sock *onion_net_sock_tcp_create(struct onion_tcp_port_conf *por
    sock_addr.sin_addr.s_addr = port_conf->addr.s_addr;
    sock_addr.sin_port = port_conf->port;
 
-   struct onion_net_sock *new_struct = malloc(sizeof(struct onion_net_sock));
+    onion_net_sock *new_struct = malloc(sizeof( onion_net_sock));
    if (!new_struct) {
       DEBUG_ERR("Failed to initialize new struct");
       goto unsuccessfull;
@@ -119,7 +119,7 @@ unsuccessfull:
    return NULL;
 }
 
-int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct onion_net_sock *client_sock) {
+int onion_net_sock_tcp_accept( onion_net_sock *onion_server_sock,  onion_net_sock *client_sock) {
    struct sockaddr_in client_addr;
    socklen_t client_len = sizeof(client_addr);
    
@@ -150,28 +150,28 @@ int onion_net_sock_tcp_accept(struct onion_net_sock *onion_server_sock, struct o
    return 0;
 }
 
-void onion_net_sock_tcp_close(struct onion_net_sock *sock_struct) {
+void onion_net_sock_tcp_close( onion_net_sock *sock_struct) {
    if (sock_struct->fd >= 0) {
       close(sock_struct->fd);
       onion_net_sock_zero(sock_struct);
    }
 }
 
-int onion_net_sock_accept(struct onion_net_sock *onion_server_sock, struct onion_net_sock *client_sock) {
+int onion_net_sock_accept( onion_net_sock *onion_server_sock,  onion_net_sock *client_sock) {
    if (onion_server_sock->type == SOCK_STREAM) {
       return onion_net_sock_tcp_accept(onion_server_sock, client_sock);
    }
    return -1;
 }
 
-struct onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
+onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_t queue_capable) {
    if (port_conf->type == SOCK_STREAM) {
       return onion_net_sock_tcp_create(port_conf, queue_capable);
    }
    return NULL;
 }
 
-void onion_net_sock_exit(struct onion_net_sock *sock_struct) {
+void onion_net_sock_exit( onion_net_sock *sock_struct) {
    if (sock_struct->type == SOCK_STREAM) {
       onion_net_sock_tcp_close(sock_struct);
    }

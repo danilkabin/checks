@@ -50,29 +50,28 @@ typedef struct {
 } onion_work_info_t;
 
 typedef struct {
-   struct onion_net_sock *sock;
    onion_epoll_data_t *epoll_data;
-} onion_hermit_pair_t;
+   onion_net_sock *sock_data;
+   pthread_t flow;
+   bool should_stop;
+} onion_hermit_stack_t;
 
 typedef struct {
-   onion_hermit_pair_t hermit;
    onion_epoll_static_t *epoll_static;
    onion_net_static_t *net_static;
-   pthread_t flow;
-   atomic_bool should_stop;
-} onion_worker_stack_t;
-
-typedef struct {
    struct onion_block *workers;
    struct onion_block *workers_info;
-} onion_worker_pair_t;
+} onion_worker_stack_t;
 
 struct onion_worker_head_t {
    onion_server_conf_triad_t *triad_conf;
-   onion_worker_pair_t worker_pair;
-   onion_worker_stack_t stack;
+   onion_worker_stack_t *worker_stack;
+   onion_hermit_stack_t *hermit_stack;
+
    long count;
    long capable;
+
+   bool initialized;
 };
 
 struct onion_worker_t {
@@ -86,17 +85,17 @@ int onion_conf_triad_init(onion_server_conf_triad_t *triad);
 void onion_conf_triad_exit(onion_server_conf_triad_t *triad);
 int onion_core_conf_init(onion_core_conf_t *core_conf);
 
-int onion_static_worker_stack_init(struct onion_worker_head_t *head, onion_thread_func_t func, void *ptr);
-void onion_static_worker_stack_exit(onion_worker_stack_t *stack);
+int onion_hermit_stack_init(struct onion_worker_head_t *head);
+void onion_hermit_stack_exit(onion_hermit_stack_t *hermit_stack);
 
-int onion_worker_pair_init(struct onion_worker_head_t *head, size_t total, size_t size);
-void onion_worker_pair_exit(onion_worker_pair_t *pair, int count);
+   int onion_worker_slot_init(struct onion_worker_head_t *head, int max_peers);
+void onion_worker_slot_exit(struct onion_block *workers, struct onion_worker_t *worker);
 
-int onion_dev_worker_init(struct onion_worker_head_t *head, int max_peers);
-void onion_dev_worker_exit(struct onion_block *onion_workers, struct onion_worker_t *worker);
+int onion_workers_init(struct onion_worker_head_t *head);
+void onion_workers_exit(struct onion_block *workers);
 
-struct onion_block *onion_worker_init(struct onion_worker_head_t *head, size_t total, size_t size);
-void onion_worker_exit(struct onion_block *workers, int count);
+int onion_worker_stack_init(struct onion_worker_head_t *head);
+void onion_worker_stack_exit(onion_worker_stack_t *worker_stack);
 
 struct onion_worker_head_t *onion_device_init(onion_server_conf_triad_t *triad_conf);
 void onion_device_exit(struct onion_worker_head_t *head);
