@@ -2,6 +2,7 @@
 #define MEMORY_POOL_H
 
 #include "sup.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -14,8 +15,8 @@ struct onion_block {
    size_t block_size;
    size_t block_count;
    size_t block_free;
-   uint8_t *bitmap;
    onion_bitmask *bitmask;
+   bool initialized;
 };
 
 void *onion_block_get(struct onion_block *pool, int index);

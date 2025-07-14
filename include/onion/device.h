@@ -75,11 +75,12 @@ struct onion_worker_head_t {
 };
 
 struct onion_worker_t {
-   onion_server_net *server_sock;
+   onion_server_net_t *server_sock;
    onion_epoll_t *epoll;
+   bool initialized;
 };
 
-typedef void (*onion_accept_callback_sk)(int peer_fd, onion_peer_net *);
+typedef void (*onion_accept_callback_sk)(int peer_fd, onion_server_slot_net_t *);
 
 int onion_conf_triad_init(onion_server_conf_triad_t *triad);
 void onion_conf_triad_exit(onion_server_conf_triad_t *triad);
@@ -88,7 +89,7 @@ int onion_core_conf_init(onion_core_conf_t *core_conf);
 int onion_hermit_stack_init(struct onion_worker_head_t *head);
 void onion_hermit_stack_exit(onion_hermit_stack_t *hermit_stack);
 
-   int onion_worker_slot_init(struct onion_worker_head_t *head, int max_peers);
+int onion_worker_slot_init(struct onion_worker_head_t *head, int max_peers);
 void onion_worker_slot_exit(struct onion_block *workers, struct onion_worker_t *worker);
 
 int onion_workers_init(struct onion_worker_head_t *head);

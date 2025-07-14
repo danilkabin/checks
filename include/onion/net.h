@@ -28,13 +28,16 @@ typedef struct {
    struct onion_server_net *server_sock;
 
    bool initialized;
-} onion_peer_net;
+} onion_server_slot_net_t;
 
 typedef struct {
    onion_net_conf_t *conf;
    struct onion_block *nets;
+
    long capable;
    long count;
+
+   bool initialized;
 } onion_net_static_t;
 
 typedef struct {
@@ -46,19 +49,19 @@ typedef struct {
    int peer_capable;
 
    bool initialized;
-} onion_server_net;
+} onion_server_net_t;
 
 int onion_net_conf_init(onion_net_conf_t *net_conf);
 
-onion_net_static_t *onion_net_priv(onion_server_net *net);
-onion_server_net *onion_get_weak_net(onion_net_static_t *net_static);
+onion_net_static_t *onion_net_priv(onion_server_net_t *net);
+onion_server_net_t *onion_get_weak_net(onion_net_static_t *net_static);
 
-onion_peer_net *onion_peer_net_init(onion_server_net *net_server,  onion_net_sock *sock);
+onion_server_slot_net_t *onion_peer_net_init(onion_server_net_t *net_server,  onion_net_sock *sock);
 
-void onion_peer_net_exit(onion_server_net *net_server, onion_peer_net *ptr);
+void onion_peer_net_exit(onion_server_net_t *net_server, onion_server_slot_net_t *ptr);
 
-onion_server_net *onion_server_net_init(onion_net_static_t *net_static);
-void onion_server_net_exit(onion_net_static_t *net_static, onion_server_net *net_server);
+onion_server_net_t *onion_server_net_init(onion_net_static_t *net_static);
+void onion_server_net_exit(onion_net_static_t *net_static, onion_server_net_t *net_server);
 
 onion_net_static_t *onion_net_static_init(onion_net_conf_t *net_conf, long capable);
 void onion_net_static_exit(onion_net_static_t *net_static);

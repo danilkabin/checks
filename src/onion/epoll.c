@@ -67,6 +67,7 @@ int onion_epoll_event_add(int fd, int set_fd, struct onion_block *tags, onion_ha
       return -1;
    }
    onion_epoll_tag_set(tag, set_fd, type, data);
+   tag->initialized = true;
 
    struct epoll_event event = {.events = EPOLLIN, .data.ptr = tag};
    ret = epoll_ctl(fd, EPOLL_CTL_ADD, set_fd, &event);
@@ -80,8 +81,16 @@ int onion_epoll_event_add(int fd, int set_fd, struct onion_block *tags, onion_ha
 }
 
 void onion_epoll_event_del(int fd, struct onion_block *tags, onion_epoll_tag_t *tag) {
+   if (!tag || !tag->initialized) { 
+      DEBUG_ERR("Epoll tag is no initialized.\n");
+      return; 
+   }
+   tag->initialized = false;
+
    if (onion_fd_is_valid(tag->fd)) {
-      epoll_ctl(fd, EPOLL_CTL_DEL, tag->fd, NULL);
+      if (epoll_ctl(fd, EPOLL_CTL_DEL, tag->fd, NULL) < 0) {
+         DEBUG_ERR("epoll_ctl DEL failed for fd %d\n", tag->fd);
+      }
    }
    onion_epoll_tag_set(tag, -1, ONION_EPOLL_HANDLER_UNKNOWN, NULL);
    onion_block_free(tags, tag);
@@ -138,7 +147,9 @@ void onion_epoll_remove_timer(onion_epoll_t *epoll) {
    onion_epoll_data_t *data = epoll->data;
    if (onion_fd_is_valid(epoll->timerfd) == 0) {
       if (onion_fd_is_valid(data->epoll_fd) == 0) {
-         epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, epoll->timerfd, NULL);
+         if (epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, epoll->timerfd, NULL) < 0) {
+            DEBUG_ERR("epoll_ctl DEL failed for timerfd %d\n", epoll->timerfd);
+         }
       }
       close(epoll->timerfd);
       epoll->timerfd = -1;
@@ -265,7 +276,10 @@ static int onion_epoll_handler_check_args(void *arg, onion_epoll_static_t **epol
 
 static void onion_epoll_handle_event(onion_epoll_t *epoll, onion_epoll_data_t *data, struct epoll_event *event) {
    onion_epoll_tag_t *tag = (onion_epoll_tag_t *)event->data.ptr;
-   if (!tag) return;
+   if (!tag || !tag->initialized) { 
+      DEBUG_ERR("Epoll tag is no initialized.\n");
+      return; 
+   }
 
    onion_handler_ret_t tag_ret = onion_epoll_tag_handler(epoll, tag, event);
    if (tag_ret == ONION_EPOLL_HANDLER_UNKNOWN || tag_ret < 0) {
@@ -330,11 +344,13 @@ void *onion_epoll_handler(void *arg) {
  */
 onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *data, int (*func) (void*), void (*shutdown) (void*), void *shutdown_data) {
    int ret;
+
    onion_epoll_static_t *epoll_static = onion_epoll_priv(epoll);
    if (!epoll_static) {
       DEBUG_ERR("No epoll static!\n");
       return NULL;
    }
+
    onion_epoll_conf_t *epoll_conf = epoll_static->conf;
    if (epoll->conn_count + 1 >= epoll->conn_max) {
       DEBUG_ERR("Epoll slot limit reached!\n");
@@ -347,10 +363,11 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *dat
       DEBUG_ERR("Failed to allocate epoll slot block!\n");
       goto unsuccessfull;
    }
+   atomic_store(&ep_slot->initialized, true);
+   epoll->conn_count = epoll->conn_count + 1;
 
    ep_slot->fd = fd;
    ep_slot->start_pos = start_pos;
-
 
    ret = onion_epoll_event_add(epoll->data->epoll_fd, fd, epoll->data->tags, ONION_EPOLL_HANDLER_PUPPYFD, ep_slot); 
    if (ret < 0) {
@@ -366,9 +383,6 @@ onion_epoll_slot_t *onion_epoll_add_slot(onion_epoll_t *epoll, int fd, void *dat
    ep_slot->time_alive = onion_tick();
    ep_slot->time_limit = epoll_conf->timeout;
 
-   epoll->conn_count = epoll->conn_count + 1;
-   atomic_store(&ep_slot->initialized, 1);
-
    DEBUG_FUNC("Epoll slot added (fd=%d, pos=%d)\n", fd, start_pos);
 
    return ep_slot;
@@ -379,6 +393,13 @@ unsuccessfull:
 }
 
 void onion_epoll_remove_slot(onion_epoll_t *epoll, onion_epoll_slot_t *ep_slot) {
+   if (!ep_slot || !atomic_load(&ep_slot->initialized)) {
+      DEBUG_ERR("Ep slot is not initialized.\n");
+      return;
+   }
+   atomic_store(&ep_slot->initialized, false);
+   epoll->conn_count = epoll->conn_count - 1;
+
    onion_epoll_data_t *data = epoll->data;
    if (onion_fd_is_valid(ep_slot->fd) == 0) {
       if (onion_fd_is_valid(data->epoll_fd) == 0) {
@@ -386,10 +407,6 @@ void onion_epoll_remove_slot(onion_epoll_t *epoll, onion_epoll_slot_t *ep_slot) 
       }
       close(ep_slot->fd);
       ep_slot->fd = -1;
-   }
-
-   if (ep_slot->start_pos >= 0) {
-      epoll->conn_count -= 1;
    }
 
    onion_block_free(epoll->slots, ep_slot);
@@ -419,8 +436,9 @@ onion_epoll_data_t *onion_epoll1_init(int EPOLL_FLAGS, int EVENT_FLAGS, size_t t
       DEBUG_ERR("onion epoll1 initialize failed.\n");
       goto unsuccessfull;
    }
-
    onion_epoll1_data_set(data);
+   data->initialized = true;
+
    ret = epoll_create1(EPOLL_FLAGS);
    if (onion_fd_is_valid(ret) == -1) {
       DEBUG_ERR("epoll_create1 failed.\n");
@@ -434,7 +452,7 @@ onion_epoll_data_t *onion_epoll1_init(int EPOLL_FLAGS, int EVENT_FLAGS, size_t t
       goto please_free;
    }
    data->event_fd = ret;
-   
+
    size_t tag_per_tag_size = sizeof(onion_epoll_tag_t);
    size_t tag_max_tag_size = tag_per_tag_size * tag_max_count;
    data->tags = onion_block_init(tag_max_tag_size, tag_per_tag_size);
@@ -459,28 +477,34 @@ unsuccessfull:
 }
 
 void onion_epoll1_exit(onion_epoll_data_t *data) {
+   if (!data || !data->initialized) {
+      DEBUG_FUNC("Data is null!\n");
+      return;
+   }
+
    if (data->tags) {
       onion_block_exit(data->tags);
       data->tags = NULL;
    }
 
    if (onion_fd_is_valid(data->event_fd) >= 0) {
-      if (onion_fd_is_valid(data->epoll_fd)) {
+      if (onion_fd_is_valid(data->epoll_fd) >= 0) {
          epoll_ctl(data->epoll_fd, EPOLL_CTL_DEL, data->event_fd, NULL);
       }
       close(data->event_fd);
-      data->event_fd = 0;
+      data->event_fd = -1;
    }
 
    if (onion_fd_is_valid(data->epoll_fd) >= 0) {
       close(data->epoll_fd);
-      data->epoll_fd = 0;
+      data->epoll_fd = -1;
    }
 
    free(data);
 }
 
 void onion_epoll1_data_set(onion_epoll_data_t *data) {
+   memset(data, 0, sizeof(*data));
    data->epoll_fd = -1;
    data->event_fd = -1;
    data->tags = NULL;
@@ -517,8 +541,9 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
    }
 
    int curr_core = epoll_static->capable > 1 ? (epoll_static->count >= sched_core ? epoll_static->count + 1 : epoll_static->count) : epoll_static->count;
-   if (curr_core >= epoll_static->capable) {
-         return NULL;
+   if (curr_core > epoll_static->capable) {
+      DEBUG_ERR("Curr core > capable\n");   
+      return NULL;
    }
 
    onion_epoll_t *epoll = onion_block_alloc(epoll_static->epolls, NULL);
@@ -527,12 +552,13 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
       goto unsuccessfull;
    }
 
-   epoll->initialized  = false;
+   epoll->initialized  = true;
    epoll->conn_count   = 0;
    epoll->conn_max     = conn_max;
    epoll->handler      = handler;
    epoll->core         = curr_core;
    epoll->parent       = epoll_static;
+   epoll_static->count = epoll_static->count + 1;
    atomic_store(&epoll->should_stop, false);
 
    epoll->data = onion_epoll1_init(EPOLL_CLOEXEC, EFD_CLOEXEC | EFD_NONBLOCK, epoll_conf->tag_queue_capable);
@@ -541,7 +567,6 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
       goto please_free;
    }
    onion_epoll_data_t *data = epoll->data;
-  
    data->event.events = EPOLLIN | EPOLLOUT | EPOLLET;
 
    epoll->args = (struct onion_thread_args *)onion_block_alloc(epoll_static->epolls_args, NULL);
@@ -555,7 +580,7 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
 
    size_t size = sizeof(onion_epoll_slot_t);
    size_t capable = size * epoll->conn_max;
-   
+
    epoll->slots = onion_block_init(capable, size);
    if (!epoll->slots) {
       DEBUG_ERR("Failed to init epoll slots block.\n");
@@ -574,9 +599,6 @@ onion_epoll_t *onion_slave_epoll1_init(onion_epoll_static_t *epoll_static, onion
       goto please_free;
    }
 
-   epoll_static->count = epoll_static->count + 1;
-   epoll->initialized = true;
-
    DEBUG_FUNC("Epoll initialized: fd=%d, core=%d, struct size=%zu.\n",
          data->epoll_fd, epoll->core, sizeof(*epoll));
    return epoll;
@@ -589,22 +611,26 @@ unsuccessfull:
 }
 
 void onion_slave_epoll1_exit(onion_epoll_static_t *epoll_static, onion_epoll_t *epoll) {
-   if (!epoll) {
+   if (!epoll || !epoll->initialized) {
       return;
    }
-
-   onion_epoll_data_t *data = epoll->data;
-  
+   epoll->initialized = false;
    atomic_store(&epoll->should_stop, true);
-  
+   epoll_static->count -= 1;
+
+   DEBUG_FUNC("Epoll closing: fd=%d, core=%d, struct size=%zu.\n",
+         epoll->data->epoll_fd, epoll->core, sizeof(*epoll));
+
+   onion_epoll1_exit(epoll->data);
    if (epoll->flow) {
+      pthread_cancel(epoll->flow);
       pthread_join(epoll->flow, NULL);
       epoll->flow = 0;
    }
 
    onion_epoll_remove_timer(epoll);
 
-   if (epoll->slots) {
+   if (epoll->slots && epoll->slots->block_count >= 0) {
       onion_bitmask *bitmask = epoll->slots->bitmask;
       onion_epoll_slot_t *slots = (onion_epoll_slot_t *)epoll->slots->data;
 
@@ -624,18 +650,9 @@ void onion_slave_epoll1_exit(onion_epoll_static_t *epoll_static, onion_epoll_t *
       epoll->slots = NULL;
    }
 
-   onion_epoll1_exit(data);
-
    onion_block_free(epoll_static->epolls_args, epoll->args);
    onion_block_free(epoll_static->epolls, epoll);
 
-   if (epoll->initialized) {
-      epoll_static->count -= 1;
-   }
-
-   epoll->initialized = false;
-
-   DEBUG_FUNC("epoll exit\n");
 }
 
 /**
@@ -661,6 +678,7 @@ onion_epoll_static_t *onion_epoll_static_init(onion_epoll_conf_t *epoll_conf, in
       DEBUG_ERR("Failed to allocate onion_epoll_static.\n");
       return NULL;
    }
+   epoll_static->initialized = true;
 
    epoll_static->conf = epoll_conf;
    epoll_static->count = 0;
@@ -689,21 +707,24 @@ unsuccessfull:
 }
 
 void onion_epoll_static_exit(onion_epoll_static_t *epoll_static) {
-   if (!epoll_static) {
+   if (!epoll_static || !epoll_static->initialized) {
       return;
    }
+   epoll_static->initialized = false;
 
-   if (epoll_static->epolls) {
-      for (size_t index = 0; index < (size_t)epoll_static->capable; ++index) {
-         onion_epoll_t *epoll = (onion_epoll_t *)onion_block_get(epoll_static->epolls, index);
-         if (epoll->initialized) {
-            onion_slave_epoll1_exit(epoll_static, epoll);
-         }
+   struct onion_block *epolls = epoll_static->epolls;
+
+   size_t index = -1;
+   size_t bitmap_size = (epolls->block_max + 63) / 64;
+   while ((index = onion_find_bit(epolls->bitmask, 1)) >= 0 && index < epolls->block_max) {
+      onion_epoll_t *epoll = (onion_epoll_t *)onion_block_get(epolls, index);
+      if (epoll) {
+         onion_slave_epoll1_exit(epoll_static, epoll);
       }
-
-      onion_block_exit(epoll_static->epolls);
-      epoll_static->epolls = NULL;
    }
+
+   onion_block_exit(epoll_static->epolls);
+   epoll_static->epolls = NULL;
 
    if (epoll_static->epolls_args) {
       onion_block_exit(epoll_static->epolls_args);

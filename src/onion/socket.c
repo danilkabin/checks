@@ -59,7 +59,7 @@ int onion_net_port_check(uint16_t port) {
    sock_addr.sin_addr.s_addr = port_conf->addr.s_addr;
    sock_addr.sin_port = port_conf->port;
 
-    onion_net_sock *new_struct = malloc(sizeof( onion_net_sock));
+   onion_net_sock *new_struct = malloc(sizeof( onion_net_sock));
    if (!new_struct) {
       DEBUG_ERR("Failed to initialize new struct");
       goto unsuccessfull;
@@ -171,7 +171,10 @@ onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_
    return NULL;
 }
 
-void onion_net_sock_exit( onion_net_sock *sock_struct) {
+void onion_net_sock_exit(onion_net_sock *sock_struct) {
+   if (!sock_struct) {
+      return;
+   }
    if (sock_struct->type == SOCK_STREAM) {
       onion_net_sock_tcp_close(sock_struct);
    }

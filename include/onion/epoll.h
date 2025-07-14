@@ -43,6 +43,7 @@ typedef struct {
    onion_handler_ret_t type;
    int fd;
    void *user_data;
+   bool initialized;
 } onion_epoll_tag_t;
 
 typedef struct {
@@ -50,6 +51,7 @@ typedef struct {
    int event_fd;
    struct epoll_event event; 
    struct onion_block *tags;
+   bool initialized;
 } onion_epoll_data_t;
 
 typedef struct {
@@ -64,7 +66,7 @@ typedef struct {
 
    time_t time_alive;
    time_t time_limit;
-   atomic_int initialized;
+   atomic_bool initialized;
 } onion_epoll_slot_t;
 
 typedef void *(*onion_handler_t) (struct onion_thread_my_args *args);
@@ -73,8 +75,11 @@ typedef struct {
    onion_epoll_conf_t *conf;
    struct onion_block *epolls;
    struct onion_block *epolls_args;
+   
    long capable;
    long count;
+
+   bool initialized;
 } onion_epoll_static_t;
 
 typedef struct {

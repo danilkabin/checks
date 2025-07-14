@@ -18,6 +18,7 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
       DEBUG_FUNC("The pool is null!\n");
       goto free_this_trash;
    }
+   pool->initialized = true;
 
    pool->swap = malloc(block_size);
    if (!pool->swap) {
@@ -29,12 +30,13 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
    size_t blockSize = block_size;
    pool->block_max = maxSize / blockSize;
 
+   pool->max_size = maxSize;
    pool->current_size = 0;
    pool->block_count = 0;
    pool->block_free = pool->block_max;
    pool->block_size = blockSize;
 
-   ret = onion_bitmask_init(&pool->bitmask, max_size / block_size, sizeof(uint64_t));
+   ret = onion_bitmask_init(&pool->bitmask, maxSize / block_size, sizeof(uint64_t));
    if (ret < 0) {
       DEBUG_ERR("Failed to init bitmask.\n");
       goto free_pool;
@@ -42,11 +44,6 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
 
    size_t bitmap_size = (pool->block_max + 63) / 64;
   // DEBUG_FUNC("BLOCK MAX: %zu, BIT MAP SIZE: %zu\n", blockSize, bitmap_size);
-   pool->bitmap = calloc(bitmap_size, sizeof(uint64_t));
-   if (!pool->bitmap) {
-      DEBUG_FUNC("The bitmap is null!\n");
-      goto free_pool;
-   }
 
    pool->data = malloc(maxSize);
    if (!pool->data) {
@@ -54,6 +51,8 @@ struct onion_block *onion_block_init(size_t max_size, size_t block_size) {
       goto free_pool;
    }
 
+   onion_bs_malloc_current_size = onion_bs_malloc_current_size + maxSize;
+  // DEBUG_FUNC("Allocated: %zu, size: %zu\n", onion_bs_malloc_current_size, maxSize);
    ret = 0;
    return pool;
 
@@ -65,7 +64,9 @@ free_this_trash:
 
 void onion_block_exit(struct onion_block *pool) {
    if (!pool) return;
+   pool->initialized = false;
 
+   onion_bs_malloc_current_size = onion_bs_malloc_current_size - pool->max_size;
    if (pool->data) {
       free(pool->data);
       pool->data = NULL;
@@ -81,11 +82,7 @@ void onion_block_exit(struct onion_block *pool) {
       pool->swap = NULL;
    }
 
-   if (pool->bitmap) {
-      free(pool->bitmap);
-      pool->bitmap = NULL;
-   }
-
+   //DEBUG_FUNC("free, Allocated: %zu, max_size: %zu", onion_bs_malloc_current_size, pool->max_size);
    free(pool);
 }
 
@@ -119,7 +116,6 @@ void *onion_block_alloc(struct onion_block *pool, int *write) {
    pool->block_free--;
    pool->block_count++;
    pool->current_size += pool->block_size;
-   onion_bs_malloc_current_size += pool->block_size;
 
    return (void*)((uint8_t*)pool->data + index * pool->block_size);
 }
@@ -134,12 +130,10 @@ void onion_block_free(struct onion_block *pool, void *ptr) {
    }
 
    onion_bitmask_del(pool->bitmask, index, 1);
-   clear_bit(pool->bitmap, index);
    pool->block_free++;
    pool->block_count--;
    pool->current_size -= pool->block_size;
 
-   onion_bs_malloc_current_size -= pool->block_size;
 }
 
 int onion_block_isFull(struct onion_block *pool) {

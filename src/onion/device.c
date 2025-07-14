@@ -49,6 +49,8 @@ int onion_core_conf_init(onion_core_conf_t *core_conf) {
       core_conf->sched = core_sched;
    }
 
+   DEBUG_FUNC("CORE COUNT: %d, CORE SCHED: %d\n", core_conf->count, core_conf->sched);
+
    return 0;
 }
 
@@ -74,28 +76,28 @@ void *onion_dev_handler(struct onion_thread_my_args *args) {
 }
 
 void *onion_hermit_stack_flow(void *arg) {
-    struct onion_worker_head_t *head = (struct onion_worker_head_t*)arg;
-    if (!head) {
-        DEBUG_ERR("Received null pointer for worker head structure.\n");
-        goto unsuccessfull;
-    }
+   struct onion_worker_head_t *head = (struct onion_worker_head_t*)arg;
+   if (!head) {
+      DEBUG_ERR("Received null pointer for worker head structure.\n");
+      goto unsuccessfull;
+   }
 
-    ONION_UNPACK_TRIAD_FULL(head->triad_conf);
-    onion_worker_stack_t *worker_stack = head->worker_stack;
-    onion_hermit_stack_t *hermit_stack = head->hermit_stack;
+   ONION_UNPACK_TRIAD_FULL(head->triad_conf);
+   onion_worker_stack_t *worker_stack = head->worker_stack;
+   onion_hermit_stack_t *hermit_stack = head->hermit_stack;
 
-    if (!worker_stack || !hermit_stack) {
-        DEBUG_ERR("Worker stack or hermit stack is not properly initialized.\n");
-        goto unsuccessfull;
-    }
+   if (!worker_stack || !hermit_stack) {
+      DEBUG_ERR("Worker stack or hermit stack is not properly initialized.\n");
+      goto unsuccessfull;
+   }
 
-    while (!hermit_stack->should_stop) {
-       DEBUG_FUNC("Hello!\n");
-       usleep(100000);
-    }
+   while (!hermit_stack->should_stop) {
+      DEBUG_FUNC("Hello!\n");
+      usleep(100000);
+   }
 
 unsuccessfull:
-    return NULL;
+   return NULL;
 }
 
 int onion_hermit_stack_init(struct onion_worker_head_t *head) {
@@ -110,7 +112,7 @@ int onion_hermit_stack_init(struct onion_worker_head_t *head) {
    head->hermit_stack = hermit_stack;
 
    onion_net_conf_t *accept_conf = net_conf;
-   
+
    int domain = AF_INET;
    int type = SOCK_STREAM;
 
@@ -173,6 +175,13 @@ void onion_hermit_stack_exit(onion_hermit_stack_t *hermit_stack) {
    }
 }
 
+void onion_swap(void *data, void *data2, size_t size) {
+   unsigned char temp[size];
+   memcpy(temp, data, size);
+   memcpy(data, data2, size);
+   memcpy(data2, temp, size);
+}
+
 int onion_workers_info_init(struct onion_worker_head_t *head) {
    ONION_UNPACK_TRIAD_FULL(head->triad_conf);
 
@@ -183,10 +192,6 @@ int onion_workers_info_init(struct onion_worker_head_t *head) {
    }
 
    int count = head->capable;
-   if (count < 1) {
-      DEBUG_ERR("Invalid number of capable workers. Expected at least one.\n");
-      goto unsuccessfull;
-   }
 
    size_t size = sizeof(onion_work_info_t);
    size_t capable = size * count;
@@ -196,6 +201,7 @@ int onion_workers_info_init(struct onion_worker_head_t *head) {
       DEBUG_ERR("Failed to allocate memory for worker info block.\n");
       goto unsuccessfull;
    }
+   worker_stack->workers_info = work_info;
 
    for (int index = 0; index < count; index++) {
       onion_work_info_t *info = onion_block_get(work_info, index);
@@ -213,25 +219,28 @@ void onion_workers_info_exit(struct onion_block *work_info) {
    onion_block_exit(work_info);
 }
 
-void onion_work_info_add(onion_work_info_t *work_info) {
-   // Stub
+void onion_work_info_add(onion_work_info_t *info, int caindexpable) {
+   info->conn = info->conn - 1 > 0 ? info->conn - 1 : 0;
+
 }
 
-void onion_work_info_del(onion_work_info_t *work_info) {
-   // Stub
+void onion_work_info_del(onion_work_info_t *info, int capable) {
+
 }
 
 int onion_worker_slot_init(struct onion_worker_head_t *head, int max_peers) {
    ONION_UNPACK_TRIAD_FULL(head->triad_conf);
-   
+
    onion_worker_stack_t *worker_stack = head->worker_stack;
    if (!worker_stack) {
       DEBUG_ERR("Worker stack not found in head structure.\n");
       goto unsuccessfull;
    }
 
+   onion_epoll_static_t *epoll_static = worker_stack->epoll_static;
+   onion_net_static_t *net_static = worker_stack->net_static;
    struct onion_block *workers = worker_stack->workers;
-   if (!workers) {
+   if (!epoll_static || !net_static || !workers) {
       DEBUG_ERR("Workers block not allocated in worker stack.\n");
       goto unsuccessfull;
    }
@@ -241,14 +250,15 @@ int onion_worker_slot_init(struct onion_worker_head_t *head, int max_peers) {
       DEBUG_ERR("Failed to allocate memory for new worker.\n");
       goto unsuccessfull;
    }
-   
-   child->epoll = onion_slave_epoll1_init(worker_stack->epoll_static, onion_dev_handler, core_conf->sched, max_peers);
+   child->initialized = true; 
+ 
+   child->epoll = onion_slave_epoll1_init(epoll_static, onion_dev_handler, core_conf->sched, max_peers);
    if (!child->epoll) {
       DEBUG_ERR("Failed to initialize epoll for worker.\n");
       goto free_slot;
    }
 
-   child->server_sock = onion_server_net_init(worker_stack->net_static);
+   child->server_sock = onion_server_net_init(net_static);
    if (!child->server_sock) {
       DEBUG_ERR("Failed to initialize server socket for worker.\n");
       goto free_slot;
@@ -267,11 +277,11 @@ unsuccessfull:
 void onion_worker_slot_exit(struct onion_block *workers, struct onion_worker_t *worker) {
    if (!worker) return;
 
-   if (worker->epoll && worker->epoll->initialized) {
+   if (worker->epoll) {
       onion_slave_epoll1_exit(onion_epoll_priv(worker->epoll), worker->epoll);
    }
 
-   if (worker->server_sock && worker->server_sock->initialized) {
+   if (worker->server_sock) {
       onion_server_net_exit(onion_net_priv(worker->server_sock), worker->server_sock);
    }
 
@@ -286,12 +296,13 @@ int onion_workers_init(struct onion_worker_head_t *head) {
       DEBUG_ERR("Worker stack not initialized in head.\n");
       goto unsuccessfull;
    }
-   int capable = core_conf->count;
+
+   int capable = head->capable;
    int max_peers = net_conf->max_peers;
 
    int peers_per_core = max_peers / capable;
    int peers_remain = max_peers % capable;
-DEBUG_FUNC("capable %d, max peers: %d, peer_per_core: %d, peers_remain: %d\n", capable, max_peers, peers_per_core, peers_remain);
+   
    size_t size = sizeof(struct onion_worker_t);
    size_t total = size * head->capable;
 
@@ -318,22 +329,41 @@ unsuccessfull:
 }
 
 void onion_workers_exit(struct onion_block *workers) {
-   if (!workers) return;
+    if (!workers || !workers->initialized) {
+        DEBUG_FUNC("Workers block is null\n");
+        return;
+    }
 
-   for (size_t index = 0; index < workers->block_max; index++) {
-      struct onion_worker_t *worker = onion_block_get(workers, index);
-      if (worker) {
-         onion_worker_slot_exit(workers, worker);
-      }
-   }
+    DEBUG_FUNC("Starting workers exit\n");
+    size_t bitmap_size = (workers->block_max + 63) / 64;
+    for (size_t i = 0; i < bitmap_size; i++) {
+        DEBUG_FUNC("mask[%zu] = 0x%016lx\n", i, workers->bitmask->mask[i]);
+    }
 
-   onion_block_exit(workers);
+    size_t index;
+    while ((index = onion_find_bit(workers->bitmask, 1)) >= 0) {
+        if (index >= workers->block_max) {
+            DEBUG_ERR("Invalid index %zu in workers bitmap\n", index);
+            break;
+        }
+        struct onion_worker_t *worker = onion_block_get(workers, index);
+        if (!worker || !worker->initialized) {
+            DEBUG_ERR("Null worker pointer at index %zu\n", index);
+            onion_clear_bit(workers->bitmask, index);
+            continue;
+        }
+        onion_worker_slot_exit(workers, worker);
+        //onion_clear_bit(workers->bitmask, index); 
+    }
+
+    onion_block_exit(workers);
+    DEBUG_FUNC("Workers block exited\n");
 }
 
 int onion_worker_stack_init(struct onion_worker_head_t *head) {
    int ret;
    ONION_UNPACK_TRIAD_FULL(head->triad_conf);
-   
+
    onion_worker_stack_t *worker_stack = calloc(1, sizeof(onion_worker_stack_t));
    if (!worker_stack) {
       DEBUG_ERR("Failed to allocate memory for worker stack.\n"); 
@@ -346,7 +376,7 @@ int onion_worker_stack_init(struct onion_worker_head_t *head) {
       DEBUG_ERR("Failed to initialize static epoll block.\n");
       goto free_stack;
    }
-
+   
    worker_stack->net_static = onion_net_static_init(net_conf, head->capable);
    if (!worker_stack->net_static) {
       DEBUG_ERR("Failed to initialize static network block.\n");
@@ -358,13 +388,12 @@ int onion_worker_stack_init(struct onion_worker_head_t *head) {
       DEBUG_ERR("Workers initialization returned an error.\n");
       goto free_stack;
    }
-
+ 
    ret = onion_workers_info_init(head);
    if (ret < 0) {
       DEBUG_ERR("Failed to initialize workers info block.\n");
       goto free_stack;
    }
-
    return 1;
 free_stack:
    onion_worker_stack_exit(head->worker_stack);
@@ -382,7 +411,7 @@ void onion_worker_stack_exit(onion_worker_stack_t *worker_stack) {
       onion_workers_exit(worker_stack->workers);
       worker_stack->workers = NULL;
    }
-
+   
    if (worker_stack->net_static) {
       onion_net_static_exit(worker_stack->net_static);
       worker_stack->net_static = NULL;
@@ -397,33 +426,37 @@ void onion_worker_stack_exit(onion_worker_stack_t *worker_stack) {
 struct onion_worker_head_t *onion_device_init(onion_server_conf_triad_t *triad_conf) {
    int ret; 
    ONION_UNPACK_TRIAD(triad_conf);
-   
+
    struct onion_worker_head_t *head = calloc(1, sizeof(struct onion_worker_head_t));
    if (!head) {
       DEBUG_ERR("Failed to allocate memory for onion_worker_head structure.\n");
       return NULL;
    }
-
+   head->initialized  = true;
+   
    long capable = core_conf->count > 1 ? core_conf->count - 1 : core_conf->count;
-
-   head->initialized = false;
-   head->triad_conf = triad_conf;
-   head->worker_stack = NULL;
-   head->hermit_stack = NULL;
-   head->count = 0;
-   head->capable = capable; 
-
-   ret = onion_worker_stack_init(head);
-   if (ret < 0) {
-      DEBUG_ERR("Worker stack initialization failed.\n");
-      goto free_head;
+   if (capable < 1) {
+      DEBUG_ERR("Invalid number of capable workers. Expected at least one.\n");
+      goto unsuccessfull;
    }
 
-   ret = onion_hermit_stack_init(head);
+   head->triad_conf   = triad_conf;
+   head->worker_stack = NULL;
+   head->hermit_stack = NULL;
+   head->count        = 0;
+   head->capable      = capable; 
+
+   ret = onion_worker_stack_init(head);
+   // if (ret < 0) {
+   DEBUG_ERR("Worker stack initialization failed.\n");
+   goto free_head;
+   //  }
+
+  /* ret = onion_hermit_stack_init(head);
    if (ret < 0) {
       DEBUG_ERR("Hermit stack initialization failed.\n");
       goto free_head;
-   } 
+   }*/ 
 
    head->initialized = true;
    DEBUG_FUNC("Successfully initialized onion_worker_head. Size: %zu bytes.\n", sizeof(*head));
@@ -435,7 +468,9 @@ unsuccessfull:
 }
 
 void onion_device_exit(struct onion_worker_head_t *head) {
-   if (!head) return;
+   if (!head || !head->initialized) {
+      return;
+   }
    head->initialized = false;
 
    if (head->worker_stack) {
