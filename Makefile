@@ -1,6 +1,6 @@
 CC := ccache gcc
 AR := ar
-CFLAGS := -Wall -Wextra -O2 -fPIC -Wno-unused-parameter -Wno-unused-variable -Isrc/onion -Isrc/utils/include -Iinclude
+CFLAGS := -Wall -Wextra -O2 -fPIC -Iinclude -Wno-unused-parameter -Wno-unused-variable -Isrc/onion
 SRC_DIRS := src/onion src/utils/src
 BUILD_DIR := build
 LIB_DIR := build/lib
@@ -20,7 +20,7 @@ all: headers $(TARGET) $(TEST_EXE) copy_config
 # Копировать заголовки
 headers:
 	@mkdir -p $(INCLUDE_DST)
-	@cp $(HEADERS) $(INCLUDE_DST)
+	@rsync -a --include '*/' --include '*.h' --exclude '*' src/onion/ $(INCLUDE_DST)/
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(LIB_DIR)

@@ -6,158 +6,10 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/device.o",
-      "src/onion/device.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/device.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/device.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/sup.o",
-      "src/onion/sup.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/sup.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/sup.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/epoll.o",
-      "src/onion/epoll.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/epoll.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/epoll.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/ringbuff.o",
-      "src/onion/ringbuff.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/ringbuff.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/ringbuff.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/request.o",
-      "src/onion/request.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/request.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/request.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/net.o",
-      "src/onion/net.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/net.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/net.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
-      "-c",
-      "-o",
-      "build/obj/src/onion/parser.o",
-      "src/onion/parser.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/parser.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/parser.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-c",
       "-o",
       "build/obj/src/onion/onion.o",
@@ -174,19 +26,18 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-c",
       "-o",
-      "build/obj/src/onion/pool.o",
-      "src/onion/pool.c"
+      "build/obj/src/onion/utils/sup.o",
+      "src/onion/utils/sup.c"
     ],
     "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/pool.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/pool.o"
+    "file": "/home/dima/Projects/onion/src/onion/utils/sup.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/sup.o"
   },
   {
     "arguments": [
@@ -195,19 +46,18 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-c",
       "-o",
-      "build/obj/src/onion/socket.o",
-      "src/onion/socket.c"
+      "build/obj/src/onion/proto/request.o",
+      "src/onion/proto/request.c"
     ],
     "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/socket.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/socket.o"
+    "file": "/home/dima/Projects/onion/src/onion/proto/request.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/request.o"
   },
   {
     "arguments": [
@@ -216,19 +66,18 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-c",
       "-o",
-      "build/obj/src/onion/http.o",
-      "src/onion/http.c"
+      "build/obj/src/onion/utils/ringbuff.o",
+      "src/onion/utils/ringbuff.c"
     ],
     "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/http.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/http.o"
+    "file": "/home/dima/Projects/onion/src/onion/utils/ringbuff.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/ringbuff.o"
   },
   {
     "arguments": [
@@ -237,19 +86,138 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-c",
       "-o",
-      "build/obj/src/utils/src/slab.o",
-      "src/utils/src/slab.c"
+      "build/obj/src/onion/proto/http.o",
+      "src/onion/proto/http.c"
     ],
     "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/utils/src/slab.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/utils/src/slab.o"
+    "file": "/home/dima/Projects/onion/src/onion/proto/http.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/http.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/proto/parser.o",
+      "src/onion/proto/parser.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/proto/parser.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/parser.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/engine.o",
+      "src/onion/engine.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/engine.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/engine.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/net/net.o",
+      "src/onion/net/net.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/net/net.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/net.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/net/epoll.o",
+      "src/onion/net/epoll.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/net/epoll.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/epoll.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/utils/pool.o",
+      "src/onion/utils/pool.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/utils/pool.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/pool.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc/onion",
+      "-c",
+      "-o",
+      "build/obj/src/onion/net/socket.o",
+      "src/onion/net/socket.c"
+    ],
+    "directory": "/home/dima/Projects/onion",
+    "file": "/home/dima/Projects/onion/src/onion/net/socket.c",
+    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/socket.o"
   },
   {
     "arguments": [
@@ -259,11 +227,10 @@
       "-Wextra",
       "-O2",
       "-fPIC",
+      "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
       "-Isrc/onion",
-      "-Isrc/utils/include",
-      "-Iinclude",
       "-pthread",
       "-o",
       "script",

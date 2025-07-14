@@ -7,11 +7,10 @@
 #include <strings.h>
 #include <unistd.h>
 
-#include "device.h"
-#include "http.h"
+#include "engine.h"
 #include "onion.h"
-#include "sup.h"
-#include "utils.h"
+#include "utils/sup.h"
+#include "utils/utils.h"
 
 const char *config_path = "build/config.ini";
 const char *default_phrase = "default";

@@ -3,10 +3,10 @@
 
 #include <stddef.h>
 
-#include "device.h"
-#include "epoll.h"
-#include "net.h"
-#include "http.h"
+#include "engine.h"
+#include "net/epoll.h"
+#include "net/net.h"
+#include "proto/http.h"
 
 #define ONION_HTTP_LINE_MAX_SIZE          (ONION_HTTP_LINE_METHOD_MAX_SIZE + ONION_HTTP_LINE_URL_MAX_SIZE + ONION_HTTP_LINE_VERSION_MAX_SIZE)
 
