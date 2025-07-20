@@ -9,15 +9,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/onion.o",
-      "src/onion/onion.c"
+      "build/obj/src/core/fork.o",
+      "src/core/fork.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/onion.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/onion.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/core/fork.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/core/fork.o"
   },
   {
     "arguments": [
@@ -29,15 +30,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/utils/sup.o",
-      "src/onion/utils/sup.c"
+      "build/obj/src/misc/uidq_bitmask.o",
+      "src/misc/uidq_bitmask.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/utils/sup.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/sup.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/misc/uidq_bitmask.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/misc/uidq_bitmask.o"
   },
   {
     "arguments": [
@@ -49,15 +51,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/proto/request.o",
-      "src/onion/proto/request.c"
+      "build/obj/src/http/request.o",
+      "src/http/request.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/proto/request.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/request.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/http/request.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/http/request.o"
   },
   {
     "arguments": [
@@ -69,15 +72,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/utils/ringbuff.o",
-      "src/onion/utils/ringbuff.c"
+      "build/obj/src/misc/uidq_utils.o",
+      "src/misc/uidq_utils.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/utils/ringbuff.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/ringbuff.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/misc/uidq_utils.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/misc/uidq_utils.o"
   },
   {
     "arguments": [
@@ -89,15 +93,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/proto/http.o",
-      "src/onion/proto/http.c"
+      "build/obj/src/http/parser.o",
+      "src/http/parser.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/proto/http.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/http.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/http/parser.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/http/parser.o"
   },
   {
     "arguments": [
@@ -109,15 +114,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/proto/parser.o",
-      "src/onion/proto/parser.c"
+      "build/obj/src/http/http.o",
+      "src/http/http.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/proto/parser.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/proto/parser.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/http/http.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/http/http.o"
   },
   {
     "arguments": [
@@ -129,15 +135,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/engine.o",
-      "src/onion/engine.c"
+      "build/obj/src/core/uidq_block.o",
+      "src/core/uidq_block.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/engine.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/engine.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/core/uidq_block.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/core/uidq_block.o"
   },
   {
     "arguments": [
@@ -149,15 +156,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/net/net.o",
-      "src/onion/net/net.c"
+      "build/obj/src/core/uidq_slab.o",
+      "src/core/uidq_slab.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/net/net.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/net.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/core/uidq_slab.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/core/uidq_slab.o"
   },
   {
     "arguments": [
@@ -169,55 +177,16 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/onion/net/epoll.o",
-      "src/onion/net/epoll.c"
+      "build/obj/src/core/uidq.o",
+      "src/core/uidq.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/net/epoll.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/epoll.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-c",
-      "-o",
-      "build/obj/src/onion/utils/pool.o",
-      "src/onion/utils/pool.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/utils/pool.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/utils/pool.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc/onion",
-      "-c",
-      "-o",
-      "build/obj/src/onion/net/socket.o",
-      "src/onion/net/socket.c"
-    ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/src/onion/net/socket.c",
-    "output": "/home/dima/Projects/onion/build/obj/src/onion/net/socket.o"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/core/uidq.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/core/uidq.o"
   },
   {
     "arguments": [
@@ -230,14 +199,15 @@
       "-Iinclude",
       "-Wno-unused-parameter",
       "-Wno-unused-variable",
-      "-Isrc/onion",
+      "-Isrc",
+      "-Isrc/misc",
       "-pthread",
       "-o",
       "script",
-      "tests/request/script.c"
+      "examples/bitmask.c"
     ],
-    "directory": "/home/dima/Projects/onion",
-    "file": "/home/dima/Projects/onion/tests/request/script.c",
-    "output": "/home/dima/Projects/onion/script"
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/examples/bitmask.c",
+    "output": "/home/dima/Projects/testix/script"
   }
 ]
