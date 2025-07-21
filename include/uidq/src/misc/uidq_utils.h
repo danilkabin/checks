@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -19,15 +20,15 @@
 #define UIDQ_DEBUG_DISABLED 4309
 
 #define DEBUG_INFO(fmt, ...) do { \
-    fprintf(stdout, COLOR_GREEN "[INFO] " COLOR_RESET fmt "\n", ##__VA_ARGS__); \
+    fprintf(stdout, COLOR_GREEN "[INFO] " COLOR_RESET fmt "", ##__VA_ARGS__); \
 } while (0)
 
 #define DEBUG_FUNC(fmt, ...) do { \
-    fprintf(stdout, COLOR_CYAN "[FUNC] %s: " COLOR_RESET fmt "\n", __func__, ##__VA_ARGS__); \
+    fprintf(stdout, COLOR_CYAN "[FUNC] %s: " COLOR_RESET fmt "", __func__, ##__VA_ARGS__); \
 } while (0)
 
 #define DEBUG_ERR(fmt, ...) do { \
-    fprintf(stderr, COLOR_RED "[ERROR] %s: (%s) " COLOR_RESET fmt "\n", __func__, strerror(errno), ##__VA_ARGS__); \
+    fprintf(stderr, COLOR_RED "[ERROR] %s: (%s) " COLOR_RESET fmt "", __func__, strerror(errno), ##__VA_ARGS__); \
 } while (0)
 
 /**
@@ -51,6 +52,8 @@
          type; \
       } \
    } while (0)
+
+void uidq_free_pointer(void **ptr);
 
 int uidq_round_pow(int number, int exp);
 

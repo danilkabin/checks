@@ -34,33 +34,12 @@
       "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/misc/uidq_bitmask.o",
-      "src/misc/uidq_bitmask.c"
+      "build/obj/src/core/uidq_block.o",
+      "src/core/uidq_block.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/misc/uidq_bitmask.c",
-    "output": "/home/dima/Projects/testix/build/obj/src/misc/uidq_bitmask.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-Isrc/misc",
-      "-c",
-      "-o",
-      "build/obj/src/http/request.o",
-      "src/http/request.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/http/request.c",
-    "output": "/home/dima/Projects/testix/build/obj/src/http/request.o"
+    "file": "/home/dima/Projects/testix/src/core/uidq_block.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/core/uidq_block.o"
   },
   {
     "arguments": [
@@ -82,6 +61,27 @@
     "directory": "/home/dima/Projects/testix",
     "file": "/home/dima/Projects/testix/src/misc/uidq_utils.c",
     "output": "/home/dima/Projects/testix/build/obj/src/misc/uidq_utils.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-Wno-unused-parameter",
+      "-Wno-unused-variable",
+      "-Isrc",
+      "-Isrc/misc",
+      "-c",
+      "-o",
+      "build/obj/src/misc/uidq_bitmask.o",
+      "src/misc/uidq_bitmask.c"
+    ],
+    "directory": "/home/dima/Projects/testix",
+    "file": "/home/dima/Projects/testix/src/misc/uidq_bitmask.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/misc/uidq_bitmask.o"
   },
   {
     "arguments": [
@@ -139,12 +139,12 @@
       "-Isrc/misc",
       "-c",
       "-o",
-      "build/obj/src/core/uidq_block.o",
-      "src/core/uidq_block.c"
+      "build/obj/src/http/request.o",
+      "src/http/request.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_block.c",
-    "output": "/home/dima/Projects/testix/build/obj/src/core/uidq_block.o"
+    "file": "/home/dima/Projects/testix/src/http/request.c",
+    "output": "/home/dima/Projects/testix/build/obj/src/http/request.o"
   },
   {
     "arguments": [
@@ -204,10 +204,10 @@
       "-pthread",
       "-o",
       "script",
-      "examples/bitmask.c"
+      "examples/slab.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/examples/bitmask.c",
+    "file": "/home/dima/Projects/testix/examples/slab.c",
     "output": "/home/dima/Projects/testix/script"
   }
 ]

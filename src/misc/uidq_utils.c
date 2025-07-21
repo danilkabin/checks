@@ -4,6 +4,13 @@
 
 #include "uidq_utils.h"
 
+void uidq_free_pointer(void **ptr) {
+   if (ptr && *ptr) {
+      free(*ptr);
+      *ptr = NULL;
+   }
+}
+
 int uidq_round_pow(int number, int exp) {
    if (number < 1 || exp < 2) {
       DEBUG_ERR("Invalid input: number (%d) must be >= 1 and exp (%d) must be >= 2.\n", number, exp);

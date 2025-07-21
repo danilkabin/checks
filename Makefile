@@ -8,7 +8,7 @@ OBJ_DIR := build/obj
 INCLUDE_DST := include/uidq
 TARGET := $(LIB_DIR)/libuidq.a
 TEST_EXE := script
-TARGET_SCRIPT = examples/bitmask.c
+TARGET_SCRIPT = examples/slab.c
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRCS))
@@ -18,7 +18,6 @@ HEADERS := $(shell find src -name '*.h')
 
 all: headers $(TARGET) $(TEST_EXE) copy_config
 
-# Копировать заголовки
 headers:
 	@mkdir -p $(INCLUDE_DST)
 	@rsync -a --include '*/' --include '*.h' --exclude '*' src $(INCLUDE_DST)/
