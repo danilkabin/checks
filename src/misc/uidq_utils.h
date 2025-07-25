@@ -19,6 +19,8 @@
 #define UIDQ_DEBUG_ENABLED 4308
 #define UIDQ_DEBUG_DISABLED 4309
 
+#define UIDQ_MIN(a,b) ((a) < (b) ? (a) : (b))
+
 #define DEBUG_INFO(fmt, ...) do { \
     fprintf(stdout, COLOR_GREEN "[INFO] " COLOR_RESET fmt "", ##__VA_ARGS__); \
 } while (0)

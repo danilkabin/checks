@@ -12,6 +12,8 @@
 #define WORD_BITS (sizeof(uint64_t) * 8)
 
 #define UIDQ_BITMASK_DEBUG UIDQ_DEBUG_ENABLED
+
+#define UIDQ_BITMASK_DEBUG UIDQ_DEBUG_ENABLED
 #if UIDQ_BITMASK_DEBUG == UIDQ_DEBUG_DISABLED
 #define DEBUG_INFO(fmt, ...) do {} while(0)
 #define DEBUG_ERR(fmt, ...)  do {} while(0)
@@ -229,7 +231,7 @@ bool uidq_bitmask_toggle(uidq_bitmask_t *bitmask, size_t offset, size_t grab) {
    uint64_t after = bitmask->mask[word];
    int after_count = __builtin_popcountll(after & mask);
 
-   bitmask->bit_count += (after_count - before_count);
+   bitmask->bit_count = bitmask->bit_count + (after_count - before_count);
    return true;
 }
 
@@ -372,19 +374,48 @@ int uidq_bitmask_find_grab_bit(const uidq_bitmask_t *bitmask, size_t offset, siz
  * @brief Sets 'count' consecutive bits starting from the first available cleared bit.
  * @return Index of the first set bit or -1 if none found.
  */
-int uidq_bitmask_add(uidq_bitmask_t *bitmask, size_t offset, size_t grab) {
-   if (!is_valid(bitmask) || grab == 0 || grab > bitmask->bit_capacity) {
-      DEBUG_ERR("Invalid: grab=%zu\n", grab);
+int uidq_bitmask_add(uidq_bitmask_t *bitmask, int pos, size_t offset) {
+   pos = pos <= 0 ? 0 : pos;
+   if (!is_valid(bitmask) || (size_t)pos >= bitmask->bit_capacity || offset == 0 || pos + offset >= bitmask->bit_capacity) {
+      DEBUG_ERR("Invalid: grab=%zu\n", offset);
       return -1;
    }
-   int start = offset == 0 ? uidq_bitmask_find_grab_bit(bitmask, 0, grab, 0) :
-      uidq_bitmask_find_grab_bit(bitmask, offset, grab, 0);
-   if (start < 0 || (size_t)start + grab > bitmask->bit_capacity) {
+
+   int start = uidq_bitmask_find_grab_bit(bitmask, pos, offset, 0);
+   if (start < 0 || (size_t)start + offset > bitmask->bit_capacity) {
       DEBUG_ERR("No sufficient free bits\n");
       return -1;
    }
    size_t index;
-   for (index = start; index < start + grab; index = index + 1) {
+   for (index = start; index < start + offset; index = index + 1) {
+      uidq_bitmask_set(bitmask, index);
+   }
+   return start;
+}
+
+/**
+ * @brief Sets 'offset' consecutive bits starting from the first available cleared bit.
+ * Tries to find and set a continuous range of 'offset' free bits in the bitmask.
+ * @return Index of the first bit that was set on success, or -1 if no suitable range is found.
+ */
+int uidq_bitmask_add_out_of_range(uidq_bitmask_t *bitmask, int pos, size_t offset) {
+   pos = pos <= 0 ? 0 : pos;
+   if (!is_valid(bitmask) || (size_t)pos >= bitmask->bit_capacity || offset == 0 || offset >= bitmask->bit_capacity) {
+      DEBUG_ERR("Invalid: grab=%zu\n", offset);
+      return -1;
+   }
+   size_t end_pos = pos + offset;
+
+   int start = uidq_bitmask_find_grab_bit(bitmask, 0, offset, 0); 
+   if (start < 0 || start >= pos || (size_t)start + offset > bitmask->bit_capacity) {
+      DEBUG_ERR("No sufficient free bits\n");
+      start = uidq_bitmask_find_grab_bit(bitmask, end_pos, offset, 0);
+      if (start < 0 || (size_t)start + offset > bitmask->bit_capacity) {
+         return -1;
+      }
+   }
+
+   for (size_t index = start; index < (size_t)start + offset; ++index) {
       uidq_bitmask_set(bitmask, index);
    }
    return start;
@@ -406,7 +437,85 @@ bool uidq_bitmask_del(uidq_bitmask_t *bitmask, size_t start_pos, size_t count) {
    return true;
 }
 
-void uidq_bitmask_replace(uidq_bitmask_t *bitmask, size_t start_pos, size_t count, size_t next_pos) {
+/**
+ * @brief Replaces 'count' consecutive bits starting from start_pos to next_pos.
+ * @return hello my baby.
+ */
+void uidq_bitmask_replace(uidq_bitmask_t *bitmask, size_t start_pos, size_t offset, size_t next_pos) {
+   if (!is_valid(bitmask) || start_pos + offset > bitmask->bit_capacity || next_pos + offset > bitmask->bit_capacity) {
+      DEBUG_ERR("Invalid parameters: start_pos=%zu, offset=%zu, next_pos=%zu, bit_capacity=%zu\n",
+            start_pos, offset, next_pos, bitmask->bit_capacity);
+      return;
+   }
+
+   size_t size = bitmask->word_capacity;
+   size_t word_bits = bitmask->word_bits;
+   DEBUG_FUNC("word_bits: %zu\n", word_bits);
+
+   uint64_t tmp[size];
+   memcpy(tmp, bitmask->mask, size * sizeof(uint64_t));
+
+   size_t old_bit_count = 0;
+   size_t new_bit_count = 0;
+
+   size_t bits_left = offset;
+   size_t current_pos = start_pos;
+   while (bits_left > 0) {
+      size_t word_index = current_pos / word_bits;
+      size_t bit_index = current_pos % word_bits;
+      size_t bits_in_word = word_bits - bit_index;
+      size_t bits_to_clear = UIDQ_MIN(bits_left, bits_in_word);
+
+      uint64_t mask = (bits_to_clear == word_bits) ? ~0ULL : ((1ULL << bits_to_clear) - 1) << bit_index;
+      old_bit_count = old_bit_count + __builtin_popcountll(tmp[word_index] & mask); 
+      tmp[word_index] = tmp[word_index] & ~mask;
+
+      bits_left = bits_left - bits_to_clear;
+      current_pos = current_pos + bits_to_clear;
+   }
+
+   bits_left = offset;
+   current_pos = start_pos;
+   size_t current_n_pos = next_pos;
+
+   while (bits_left > 0) {
+      size_t src_word_index = current_pos / word_bits;
+      size_t src_bit_index = current_pos % word_bits;
+      size_t dst_word_index = current_n_pos / word_bits;
+      size_t dst_bit_index = current_n_pos % word_bits;
+
+      size_t bits_in_src_word = word_bits - src_bit_index;
+      size_t bits_in_dst_word = word_bits - dst_bit_index;
+      size_t bits_to_copy = UIDQ_MIN(bits_left, UIDQ_MIN(bits_in_src_word, bits_in_dst_word));
+
+      DEBUG_FUNC("index: %zu, next_index: %zu, bits_to_copy: %zu\n",
+            src_word_index, dst_word_index, bits_to_copy);
+      DEBUG_FUNC("bits_left: %zu, current_pos: %zu, current_next_pos: %zu\n",
+            bits_left, current_pos, current_n_pos);
+
+      uint64_t mask = (bits_to_copy == word_bits) ? ~0ULL : ((1ULL << bits_to_copy) - 1);
+      uint64_t src_mask = mask << src_bit_index;
+      uint64_t dst_mask = mask << dst_bit_index;
+
+      uint64_t extracted = (bitmask->mask[src_word_index] & src_mask) >> src_bit_index;
+
+      new_bit_count = new_bit_count + __builtin_popcountll(tmp[dst_word_index] & dst_mask);
+
+      tmp[dst_word_index] = tmp[dst_word_index] & ~dst_mask;
+
+      tmp[dst_word_index] = tmp[dst_word_index] | (extracted << dst_bit_index);
+
+      // new_bit_count = new_bit_count - __builtin_popcountll(tmp[dst_word_index] & dst_mask);
+      new_bit_count = new_bit_count + __builtin_popcountll(extracted << dst_bit_index);
+
+      bits_left = bits_left - bits_to_copy;
+      current_pos = current_pos + bits_to_copy;
+      current_n_pos = current_n_pos + bits_to_copy;
+   }
+
+   bitmask->bit_count = bitmask->bit_count - old_bit_count + new_bit_count;
+
+   memcpy(bitmask->mask, tmp, size * sizeof(uint64_t));
 }
 
 /**

@@ -22,12 +22,98 @@ static inline bool is_valid(const uidq_slab_t *slab) {
 }
 
 /**
+ * @brief Returns blocks free count in slab.
+ * @return >= 0 if value, -1 if, false otherwise.
+ */
+int uidq_slab_get_block_free(const uidq_slab_t *slab) {
+   if (!is_valid(slab)) {
+      DEBUG_ERR("Invalid slab.\n");
+      return -1;
+   }
+   return slab->block_free;
+}
+
+/**
+ * @brief Returns blocks busy count in slab.
+ * @return >= 0 if value, -1 if, false otherwise.
+ */
+int uidq_slab_get_block_busy(const uidq_slab_t *slab) {
+   if (!is_valid(slab)) {
+      DEBUG_ERR("Invalid slab.\n");
+      return -1;
+   }
+   return slab->block_busy;
+}
+
+/**
+ * @brief Checks if a block at start_pos is allocated.
+ * @return true if the block is allocated, false otherwise
+ */
+int uidq_slab_is_block_allocated(const uidq_slab_t *slab, int start_pos) {
+   if (!is_valid(slab) || start_pos < 0 || (size_t)start_pos >= slab->block_count) {
+      DEBUG_ERR("Invalid slab or start_pos: %d\n", start_pos);
+      return -1;
+   }
+   return slab->block_data[start_pos].count;
+}
+
+uidq_slab_block_t *uidq_slab_get_block(const uidq_slab_t *slab, int pos) {
+   if (!is_valid(slab) || pos < 0 || (size_t)pos >= slab->block_count) {
+      DEBUG_ERR("Invalid slab or index: %d\n", pos);
+      return NULL;
+   }
+   return slab->block_data;
+}
+
+int uidq_slab_block_copy(uidq_slab_t *src, int src_pos, uidq_slab_t *dst, int dst_pos) {
+   if (!is_valid(src) || src_pos < 0 || (size_t)src_pos >= src->block_count) {
+      DEBUG_ERR("Invalid slab or src_pos: %d\n", src_pos);
+      return -1;
+   }
+
+   if (!is_valid(dst) || dst_pos < 0 || (size_t)dst_pos >= dst->block_count) {
+      DEBUG_ERR("Invalid slab or src_pos: %d\n", dst_pos);
+      return -1;
+   }
+
+   uidq_slab_block_t *src_block = uidq_slab_get_block(src, src_pos);
+   uidq_slab_block_t *dst_block = uidq_slab_get_block(dst, dst_pos);
+   
+   if (!src_block || !dst_block) {
+      DEBUG_ERR("Invalid blocks for copy.\n");
+      return -1;
+   }
+
+   int src_count = src_block->count; 
+   int dst_count = dst_block->count; 
+
+   if (src_count == 0) {
+      DEBUG_ERR("Invalid block counts for copy: src_count=%zu, dst_count=%zu\n", src_block->count, dst_block->count);
+      return -1;
+   }
+
+   if (dst_count > 0) {
+      uidq_slab_dealloc(dst, dst_pos);
+   }
+
+   void *data = uidq_slab_get(src, src_pos);
+   size_t size = src_pos * src->block_size;
+   int alloc = uidq_slab_alloc(dst, data, size);
+   if (alloc < 0) {
+      DEBUG_ERR("Failed to allocate from src into dst. data: %s, size: %zu\n", (char*)data, size);
+      return alloc;
+   }
+
+   return alloc;
+}
+
+/**
  * @brief Returns pointer to data at given start position in slab.
  * @return Pointer to the data block.
  */
 void *uidq_slab_get(uidq_slab_t *slab, int start_pos) {
    if (!is_valid(slab) || start_pos < 0 || (size_t)start_pos >= slab->block_count) {
-      DEBUG_ERR("Invalid start_pos: %d\n", start_pos);
+      DEBUG_ERR("Invalid slab or start_pos: %d\n", start_pos);
       return NULL;
    }
    return slab->data + slab->block_size * start_pos;
@@ -45,7 +131,7 @@ void uidq_slab_info_block(uidq_slab_t *slab, int start_pos) {
    }
 
    uint8_t *mem_pos = (uint8_t*)uidq_slab_get(slab, start_pos);
-   uidq_slab_block_t *block = &slab->block_data[start_pos];
+   uidq_slab_block_t *block = uidq_slab_get_block(slab, start_pos);
    size_t count = block->count;
    if (count <= 0) {
       DEBUG_ERR("Invalid block data count.\n");
@@ -96,7 +182,7 @@ int uidq_block_realloc(uidq_slab_t *slab, int start_pos, void *new_data, size_t 
       goto fail;
    }
 
-   uidq_slab_block_t *block = &slab->block_data[start_pos];
+   uidq_slab_block_t *block = uidq_slab_get_block(slab, start_pos);
    size_t block_size    = slab->block_size;
    size_t block_demand  = (new_size + block_size - 1) / block_size;
    size_t old_count     = block->count;
@@ -116,7 +202,7 @@ int uidq_block_realloc(uidq_slab_t *slab, int start_pos, void *new_data, size_t 
          goto fail; 
       }
       block->count = 0;
-      uidq_slab_block_t *new_block = &slab->block_data[new_pos];
+      uidq_slab_block_t *new_block = uidq_slab_get_block(slab, new_pos);
       new_block->count = block_demand;
    } else {
       uidq_bitmask_del(slab->bitmask, start_pos + block_demand, old_count - block_demand);
@@ -135,6 +221,46 @@ int uidq_block_realloc(uidq_slab_t *slab, int start_pos, void *new_data, size_t 
 
 fail:
    DEBUG_ERR("uidq_block_realloc failed.\n");
+   return -1;
+}
+
+int uidq_slab_alloc_to_pos(uidq_slab_t *slab, int pos, void *data, size_t size) {
+   if (!is_valid(slab) || pos < 0 || (size_t)pos >= slab->block_count) {
+      DEBUG_ERR("Invalid slab or pos: %d\n", pos);
+      return -1;
+   }
+
+   if (size < 1 || size > slab->size) {
+      DEBUG_ERR("Invalid output: data or size.\n");
+      goto fail;
+   }
+
+   size_t block_size   = slab->block_size;
+   size_t block_demand = (size + block_size - 1) / block_size;
+
+   if (block_demand > slab->block_free) {
+      DEBUG_ERR("Block demand > block_free.\n");
+      goto fail;
+   }
+
+   int start_pos = uidq_bitmask_add(slab->bitmask, 0, block_demand);
+   if (start_pos < 0 || (size_t)start_pos + block_demand > slab->block_count) {
+      DEBUG_ERR("Failed to find start_pos bit.\n");
+      goto fail;
+   }
+
+   uint8_t *mem_pos = (uint8_t*)uidq_slab_get(slab, start_pos);
+   if (data) {
+      memcpy(mem_pos, data, size);
+   } else {
+      memset(mem_pos, 0, size);
+   }
+   slab->block_data[start_pos].count = block_demand;
+   uidq_slab_set_bf(slab, block_demand, -block_demand);
+
+   return start_pos;
+
+fail:
    return -1;
 }
 
@@ -183,7 +309,7 @@ void uidq_slab_dealloc(uidq_slab_t *slab, int start_pos) {
       goto fail;
    }
 
-   uidq_slab_block_t *block = &slab->block_data[start_pos];
+   uidq_slab_block_t *block = uidq_slab_get_block(slab, start_pos);
    size_t count = block->count;
    if (count <= 0) {
       DEBUG_ERR("Invalid block data count.\n");
@@ -201,6 +327,49 @@ void uidq_slab_dealloc(uidq_slab_t *slab, int start_pos) {
 
 fail:
    return;
+}
+
+void uidq_slab_dealloc_out_of_range(uidq_slab_t *slab, int pos, int offset) {
+   int end_pos = pos + offset;
+   if (!is_valid(slab) || pos < 0 || (size_t)pos >= slab->block_count
+         || (size_t)end_pos >= slab->block_count) {
+      DEBUG_ERR("Invalid slab or pos: %d, offset: %d\n", pos, offset);
+      return;
+   }
+
+   int current_pos = pos;
+   while (current_pos <= end_pos) {
+     uidq_slab_block_t *block = uidq_slab_get_block(slab, current_pos);
+     if (block->count <= 0) {
+        current_pos = current_pos + 1;
+        continue;
+     }
+     uidq_slab_dealloc(slab, current_pos);
+     current_pos = current_pos + block->count;
+   }
+}
+
+int uidq_slab_realloc_out_of_range(uidq_slab_t *slab, int pos, int offset) {
+   int end_pos = pos + offset;
+   if (!is_valid(slab) || pos < 0 || (size_t)pos >= slab->block_count
+         || (size_t)end_pos >= slab->block_count) {
+      DEBUG_ERR("Invalid slab or pos: %d, offset: %d\n", pos, offset);
+      return -1;
+   }
+
+
+   int current_pos = pos;
+   while (current_pos <= end_pos) {
+     uidq_slab_block_t *block = uidq_slab_get_block(slab, current_pos);
+     if (block->count <= 0) {
+        current_pos = current_pos + 1;
+        continue;
+     }
+     uidq_bitmask_add(uidq_bitmask_t *bitmask, size_t offset, size_t grab);
+     current_pos = current_pos + block->count;
+   }
+
+   return 1;
 }
 
 int uidq_slab_init(uidq_slab_t *slab, size_t size, size_t block_size) {

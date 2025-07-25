@@ -47,8 +47,11 @@ int uidq_bitmask_test_sequence(const uidq_bitmask_t *bitmask, int target, size_t
 int uidq_bitmask_find_first_bit(const uidq_bitmask_t *bitmask, int type);
 int uidq_bitmask_find_grab_bit(const uidq_bitmask_t *bitmask, size_t offset, size_t grab, int type);
 
-int uidq_bitmask_add(uidq_bitmask_t *bitmask, size_t offset, size_t grab);
+int uidq_bitmask_add(uidq_bitmask_t *bitmask, int pos, size_t offset);
+int uidq_bitmask_add_out_of_range(uidq_bitmask_t *bitmask, int pos, size_t offset);
 bool uidq_bitmask_del(uidq_bitmask_t *bitmask, size_t start_pos, size_t count);
+
+void uidq_bitmask_replace(uidq_bitmask_t *bitmask, size_t start_pos, size_t offset, size_t next_pos);
 
 int uidq_bitmask_save(uidq_bitmask_t *bitmask, int file);
 int uidq_bitmask_load(uidq_bitmask_t *bitmask, int file);

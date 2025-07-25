@@ -50,6 +50,8 @@ int uidq_bitmask_find_grab_bit(const uidq_bitmask_t *bitmask, size_t offset, siz
 int uidq_bitmask_add(uidq_bitmask_t *bitmask, size_t offset, size_t grab);
 bool uidq_bitmask_del(uidq_bitmask_t *bitmask, size_t start_pos, size_t count);
 
+void uidq_bitmask_replace(uidq_bitmask_t *bitmask, size_t start_pos, size_t offset, size_t next_pos);
+
 int uidq_bitmask_save(uidq_bitmask_t *bitmask, int file);
 int uidq_bitmask_load(uidq_bitmask_t *bitmask, int file);
 
