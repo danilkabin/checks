@@ -24,52 +24,18 @@ int main() {
       return -1;
    }
 
-   uidq_bitmask_t *bitmask = uidq_bitmask_create_and_init(300, sizeof(uint64_t));
-   if (!bitmask) {
-      DEBUG_ERR("fdsfsdfds\n");
-      return 0;
-   }
-
-   int start_pos = 10;
-   int offset = 30;
-   int next_pos = 0;
-
-   uidq_bitmask_add(bitmask, start_pos, offset);
-   uidq_bitmask_debug(bitmask);
-  uidq_bitmask_replace(bitmask, start_pos, offset, next_pos);
-
-   uidq_bitmask_debug(bitmask);
- /*  uidq_slab_info(slab);
+   uidq_slab_info(slab);
    char *data = "yes";
    for (int index = 0; index < 3; index++) {
-      int start_pos = uidq_slab_alloc(slab, data, 5);
+      int start_pos = uidq_slab_alloc(slab, data, 7);
       uidq_bitmask_debug(slab->bitmask);
-      uidq_slab_info(slab);
-      uidq_slab_info_block(slab, start_pos);
    }
 
-   uidq_slab_info(slab);
-   char *ye = "abcdaye";
-   DEBUG_FUNC("sdffds\n");
-   char *datochka = (char*)uidq_slab_get(slab, 0);
-   printf("datocakcskack: %s\n", datochka);
-
-   char *eye = "123456789";
-   uidq_bitmask_debug(slab->bitmask);
-   int pos = uidq_block_realloc(slab, 0, eye, 13); 
-   datochka = (char*)uidq_slab_get(slab, pos);
-   printf("datocakcskack: %s\n", datochka);
-
-      uidq_slab_info_block(slab, pos);
-   uidq_bitmask_debug(slab->bitmask);
-   for (int index = 0; index < 6; index++) {
+   for (int index = slab->block_count; index >= 0; index--) {
       uidq_slab_dealloc(slab, index);
       uidq_bitmask_debug(slab->bitmask);
-      uidq_slab_info(slab);
    }
 
-   uidq_bitmask_debug(slab->bitmask);
-   */
    DEBUG_INFO("All tests passed successfully!\n");
    return 0;
 }

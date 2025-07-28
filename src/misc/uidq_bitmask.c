@@ -19,6 +19,13 @@
 #define DEBUG_ERR(fmt, ...)  do {} while(0)
 #endif
 
+struct uidq_bitmask_header_to_write {
+   size_t bit_capacity;
+   size_t word_capacity;
+   size_t bit_count;
+   size_t word_bits;
+};
+
 /**
  * @brief Checks if bitmask is valid.
  * @return true if valid, false otherwise.
@@ -58,16 +65,9 @@ void uidq_bitmask_bits_clear(uidq_bitmask_t *bitmask) {
  */
 void uidq_bitmask_debug(const uidq_bitmask_t *bitmask) {
    if (!is_valid(bitmask)) return;
-   size_t index;
-   size_t bit;
-   for (index = 0; index < bitmask->word_capacity; index = index + 1) {
-      for (bit = 0; bit < bitmask->word_bits; bit = bit + 1) {
-         if (index * bitmask->word_bits + bit >= bitmask->bit_capacity) break;
-         printf("%d", (int)((bitmask->mask[index] >> bit) & 1));
-         if ((index * bitmask->word_bits + bit + 1) % 64 == 0) {
-            printf("\n");
-         }
-      }
+   for (size_t index = 0; index < bitmask->bit_capacity; index++) {
+      printf("%d", uidq_bitmask_bit_test(bitmask, index));
+      if ((index + 1) % 64 == 0) printf("\n");
    }
    printf("\n");
    DEBUG_INFO("bitmask busy: %zu\n", bitmask->bit_count);
@@ -210,83 +210,16 @@ bool uidq_bitmask_clear(uidq_bitmask_t *bitmask, size_t offset) {
 }
 
 /**
- * @brief Toggles a bit at the specified offset in the bitmask.
- * @return true on success, false on failure.
+ * @brief Resets the entire bitmask, clearing all bits and resetting the bit count to zero.
+ * @param bitmask Pointer to the bitmask structure.
  */
-bool uidq_bitmask_toggle(uidq_bitmask_t *bitmask, size_t offset, size_t grab) {
-   if (!is_valid_index(bitmask, offset) 
-         || (offset + grab) > bitmask->bit_capacity) {
-      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
-      return false;
+void uidq_bitmask_reset(uidq_bitmask_t *bitmask) {
+   if (!bitmask) return;
+   size_t words = (bitmask->bit_capacity + bitmask->word_bits - 1) / bitmask->word_bits;
+   for (size_t index = 0; index < words; index++) {
+      bitmask->mask[index] = 0;
    }
-   size_t word = offset / bitmask->word_bits;
-   size_t bit = offset % bitmask->word_bits;
-   uint64_t mask = ((1ULL << grab) - 1) << bit;
-
-   uint64_t before = bitmask->mask[word];
-   int before_count = __builtin_popcountll(before & mask);
-
-   bitmask->mask[word] ^= mask;
-
-   uint64_t after = bitmask->mask[word];
-   int after_count = __builtin_popcountll(after & mask);
-
-   bitmask->bit_count = bitmask->bit_count + (after_count - before_count);
-   return true;
-}
-
-/**
- * @brief Toggles a bit at the specified offset in the bitmask and add new.
- * @return true on success, false on failure.
- */
-int uidq_bitmask_add_with_toggle(uidq_bitmask_t *bitmask, size_t offset, size_t last_grab, size_t grab) {
-   if (!is_valid_index(bitmask, offset) ||
-         (offset + last_grab) > bitmask->bit_capacity ||
-         (offset + grab) > bitmask->bit_capacity) {
-      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
-      return -1;
-   }
-   bool toggle = uidq_bitmask_toggle(bitmask, offset, last_grab);
-   if (!toggle) {
-      DEBUG_ERR("Failed to toggle in bitmask.\n");
-      return -1;
-   }
-   int start_pos = uidq_bitmask_add(bitmask, offset, grab);
-   if (start_pos < 0) {
-      uidq_bitmask_toggle(bitmask, offset, last_grab);
-      DEBUG_ERR("Failed to add into bitmask.\n");
-      return -1;
-   }
-
-   return start_pos;
-}
-
-/**
- * @brief Attempts to toggle bits near offset, then add bits to bitmask.
- *        Falls back to direct add if toggle fails.
- * @return start position on success, -1 on failure.
- */
-int uidq_bitmask_add_with_fallback(uidq_bitmask_t *bitmask, size_t offset, size_t last_grab, size_t grab) {
-   if (!is_valid_index(bitmask, offset) ||
-         (offset + last_grab) > bitmask->bit_capacity ||
-         (offset + grab) > bitmask->bit_capacity) {
-      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
-      return -1;
-   }
-   int start_pos = uidq_bitmask_add_with_toggle(bitmask, offset, last_grab, grab);
-   if (start_pos < 0) {
-      DEBUG_ERR("Failed to toggle, attempting fallback.\n");
-      goto fallback; 
-   }
-   return start_pos;
-fallback:
-   start_pos = uidq_bitmask_add(bitmask, offset, grab);
-   if (start_pos < 0) {
-      DEBUG_ERR("Failed to add, bye bye.\n");
-      return -1;
-   }
-   uidq_bitmask_toggle(bitmask, offset, last_grab);
-   return start_pos;
+   bitmask->bit_count = 0;
 }
 
 /**
@@ -371,6 +304,103 @@ int uidq_bitmask_find_grab_bit(const uidq_bitmask_t *bitmask, size_t offset, siz
 }
 
 /**
+ * @brief Toggles a bit at the specified offset in the bitmask.
+ * @return true on success, false on failure.
+ */
+bool uidq_bitmask_toggle(uidq_bitmask_t *bitmask, size_t offset, size_t grab) {
+   if (!is_valid_index(bitmask, offset) 
+         || (offset + grab) > bitmask->bit_capacity) {
+      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
+      return false;
+   }
+   size_t word = offset / bitmask->word_bits;
+   size_t bit = offset % bitmask->word_bits;
+   uint64_t mask = ((1ULL << grab) - 1) << bit;
+
+   uint64_t before = bitmask->mask[word];
+   int before_count = __builtin_popcountll(before & mask);
+
+   bitmask->mask[word] ^= mask;
+
+   uint64_t after = bitmask->mask[word];
+   int after_count = __builtin_popcountll(after & mask);
+
+   bitmask->bit_count = bitmask->bit_count + (after_count - before_count);
+   return true;
+}
+
+/**
+ * @brief Toggles a bit at the specified offset in the bitmask and add new.
+ * @return true on success, false on failure.
+ */
+int uidq_bitmask_add_with_toggle(uidq_bitmask_t *bitmask, size_t offset, size_t last_grab, size_t grab) {
+   if (!is_valid_index(bitmask, offset) ||
+         (offset + last_grab) > bitmask->bit_capacity ||
+         (offset + grab) > bitmask->bit_capacity) {
+      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
+      return -1;
+   }
+   bool toggle = uidq_bitmask_toggle(bitmask, offset, last_grab);
+   if (!toggle) {
+      DEBUG_ERR("Failed to toggle in bitmask.\n");
+      return -1;
+   }
+   int start_pos = uidq_bitmask_add(bitmask, offset, grab);
+   if (start_pos < 0) {
+      uidq_bitmask_toggle(bitmask, offset, last_grab);
+      DEBUG_ERR("Failed to add into bitmask.\n");
+      return -1;
+   }
+
+   return start_pos;
+}
+
+/**
+ * @brief Attempts to toggle bits near offset, then add bits to bitmask.
+ *        Falls back to direct add if toggle fails.
+ * @return start position on success, -1 on failure.
+ */
+int uidq_bitmask_add_with_fallback(uidq_bitmask_t *bitmask, size_t offset, size_t last_grab, size_t grab) {
+   if (!is_valid_index(bitmask, offset) ||
+         (offset + last_grab) > bitmask->bit_capacity ||
+         (offset + grab) > bitmask->bit_capacity) {
+      DEBUG_ERR("Offset out of bounds: %zu >= %zu\n", offset, bitmask->bit_capacity);
+      return -1;
+   }
+   int start_pos = uidq_bitmask_add_with_toggle(bitmask, offset, last_grab, grab);
+   if (start_pos < 0) {
+      DEBUG_ERR("Failed to toggle, attempting fallback.\n");
+      goto fallback; 
+   }
+   return start_pos;
+fallback:
+   start_pos = uidq_bitmask_add(bitmask, offset, grab);
+   if (start_pos < 0) {
+      DEBUG_ERR("Failed to add, bye bye.\n");
+      return -1;
+   }
+   uidq_bitmask_toggle(bitmask, offset, last_grab);
+   return start_pos;
+}
+
+/**
+ * @brief Sets force 'count' consecutive bits starting bit.
+ * @return Index of the first set bit or -1 if none found.
+ */
+int uidq_bitmask_add_force(uidq_bitmask_t *bitmask, int pos, size_t offset) {
+   pos = pos <= 0 ? 0 : pos;
+   if (!is_valid(bitmask) || (size_t)pos >= bitmask->bit_capacity || offset == 0 || pos + offset >= bitmask->bit_capacity) {
+      DEBUG_ERR("Invalid: grab=%zu\n", offset);
+      return -1;
+   }
+   size_t index;
+   for (index = pos; index < pos + offset; index = index + 1) {
+      uidq_bitmask_set(bitmask, index);
+   }
+   return pos;
+}
+
+/**
  * @brief Sets 'count' consecutive bits starting from the first available cleared bit.
  * @return Index of the first set bit or -1 if none found.
  */
@@ -388,34 +418,6 @@ int uidq_bitmask_add(uidq_bitmask_t *bitmask, int pos, size_t offset) {
    }
    size_t index;
    for (index = start; index < start + offset; index = index + 1) {
-      uidq_bitmask_set(bitmask, index);
-   }
-   return start;
-}
-
-/**
- * @brief Sets 'offset' consecutive bits starting from the first available cleared bit.
- * Tries to find and set a continuous range of 'offset' free bits in the bitmask.
- * @return Index of the first bit that was set on success, or -1 if no suitable range is found.
- */
-int uidq_bitmask_add_out_of_range(uidq_bitmask_t *bitmask, int pos, size_t offset) {
-   pos = pos <= 0 ? 0 : pos;
-   if (!is_valid(bitmask) || (size_t)pos >= bitmask->bit_capacity || offset == 0 || offset >= bitmask->bit_capacity) {
-      DEBUG_ERR("Invalid: grab=%zu\n", offset);
-      return -1;
-   }
-   size_t end_pos = pos + offset;
-
-   int start = uidq_bitmask_find_grab_bit(bitmask, 0, offset, 0); 
-   if (start < 0 || start >= pos || (size_t)start + offset > bitmask->bit_capacity) {
-      DEBUG_ERR("No sufficient free bits\n");
-      start = uidq_bitmask_find_grab_bit(bitmask, end_pos, offset, 0);
-      if (start < 0 || (size_t)start + offset > bitmask->bit_capacity) {
-         return -1;
-      }
-   }
-
-   for (size_t index = start; index < (size_t)start + offset; ++index) {
       uidq_bitmask_set(bitmask, index);
    }
    return start;
@@ -525,10 +527,17 @@ void uidq_bitmask_replace(uidq_bitmask_t *bitmask, size_t start_pos, size_t offs
 int uidq_bitmask_save(uidq_bitmask_t *bitmask, int file) {
    if (!bitmask || file < 0) return -1;
 
-   if (write(file, &bitmask->bit_capacity, sizeof(bitmask->bit_capacity)) != sizeof(bitmask->bit_capacity)) return -1;
-   if (write(file, &bitmask->word_capacity, sizeof(bitmask->word_capacity)) != sizeof(bitmask->word_capacity)) return -1;
-   if (write(file, &bitmask->bit_count, sizeof(bitmask->bit_count)) != sizeof(bitmask->bit_count)) return -1;
-   if (write(file, &bitmask->word_bits, sizeof(bitmask->word_bits)) != sizeof(bitmask->word_bits)) return -1;
+   struct uidq_bitmask_header_to_write header = {
+      bitmask->bit_capacity,
+      bitmask->word_capacity,
+      bitmask->bit_count,
+      bitmask->word_bits
+   };
+
+   if (write(file, &header, sizeof(header)) != sizeof(header)) {
+      DEBUG_ERR("Failed to write header\n");
+      return -1;
+   }
 
    ssize_t data_size = (bitmask->word_bits / 8) * bitmask->word_capacity;
    if (write(file, bitmask->mask, data_size) != data_size) return -1;
@@ -545,10 +554,17 @@ int uidq_bitmask_load(uidq_bitmask_t *bitmask, int file) {
 
    lseek(file, 0, SEEK_SET);
 
-   if (read(file, &bitmask->bit_capacity, sizeof(bitmask->bit_capacity)) != sizeof(bitmask->bit_capacity)) return -1;
-   if (read(file, &bitmask->word_capacity, sizeof(bitmask->word_capacity)) != sizeof(bitmask->word_capacity)) return -1;
-   if (read(file, &bitmask->bit_count, sizeof(bitmask->bit_count)) != sizeof(bitmask->bit_count)) return -1;
-   if (read(file, &bitmask->word_bits, sizeof(bitmask->word_bits)) != sizeof(bitmask->word_bits)) return -1;
+   struct uidq_bitmask_header_to_write header = {
+      bitmask->bit_capacity,
+      bitmask->word_capacity,
+      bitmask->bit_count,
+      bitmask->word_bits
+   };
+
+   if (read(file, &header, sizeof(header)) != sizeof(header)) {
+      DEBUG_ERR("Failed to read header\n");
+      return -1;
+   }
 
    ssize_t data_size = (bitmask->word_bits / 8) * bitmask->word_capacity;
    if (read(file, bitmask->mask, data_size) != data_size) return -1;
