@@ -12,6 +12,16 @@
 #include "uidq_slab.h"
 #include "uidq_utils.h"
 
+int uidq_get_affinity() {
+
+   return 0;
+}
+
+int uidq_set_affinity() {
+
+   return 0;
+}
+
 bool uidq_proc_ctl_isvalid(uidq_proc_ctl_t *ctl) {
    if (!ctl || !ctl->initialized) {
       return false;
@@ -29,16 +39,17 @@ static void uidq_proc_exec(void *data) {
 }
 
 pid_t uidq_process_create(void *data) {
-   pid_t fork_pid;
-
-   fork_pid = fork(); 
+   pid_t fork_pid = fork(); 
+   
    switch (fork_pid) {
       case -1:
+         DEBUG_ERR("Failed to create process.\n");
          break;
       case 0:
+         DEBUG_FUNC("fsdfsd\n");
          uidq_proc_exec(data);
          _exit(1);
-         break;
+      break;
       default:
          DEBUG_ERR("Failed to fork().\n");
          break;
@@ -82,6 +93,8 @@ uidq_proc_t *uidq_proc_ctl_add(uidq_proc_ctl_t *ctl, void *data) {
    }
 
    uidq_proc_t *proc = uidq_slab_get(ctl->processes, pos);
+   proc->pid = pid;
+   proc->pos = pos;
 
    ctl->count = ctl->count + 1;
 
@@ -94,12 +107,19 @@ fail:
 }
 
 void uidq_proc_ctl_del(uidq_proc_ctl_t *ctl, uidq_proc_t *proc) {
+   if (!proc) {
+      return;
+   }
 
-   uidq_slab_dealloc(ctl->processes, proc->pos);
+   pid_t pid = proc->pid;
+   int pos = proc->pos;
+
+   kill(pid, SIGTERM);
+   uidq_slab_dealloc(ctl->processes, pos);
 }
 
-uidq_proc_ctl_t *uidq_proc_ctl_init(uint32_t count, uint32_t max_count) {
-   if (count == 0 || max_count == 0) {
+uidq_proc_ctl_t *uidq_proc_ctl_init(uint32_t max_count) {
+   if (max_count == 0) {
       DEBUG_ERR("Invalid data.\n");
       goto fail;
    }
@@ -112,16 +132,18 @@ uidq_proc_ctl_t *uidq_proc_ctl_init(uint32_t count, uint32_t max_count) {
    }
 
    size_t block_size = sizeof(uidq_proc_t);
-   size_t max_size = count * block_size; 
+   size_t max_size = max_count * block_size; 
    ctl->processes = uidq_slab_create_and_init(max_size, block_size); 
    if (!ctl->processes) {\
       DEBUG_ERR("Failed to allocate ctl processes.\n");
       goto ctl_exit;
    }
 
-   ctl->count = count;
+   ctl->count = 0;
    ctl->max_count = max_count;
    ctl->initialized = true;
+
+   return ctl;
 
 ctl_exit:
    uidq_proc_ctl_exit(ctl);

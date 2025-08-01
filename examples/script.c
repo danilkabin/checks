@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 int main() {
-   uidq_module_init(); 
    sleep(100);
    return 0;
 }

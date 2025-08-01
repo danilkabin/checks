@@ -1,34 +1,59 @@
 #ifndef UIDQ_SOCKET_H 
 #define UIDQ_SOCKET_H
 
+#include "uidq_slab.h"
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdint.h>
 
-struct onion_tcp_port_conf {
+typedef struct {
    int domain;
    int type;
    int protocol;
+   int flags;
+   int fcntl_flags;
    uint16_t port;
-   struct in_addr addr;
-};
+
+   size_t queue_capable;
+
+   union {
+      struct sockaddr_in sock_addr;
+      struct sockaddr_in6 sock_addr6;
+      struct sockaddr_un sock_un;
+   };
+
+} uidq_sock_conf_t;
 
 typedef struct {
    int fd;
+   int domain;
    int type;
    int queue_capable;
-   struct sockaddr_in sock_addr;
-
+ 
    uint32_t packets_sent;
    uint32_t packets_received;
-} onion_net_sock;
 
-int onion_tcp_port_conf_check(struct onion_tcp_port_conf *conf);
+   union {
+      struct sockaddr_in sock_addr;
+      struct sockaddr_in6 sock_addr6;
+      struct sockaddr_un sock_un;
+   };
 
-int onion_net_port_check(uint16_t port);
-int onion_net_sock_accept(onion_net_sock *onion_server_sock, onion_net_sock *client_sock);
+} uidq_sock_t;
 
-onion_net_sock *onion_net_sock_init(struct onion_tcp_port_conf *port_conf, size_t queue_capable);
-void onion_net_sock_exit( onion_net_sock *sock_struct);
+typedef struct {
+   uint32_t count;
+   uint32_t max_count;
+   uidq_slab_t *sockets;
+
+   bool initialized;
+} uidq_sock_ctl_t;
+
+int uidq_socket_port_check(int domain, int type, int protocol, uint16_t port);
+
+uidq_sock_ctl_t *uidq_sock_ctl_init(uint32_t count, uint32_t max_count);
+void uidq_sock_ctl_exit(uidq_sock_ctl_t *ctl);
 
 #endif
