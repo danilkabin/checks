@@ -44,11 +44,11 @@ int uidq_slab_alloc_to_pos(uidq_slab_t *slab, void *data, size_t size, int pos);
 int uidq_slab_alloc(uidq_slab_t *slab, void *data, size_t size);
 void uidq_slab_dealloc(uidq_slab_t *slab, int pos);
 
-int uidq_slab_init(uidq_slab_t *slab, size_t size, size_t block_size);
+int uidq_slab_init(uidq_slab_t *slab, size_t count, size_t block_size);
 void uidq_slab_exit(uidq_slab_t *slab);
 
 uidq_slab_t *uidq_slab_create();
 void uidq_slab_free(uidq_slab_t *slab);
-uidq_slab_t *uidq_slab_create_and_init(size_t size, size_t block_size);
+uidq_slab_t *uidq_slab_create_and_init(size_t count, size_t block_size);
 
 #endif

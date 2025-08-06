@@ -1,21 +1,18 @@
 CC := ccache gcc
 AR := ar
 CFLAGS := -Wall -Wextra -O2 -fPIC -Iinclude -Wno-unused-parameter -Wno-unused-variable \
-          -Isrc -Isrc/core -Isrc/master -Isrc/misc -Isrc/process
+          -Isrc
 
-SRC_DIRS := src/core src/master src/misc src/unix
+SRC_DIRS := src/config src/core src/master src/process src/uvent 
 PROCESS_DIR := src/process
 BUILD_DIR := build
 
 STATIC_CONFIG := config/config.ini
 
-UIDQ_H := src/core/uidq.h
-
 VERSION := $(shell \
-	grep '#define UIDQ_VERSION' $(UIDQ_H) | \
+	grep '#define UIDQ_VERSION' src/core/uidq_core.h | \
 	awk '{print $$3}' | tr -d '"')
-
-VERSION_DIR := build/$(VERSION)
+VERSION_DIR := $(BUILD_DIR)/$(VERSION)
 
 LIB_DIR := $(VERSION_DIR)/lib
 OBJ_DIR := $(VERSION_DIR)/obj
@@ -27,6 +24,7 @@ TARGET_LIB := $(LIB_DIR)/libuidq.a
 TARGET_MASTER := $(BIN_DIR)/uidq
 TARGET_PROCESS := $(BIN_DIR)/process_worker
 
+# Источники
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRCS))
 
@@ -39,7 +37,7 @@ all: $(VERSION_DIR) headers $(TARGET_LIB) $(TARGET_MASTER) $(TARGET_PROCESS)
 
 $(VERSION_DIR):
 	@mkdir -p $(VERSION_DIR)
-	@cp $(STATIC_CONFIG) $(VERSION_DIR) 
+	@cp $(STATIC_CONFIG) $(VERSION_DIR)
 	@echo "Created folder: $(VERSION_DIR)"
 
 headers:
@@ -50,19 +48,23 @@ $(TARGET_LIB): $(OBJS)
 	@mkdir -p $(LIB_DIR)
 	$(AR) rcs $@ $^
 
+# Шаблон компиляции общих исходников
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-MASTER_SRCS := src/core/uidq.c
+# Сборка мастера
+MASTER_SRCS := src/master/uidq.c
 $(TARGET_MASTER): $(MASTER_SRCS) $(TARGET_LIB)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ -L$(LIB_DIR) -luidq -pthread -o $@
 
+# Сборка process_worker
 $(TARGET_PROCESS): $(PROCESS_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ -o $@
 
+# Шаблон компиляции process/*.c
 $(PROCESS_OBJ_DIR)/%.o: $(PROCESS_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
