@@ -12,12 +12,12 @@
       "-Isrc",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_slab.o",
-      "src/core/uidq_slab.c"
+      "build/0000001/obj/src/core/uidq_utils.o",
+      "src/core/uidq_utils.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_slab.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_slab.o"
+    "file": "/home/dima/Projects/testix/src/core/uidq_utils.c",
+    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_utils.o"
   },
   {
     "arguments": [
@@ -52,32 +52,12 @@
       "-Isrc",
       "-c",
       "-o",
-      "build/0000001/obj/src/config/uidq_config.o",
-      "src/config/uidq_config.c"
+      "build/0000001/obj/src/core/uidq_slab.o",
+      "src/core/uidq_slab.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/config/uidq_config.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/config/uidq_config.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/core/uidq_utils.o",
-      "src/core/uidq_utils.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_utils.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_utils.o"
+    "file": "/home/dima/Projects/testix/src/core/uidq_slab.c",
+    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_slab.o"
   },
   {
     "arguments": [
@@ -152,213 +132,11 @@
       "-Isrc",
       "-c",
       "-o",
-      "build/0000001/obj/src/master/uidq_master.o",
-      "src/master/uidq_master.c"
+      "build/0000001/obj/src/core/uidq_conf_parser.o",
+      "src/core/uidq_conf_parser.c"
     ],
     "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/master/uidq_master.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/master/uidq_master.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/core/uidq_socket.o",
-      "src/core/uidq_socket.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_socket.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_socket.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/core/uidq_log.o",
-      "src/core/uidq_log.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_log.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_log.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/master/uidq_master_ipc.o",
-      "src/master/uidq_master_ipc.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/master/uidq_master_ipc.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/master/uidq_master_ipc.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/master/uidq_master_proc.o",
-      "src/master/uidq_master_proc.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/master/uidq_master_proc.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/master/uidq_master_proc.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/master/uidq.o",
-      "src/master/uidq.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/master/uidq.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/master/uidq.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/process/uidq_process.o",
-      "src/process/uidq_process.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/process/uidq_process.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/process/uidq_process.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/uvent/uidq_epoll.o",
-      "src/uvent/uidq_epoll.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/uvent/uidq_epoll.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/uvent/uidq_epoll.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/process/obj/uidq_process.o",
-      "src/process/uidq_process.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/process/uidq_process.c",
-    "output": "/home/dima/Projects/testix/build/0000001/process/obj/uidq_process.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "-c",
-      "-o",
-      "build/0000001/obj/src/uvent/uidq_timer.o",
-      "src/uvent/uidq_timer.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/uvent/uidq_timer.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/uvent/uidq_timer.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-c",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
-      "build/0000001/lib/libuidq.a",
-      "-pthread",
-      "-o",
-      "build/0000001/bin/uidq",
-      "src/master/uidq.c"
-    ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/master/uidq.c",
-    "output": "/home/dima/Projects/testix/build/0000001/bin/uidq"
+    "file": "/home/dima/Projects/testix/src/core/uidq_conf_parser.c",
+    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_conf_parser.o"
   }
 ]

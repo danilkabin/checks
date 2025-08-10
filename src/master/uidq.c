@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "core/uidq_alloc.h"
+#include "core/uidq_conf_file.h"
+#include "core/uidq_conf_parser.h"
 #include "core/uidq_log.h"
 #include "core/uidq_utils.h"
 #include "master/uidq.h"
@@ -114,7 +116,13 @@ void uidq_exit(uidq_t *uidq) {
 
 int main() {
    DEBUG_FUNC("heellooo!\n");
+
    uidq_log_t *log = uidq_log_init(NULL, NULL, NULL);
+   uidq_conf_t *conf = uidq_conf_init("config/config.conf", log);
+   if (!conf) {
+      uidq_err(log, "Failed to allocate config parser.\n"); 
+      return -1;
+   }
 
    uidq_t *uidq = uidq_init(-1);
    return 0;

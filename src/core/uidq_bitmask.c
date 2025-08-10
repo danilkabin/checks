@@ -283,24 +283,38 @@ int uidq_bitmask_find_first_bit(const uidq_bitmask_t *bitmask, int type) {
  * @return Index of the first bit in the sequence or -1 if none found.
  */
 int uidq_bitmask_find_grab_bit(const uidq_bitmask_t *bitmask, size_t offset, size_t grab, int type) {
-   if (!is_valid(bitmask) || (type != 0 && type != 1) || grab == 0 || offset + grab > bitmask->bit_capacity) {
-      DEBUG_ERR("Invalid: offset=%zu, grab=%zu, type=%d\n", offset, grab, type);
-      return -1;
-   }
-   size_t count = 0;
-   int start = -1;
-   size_t index;
-   for (index = offset; index < bitmask->bit_capacity; index = index + 1) {
-      if (uidq_bitmask_bit_test(bitmask, index) == type) {
-         if (count == 0) start = index;
-         count = count + 1;
-         if (count == grab) return start;
-      } else {
-         count = 0;
-         start = -1;
-      }
-   }
-   return -1;
+    if (!is_valid(bitmask) || (type != 0 && type != 1) || grab == 0 || offset + grab > bitmask->bit_capacity) {
+        return -1;
+    }
+
+    size_t word_bits = bitmask->word_bits;
+    size_t start_word = offset / word_bits;
+    size_t start_bit = offset % word_bits;
+
+    size_t count = 0;
+    size_t start = (size_t)-1;
+
+    for (size_t w = start_word; w < bitmask->word_capacity; w++) {
+        uint64_t word = bitmask->mask[w];
+        if (type == 0) word = ~word;
+        if (w == start_word && start_bit > 0) {
+            word &= (~0ULL << start_bit);
+        }
+        while (word) {
+            int bit_pos = __builtin_ctzll(word);
+            if (count == 0) start = w * word_bits + bit_pos;
+            int run = 0;
+            while (bit_pos + run < (int)word_bits && (word & (1ULL << (bit_pos + run)))) {
+                run++;
+            }
+            count += run;
+            if (count >= grab) return start;
+            word &= ~(((1ULL << run) - 1) << bit_pos);
+            count = 0;
+        }
+        if (word != ~0ULL) count = 0;
+    }
+    return -1;
 }
 
 /**

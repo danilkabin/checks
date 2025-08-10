@@ -23,3 +23,7 @@ void *uidq_calloc(size_t size) {
 
    return p;
 }
+
+void uidq_free(void *ptr) {
+   free(ptr);
+}

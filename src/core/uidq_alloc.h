@@ -7,5 +7,6 @@
 
 void *uidq_malloc(size_t size);
 void *uidq_calloc(size_t size);
+void uidq_free(void *ptr);
 
 #endif

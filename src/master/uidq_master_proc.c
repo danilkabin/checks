@@ -110,14 +110,14 @@ uidq_process_t *uidq_process_init(uidq_process_ctl_t *ctl) {
 
    char *path = UIDQ_PROCESS_WORKER_PATH;
    char *name = "process_worker";
-   char *const argv = pid_str;
-   char *const envp = NULL;
+   char *const argv[] = { name, pid_str, NULL };
+   char *const envp[] = { NULL };
 
    uidq_exec_var_t exec = {
       .path = path,
       .name = name,
-      .argv = &argv,
-      .envp = &envp 
+      .argv = argv,
+      .envp = envp 
    }; 
 
    process->pid = uidq_process_create(&exec);

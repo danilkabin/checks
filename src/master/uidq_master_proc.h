@@ -21,8 +21,6 @@ typedef struct {
     int running;
     int respawn_count;
 
-    int ipc_fd;
-
     time_t start_time;
     time_t heartbeat;
 
