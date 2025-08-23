@@ -7,17 +7,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_utils.o",
-      "src/core/uidq_utils.c"
+      "build/obj/uidq/server/core/uidq_hash.o",
+      "uidq/server/core/uidq_hash.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_utils.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_utils.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_hash.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_hash.o"
   },
   {
     "arguments": [
@@ -27,17 +26,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_string.o",
-      "src/core/uidq_string.c"
+      "build/obj/uidq/server/core/uidq_bitmask.o",
+      "uidq/server/core/uidq_bitmask.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_string.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_string.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_bitmask.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_bitmask.o"
   },
   {
     "arguments": [
@@ -47,17 +45,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_slab.o",
-      "src/core/uidq_slab.c"
+      "build/obj/uidq/server/core/uidq_pool.o",
+      "uidq/server/core/uidq_pool.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_slab.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_slab.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_pool.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_pool.o"
   },
   {
     "arguments": [
@@ -67,17 +64,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_bitmask.o",
-      "src/core/uidq_bitmask.c"
+      "build/obj/uidq/server/core/uidq_slab.o",
+      "uidq/server/core/uidq_slab.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_bitmask.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_bitmask.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_slab.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_slab.o"
   },
   {
     "arguments": [
@@ -87,17 +83,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_alloc.o",
-      "src/core/uidq_alloc.c"
+      "build/obj/uidq/server/master/main.o",
+      "uidq/server/master/main.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_alloc.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_alloc.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/master/main.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/master/main.o"
   },
   {
     "arguments": [
@@ -107,17 +102,16 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_daemon.o",
-      "src/core/uidq_daemon.c"
+      "build/obj/uidq/server/core/uidq_alloc.o",
+      "uidq/server/core/uidq_alloc.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_daemon.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_daemon.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_alloc.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_alloc.o"
   },
   {
     "arguments": [
@@ -127,16 +121,34 @@
       "-O2",
       "-fPIC",
       "-Iinclude",
-      "-Wno-unused-parameter",
-      "-Wno-unused-variable",
-      "-Isrc",
+      "-pthread",
+      "-Iuidq/server",
       "-c",
       "-o",
-      "build/0000001/obj/src/core/uidq_conf_parser.o",
-      "src/core/uidq_conf_parser.c"
+      "build/obj/uidq/server/core/uidq_log.o",
+      "uidq/server/core/uidq_log.c"
     ],
-    "directory": "/home/dima/Projects/testix",
-    "file": "/home/dima/Projects/testix/src/core/uidq_conf_parser.c",
-    "output": "/home/dima/Projects/testix/build/0000001/obj/src/core/uidq_conf_parser.o"
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_log.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_log.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/process/uidq_process.o",
+      "uidq/server/process/uidq_process.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/process/uidq_process.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/process/uidq_process.o"
   }
 ]

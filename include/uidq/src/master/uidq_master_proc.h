@@ -40,7 +40,7 @@ int uidq_affinity_set(int core);
 uidq_process_t *uidq_process_init(uidq_process_ctl_t *ctl);
 void uidq_process_exit(uidq_process_ctl_t *ctl, uidq_process_t *process);
 
-uidq_process_ctl_t *uidq_process_ctl_init(int max_count);
+uidq_process_ctl_t *uidq_process_ctl_init(uidq_log_t *log, int max_count);
 void uidq_process_ctl_exit(uidq_process_ctl_t *ctl);
 
 #endif

@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 #include "core/uidq_core.h"
+#include "core/uidq_log.h"
 #include "core/uidq_socket.h"
 #include "core/uidq_slab.h"
 #include "master/uidq_master_proc.h"
@@ -25,7 +26,7 @@ typedef struct {
 
 } uidq_master_t;
 
-uidq_master_t *uidq_master_init();
+uidq_master_t *uidq_master_init(uidq_log_t *log);
 void uidq_master_exit(uidq_master_t *master);
 
 #endif

@@ -1,45 +1,38 @@
-CC := ccache gcc
+CC := gcc
 AR := ar
-CFLAGS := -Wall -Wextra -O2 -fPIC -Iinclude -Wno-unused-parameter -Wno-unused-variable -Isrc
+CFLAGS := -Wall -Wextra -O2 -fPIC -Iinclude -pthread -Iuidq/server
+
+SRC_DIR := uidq/server
+CORE_DIR := $(SRC_DIR)/core
+MASTER_DIR := $(SRC_DIR)/master
+PROCESS_DIR := $(SRC_DIR)/process
+UVENT_DIR := $(SRC_DIR)/uvent
+INCLUDE_DST := include/uidq
 
 BUILD_DIR := build
-PROCESS_DIR := src/process
-MASTER_DIR := src/master
-INCLUDE_DST := include/uidq
-STATIC_CONFIG := config/config.conf
-
-COMMON_SRC_DIRS := src/core src/config src/uvent
-VERSION := $(shell grep '#define UIDQ_VERSION' src/core/uidq_core.h | awk '{print $$3}' | tr -d '"')
-VERSION_DIR := $(BUILD_DIR)/$(VERSION)
-LIB_DIR := $(VERSION_DIR)/lib
-OBJ_DIR := $(VERSION_DIR)/obj
-PROCESS_OBJ_DIR := $(VERSION_DIR)/process/obj
-BIN_DIR := $(VERSION_DIR)/bin
+OBJ_DIR := $(BUILD_DIR)/obj
+LIB_DIR := $(BUILD_DIR)/lib
+BIN_DIR := $(BUILD_DIR)/bin
 
 TARGET_LIB := $(LIB_DIR)/libuidq.a
 TARGET_MASTER := $(BIN_DIR)/uidq
 TARGET_PROCESS := $(BIN_DIR)/process_worker
 
-COMMON_SRCS := $(shell find $(COMMON_SRC_DIRS) -name '*.c')
+COMMON_SRCS := $(wildcard $(CORE_DIR)/*.c) $(wildcard $(UVENT_DIR)/*.c)
+MASTER_SRCS := $(wildcard $(MASTER_DIR)/*.c)
+PROCESS_SRCS := $(wildcard $(PROCESS_DIR)/*.c)
+
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
-
-MASTER_SRCS := $(shell find $(MASTER_DIR) -name '*.c')
 MASTER_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(MASTER_SRCS))
-
-PROCESS_SRCS := $(shell find $(PROCESS_DIR) -name '*.c')
-PROCESS_OBJS := $(patsubst %.c,$(PROCESS_OBJ_DIR)/%.o,$(PROCESS_SRCS))
+PROCESS_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROCESS_SRCS))
 
 .PHONY: all clean headers
 
-all: $(VERSION_DIR) headers $(TARGET_LIB) $(TARGET_MASTER) $(TARGET_PROCESS)
-
-$(VERSION_DIR):
-	@mkdir -p $(VERSION_DIR)
-	@cp $(STATIC_CONFIG) $(VERSION_DIR)
+all: headers $(TARGET_LIB) $(TARGET_MASTER) $(TARGET_PROCESS)
 
 headers:
 	@mkdir -p $(INCLUDE_DST)
-	@rsync -a --include '*/' --include '*.h' --exclude '*' src $(INCLUDE_DST)/
+	@rsync -a --include '*/' --include '*.h' --exclude '*' $(SRC_DIR)/ $(INCLUDE_DST)/
 
 $(TARGET_LIB): $(COMMON_OBJS)
 	@mkdir -p $(LIB_DIR)
@@ -49,18 +42,14 @@ $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(PROCESS_OBJ_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
 $(TARGET_MASTER): $(MASTER_OBJS) $(TARGET_LIB)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $^ -L$(LIB_DIR) -luidq -pthread -o $@
+	$(CC) $(CFLAGS) $^ -L$(LIB_DIR) -luidq -o $@
 
 $(TARGET_PROCESS): $(PROCESS_OBJS) $(COMMON_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
-	rm -rf $(VERSION_DIR)
+	rm -rf $(BUILD_DIR)
 	rm -rf $(INCLUDE_DST)/*.h
