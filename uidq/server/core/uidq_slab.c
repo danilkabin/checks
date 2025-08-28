@@ -7,9 +7,11 @@
 #include "uidq_slab.h"
 #include "core/uidq_alloc.h"
 #include "core/uidq_bitmask.h"
+#include "core/uidq_conf.h"
 #include "core/uidq_core.h"
 #include "core/uidq_list.h"
 #include "core/uidq_log.h"
+#include "uidq/core/uidq_list.h"
 
 #define UIDQ_SLAB_PAGE_SIZE     4096
 #define UIDQ_SLAB_DEFAULT_COUNT 64
@@ -21,9 +23,17 @@
 #define UIDQ_SLAB_SHIFT_NUM \
    ((int)(log2(UIDQ_SLAB_SHIFT_MAX) - log2(UIDQ_SLAB_SHIFT_MIN) + 1))
 
+#define UIDQ_SLAB_PAGE_DEFAULT 0
+#define UIDQ_SLAB_PAGE_BIG     1
 
 static uidq_slab_page_t *uidq_page_alloc(uidq_slab_t *slab, uidq_slab_slot_t *slot);
 static void uidq_page_dealloc(uidq_slab_t *slab, uidq_slab_page_t *page);
+
+static void *uidq_push_default(uidq_slab_t *slab, uidq_slab_slot_t *slot);
+static void *uidq_push_big(uidq_slab_t *slab, uidq_slab_slot_t *slot, size_t block_size);
+
+static void uidq_slab_pop_default(uidq_slab_t *slab, uidq_slab_page_t *page);
+static void uidq_slab_pop_big(uidq_slab_t *slab, uidq_slab_page_t *page);
 
    int
 uidq_slab_isvalid(uidq_slab_t *slab) 
@@ -37,6 +47,15 @@ uidq_slab_conf_get(uidq_slab_t *slab)
    if (!uidq_slab_isvalid(slab))
       return NULL;
    return (uidq_slab_conf_t *)&slab->conf;
+}
+
+   void
+uidq_slab_zero_stats(uidq_slab_stat_t *stats) 
+{
+   stats->total = 0; 
+   stats->used = 0; 
+   stats->reqs = 0; 
+   stats->fails = 0; 
 }
 
    uidq_slab_t *
@@ -95,6 +114,7 @@ uidq_slab_init(uidq_slab_t *slab, uidq_slab_conf_t *conf, uidq_log_t *log)
    // Slab setting
    config->count = conf->count > 0 ? conf->count : UIDQ_SLAB_DEFAULT_COUNT;
    slab->size = UIDQ_SLAB_PAGE_SIZE * config->count;
+   slab->free_count = config->count;
    slab->log = log;
 
    UIDQ_INIT_LIST_HEAD(&slab->free);
@@ -115,10 +135,7 @@ uidq_slab_init(uidq_slab_t *slab, uidq_slab_conf_t *conf, uidq_log_t *log)
       UIDQ_INIT_LIST_HEAD(&slot->pages);
 
       uidq_slab_stat_t *stats = &slot->stats;
-      stats->total = 0; 
-      stats->used = 0; 
-      stats->reqs = 0; 
-      stats->fails = 0; 
+      uidq_slab_zero_stats(stats);
 
       slot->shift = index;
       slot->block_size = UIDQ_SLAB_SHIFT_MIN << index; 
@@ -134,6 +151,8 @@ uidq_slab_init(uidq_slab_t *slab, uidq_slab_conf_t *conf, uidq_log_t *log)
       uidq_slab_page_t *page = &slab->pages[index];
       UIDQ_INIT_LIST_HEAD(&page->head);
       uidq_list_add(&page->head, &slab->free);
+
+      page->tag = UIDQ_SLAB_PAGE_DEFAULT;
 
       uidq_bitmask_conf_t bitmask_conf = {.capacity = UIDQ_SLAB_PAGE_SIZE / UIDQ_SLAB_SHIFT_MIN};
       page->bitmask = uidq_bitmask_create(&bitmask_conf, slab->log);
@@ -159,11 +178,51 @@ fail:
 void uidq_slab_exit(uidq_slab_t *slab) {
    if (!uidq_slab_isvalid(slab)) return;
 
-   uidq_slab_conf_t *config = uidq_slab_conf_get(slab);
-   if (config) {
-      config->count = 0;
+   if (slab->data) {
+      uidq_free(slab->data, NULL);
+      slab->data = NULL;
    }
+
+   uidq_slab_conf_t *config = uidq_slab_conf_get(slab);
+
+   if (slab->pages) {
+      for (size_t index = 0; index < config->count; index++) {
+         uidq_slab_page_t *page = &slab->pages[index];
+         uidq_bitmask_exit(page->bitmask);
+         if (uidq_list_is_linked(&page->head)) {
+            uidq_list_del(&page->head);
+         }
+      }
+
+      uidq_free(slab->pages, NULL);
+      slab->pages = NULL;
+   }
+
+   if (slab->slots) {
+      for (int index = 0; index < UIDQ_SLAB_SHIFT_NUM; index++) {
+         uidq_slab_slot_t *slot = &slab->slots[index];
+
+         uidq_slab_stat_t *stats = &slot->stats;
+         uidq_slab_zero_stats(stats);
+
+         uidq_slab_page_t *page, *tmp;
+         uidq_list_for_each_entry_safe(page, tmp, &slot->pages, head) {
+            uidq_list_del(&page->head);
+         }
+
+         slot->shift = 0;
+         slot->block_size = 0;
+      }
+
+      uidq_free(slab->slots, NULL);
+      slab->slots = NULL;
+   }
+
+   config->count = 0;
+   slab->size = 0;
+   slab->free_count = 0;
    slab->log = NULL;
+
 }
 
 void *uidq_slab_push(uidq_slab_t *slab, size_t size) {
@@ -179,15 +238,24 @@ void *uidq_slab_push(uidq_slab_t *slab, size_t size) {
       shift++;
    }
 
-   if (block_size > UIDQ_SLAB_SHIFT_MAX) {
-      uidq_err(slab->log, "Slab push object too big.\n");
-      return NULL;
+   uidq_slab_slot_t *slot = &slab->slots[shift];
+
+   uint8_t *ptr = NULL;
+
+   if (block_size <= UIDQ_SLAB_SHIFT_MAX) {
+      ptr = uidq_push_default(slab, slot);
+   } else {
+      ptr = uidq_push_big(slab, slot, block_size);
    }
 
-   uidq_slab_slot_t *slot = &slab->slots[shift];
-   uidq_slab_page_t *page = NULL;
+   return ptr;
+}
 
-   uidq_slab_stat_t *stats = &slot->stats;
+   static void *
+uidq_push_default(uidq_slab_t *slab, uidq_slab_slot_t *slot)
+{
+   uidq_slab_stat_t *stats = &slot->stats; 
+   uidq_slab_page_t *page = NULL;
 
    if (uidq_list_empty(&slot->pages)) {
       page = uidq_page_alloc(slab, slot);
@@ -218,12 +286,57 @@ void *uidq_slab_push(uidq_slab_t *slab, size_t size) {
       uidq_list_del(&page->head);
    }
 
+   page->tag = UIDQ_SLAB_PAGE_DEFAULT;
+
    size_t page_index = page - slab->pages;
-   size_t offset = page_index * UIDQ_SLAB_PAGE_SIZE + index * block_size;
+   size_t offset = page_index * UIDQ_SLAB_PAGE_SIZE + index * slot->block_size;
    uint8_t *ptr = slab->data + offset;
+   return ptr;
+}
 
-   printf("Allocated: shift: %zu, block_size: %zu\n", shift, block_size);
+   static void *
+uidq_push_big(uidq_slab_t *slab, uidq_slab_slot_t *slot, size_t block_size) 
+{
+   uidq_slab_stat_t *stats = &slot->stats;
+   uidq_slab_page_t *current, *tmp = NULL;
+   uidq_slab_page_t *baby = NULL;
 
+   size_t demand = block_size / UIDQ_SLAB_PAGE_SIZE;
+   size_t found = 0;
+   
+   if (slab->free_count < demand) {
+      printf("too little baby!\n");
+      return NULL;
+   }
+
+   uidq_list_for_each_entry_safe(current, tmp, &slab->free, head) {
+      current->tag = UIDQ_SLAB_PAGE_BIG;
+      uidq_list_del(&current->head);
+
+      if (!baby) {
+         baby = current;
+         UIDQ_INIT_LIST_HEAD(&baby->head);
+      } else {
+         uidq_list_add(&current->head, &baby->head);
+      }
+
+      if (found == demand)
+         break;
+
+      found = found + 1;
+   }
+
+   uidq_bitmask_reset(baby->bitmask);
+   uidq_bitmask_lim_capacity(baby->bitmask, found);
+   baby->tag = UIDQ_SLAB_PAGE_BIG;
+   
+   slab->free_count = slab->free_count - found;
+
+   printf("found: %zu, demand: %zu, block_size: %zu\n", found, demand, block_size);
+
+   size_t page_index = baby - slab->pages;
+   size_t offset = page_index * UIDQ_SLAB_PAGE_SIZE;
+   uint8_t *ptr = slab->data + offset;
    return ptr;
 }
 
@@ -241,6 +354,23 @@ void uidq_slab_pop(uidq_slab_t *slab, void *ptr) {
 
    uidq_slab_page_t *page = &slab->pages[page_index];
 
+   if (page->tag == UIDQ_SLAB_PAGE_BIG) {
+      uidq_slab_pop_big(slab, page);
+   } else {
+      uidq_slab_pop_default(slab, page);
+   }
+
+   if (uidq_bitmask_is_empty(page->bitmask) == UIDQ_RET_OK) {
+      uidq_page_dealloc(slab, page);
+   }
+
+   printf("POPOCHKA offset: %zu, page_index: %zu, page_offset %zu\n", offset, page_index, page_offset);
+}
+
+   static void
+uidq_slab_pop_default(uidq_slab_t *slab, uidq_slab_page_t *page)
+{
+   uidq_slab_slot_t *slot = NULL;
    size_t size = UIDQ_SLAB_PAGE_SIZE / uidq_bitmask_get_capacity(page->bitmask);
 
    size_t shift = 0;
@@ -252,17 +382,24 @@ void uidq_slab_pop(uidq_slab_t *slab, void *ptr) {
 
    slot = &slab->slots[shift];
 
-   if (uidq_bitmask_is_full(page->bitmask)) {
+   if (uidq_bitmask_is_full(page->bitmask) == UIDQ_RET_OK) {
       uidq_list_add_tail(&page->head, &slot->pages); 
    }
 
    uidq_bitmask_pop(page->bitmask, -1, 1);
+}
 
-   if (uidq_bitmask_is_empty(page->bitmask) == UIDQ_RET_OK) {
-      uidq_page_dealloc(slab, page);
+   static void
+uidq_slab_pop_big(uidq_slab_t *slab, uidq_slab_page_t *page)
+{
+   size_t page_index = page - slab->pages;
+
+   uidq_slab_page_t *current, *tmp = NULL;
+   uidq_list_for_each_entry_safe(current, tmp, &page->head, head) {
+      uidq_list_del(&current->head);
+      uidq_bitmask_reset(current->bitmask);
+      slab->free_count = slab->free_count + 1;
    }
-
-   printf("offset: %zu, page_index: %zu, page_offset %zu\n", offset, page_index, page_offset);
 }
 
 static uidq_slab_page_t *
@@ -291,6 +428,8 @@ uidq_page_alloc(uidq_slab_t *slab, uidq_slab_slot_t *slot) {
    uidq_list_del(&page->head);
    uidq_list_add_tail(&page->head, &slot->pages);
 
+   slab->free_count = slab->free_count - 1;
+
    printf("new capacity: %zu\n", page->bitmask->capacity);
 
    return page;
@@ -304,6 +443,8 @@ void uidq_page_dealloc(uidq_slab_t *slab, uidq_slab_page_t *page) {
 
    uidq_list_add_tail(&page->head, &slab->free);
    uidq_bitmask_reset(page->bitmask);
+
+   slab->free_count = slab->free_count + 1;
 }
 
 void uidq_slab_chains_debug(uidq_slab_t *slab) {
@@ -316,6 +457,10 @@ void uidq_slab_chains_debug(uidq_slab_t *slab) {
    for (int index = 0; index < UIDQ_SLAB_SHIFT_NUM; index++) {
       uidq_slab_slot_t *slot = &slab->slots[index];
       printf("head. Index: %d ", index);
+
+      uidq_list_for_each_entry_safe(page, tmp, &slot->pages, head) {
+         printf("%p ", page);
+      }
 
       printf("\n");
    }

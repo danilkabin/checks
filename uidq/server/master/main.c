@@ -21,39 +21,22 @@ int main() {
       return -1;
    }
 
-   void *objects[100] = {0};
-   for (int index = 0; index < 5; index++) {
-      for (int index = 0; index < 73; index++) {
-//         objects[index] = uidq_slab_push(slab, 2000);
-      }
-         objects[index] = uidq_slab_push(slab, 2000);
+   size_t sizeee = 1;
+   void *ptr[5] = {0};
+   for (size_t index = 0; index < sizeee; index++) {
+      ptr[index] = uidq_slab_push(slab, 16000);
+   } 
 
-      for (int index = 0; index < 100; index++) {
-         if (objects[index]) {
-            uidq_slab_pop(slab, objects[index]);
-            objects[index] = NULL;
-         }
-      }
-   }
-
+   uidq_slab_pop(slab, ptr[0]);
 
    uidq_slab_chains_debug(slab);
 
-   /*char *value = "value";
+   for (size_t index = 0; index < sizeee; index++) {
+      ptr[index] = uidq_slab_push(slab, 16000);
+   } 
 
-     char key[16];
-     for (int index = 0; index < 23; index++) {
-     snprintf(key, sizeof(key), "key%d", index);
-     uidq_hash_push(hash, key, value); 
-     }
+   uidq_slab_pop(slab, ptr[0]);
 
-     uidq_hash_push(hash, "key3", value);
-
-     uidq_hash_debug_tree(hash);
-     uidq_hash_realloc(hash, 220);
-     printf("capacity: %zu\n", hash->conf.capacity);
-     uidq_hash_debug_tree(hash);
-
-*/
+   uidq_slab_chains_debug(slab);
    return 0;
 }

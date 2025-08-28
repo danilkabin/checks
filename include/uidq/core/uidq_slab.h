@@ -20,6 +20,7 @@ typedef struct {
 struct uidq_slab_stat_s {
    size_t total;
    size_t used;
+
    size_t reqs;
    size_t fails;
 };
@@ -27,6 +28,7 @@ struct uidq_slab_stat_s {
 struct uidq_slab_page_s {
    struct uidq_list_head head;
    uidq_bitmask_t *bitmask;
+   unsigned tag:1;
 };
 
 struct uidq_slab_slot_s {
@@ -45,7 +47,9 @@ typedef struct {
 
    uidq_slab_slot_t *slots;
    uidq_slab_page_t *pages;
+
    struct uidq_list_head free;
+   size_t free_count;
 
    void *data;
 

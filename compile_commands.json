@@ -11,69 +11,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_conf.o",
-      "uidq/server/core/uidq_conf.c"
-    ],
-    "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_conf.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_conf.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-pthread",
-      "-Iuidq/server",
-      "-c",
-      "-o",
       "build/obj/uidq/server/core/uidq_hash.o",
       "uidq/server/core/uidq_hash.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
     "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_hash.c",
     "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_hash.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-pthread",
-      "-Iuidq/server",
-      "-c",
-      "-o",
-      "build/obj/uidq/server/core/uidq_alloc.o",
-      "uidq/server/core/uidq_alloc.c"
-    ],
-    "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_alloc.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_alloc.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude",
-      "-pthread",
-      "-Iuidq/server",
-      "-c",
-      "-o",
-      "build/obj/uidq/server/core/uidq_log.o",
-      "uidq/server/core/uidq_log.c"
-    ],
-    "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_log.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_log.o"
   },
   {
     "arguments": [
@@ -144,6 +87,63 @@
       "-Iuidq/server",
       "-c",
       "-o",
+      "build/obj/uidq/server/core/uidq_conf.o",
+      "uidq/server/core/uidq_conf.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_conf.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_conf.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/uidq_alloc.o",
+      "uidq/server/core/uidq_alloc.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_alloc.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_alloc.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/uidq_log.o",
+      "uidq/server/core/uidq_log.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_log.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_log.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
       "build/obj/uidq/server/core/uidq_rwlock.o",
       "uidq/server/core/uidq_rwlock.c"
     ],
@@ -182,12 +182,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_slab.o",
-      "uidq/server/core/uidq_slab.c"
+      "build/obj/uidq/server/core/uidq_socket.o",
+      "uidq/server/core/uidq_socket.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_slab.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_slab.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_socket.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_socket.o"
   },
   {
     "arguments": [
@@ -201,12 +201,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_socket.o",
-      "uidq/server/core/uidq_socket.c"
+      "build/obj/uidq/server/core/uidq_slab.o",
+      "uidq/server/core/uidq_slab.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_socket.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_socket.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_slab.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_slab.o"
   },
   {
     "arguments": [
