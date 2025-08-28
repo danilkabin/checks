@@ -1,0 +1,4 @@
+#ifndef UIDQ_SHMTX_INCLUDE_H
+#define UIDQ_SHMTX_INCLUDE_H
+
+#endif /* UIDQ_SHMTX_INCLUDE_H */

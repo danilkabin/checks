@@ -35,6 +35,10 @@ static inline void __uidq_list_add(struct uidq_list_head *new,
     prev->next = new;
 }
 
+static inline int uidq_list_empty(struct uidq_list_head *head) {
+   return head->next == head;
+}
+
 static inline void __uidq_list_del(struct uidq_list_head *prev, struct uidq_list_head *next) {
     next->prev = prev;
     prev->next = next;
@@ -56,6 +60,10 @@ static inline void uidq_list_del(struct uidq_list_head *entry) {
 
 static inline int uidq_list_is_head(struct uidq_list_head *entry, struct uidq_list_head *head) {
     return head == entry;
+}
+
+static inline int uidq_list_is_linked(struct uidq_list_head *entry) {
+    return entry->next != UIDQ_LIST_POISON1 && entry->prev != UIDQ_LIST_POISON2;
 }
 
 #define UIDQ_LIST_HEAD_INIT(name) { &(name), &(name) }

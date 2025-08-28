@@ -25,7 +25,9 @@ typedef struct {
    size_t count;
    size_t bits;
    size_t word_capacity;
-
+   size_t capacity;
+   size_t real_capacity;
+   
    uint64_t *mask;
 
    uidq_bitmask_conf_t conf;
@@ -51,7 +53,10 @@ void uidq_bitmask_trim(uidq_bitmask_t *bm, size_t new_capacity);
 int  uidq_bitmask_copy(uidq_bitmask_t **dst,  uidq_bitmask_t *src);
 void uidq_bitmask_reset(uidq_bitmask_t *bm);
 
+size_t uidq_bitmask_get_capacity(uidq_bitmask_t *bm);
+void uidq_bitmask_lim_capacity(uidq_bitmask_t *bm, size_t new_capacity);
 int  uidq_bitmask_is_empty(uidq_bitmask_t *bm);
+int  uidq_bitmask_is_full(uidq_bitmask_t *bm);
 
 int  uidq_bitmask_bit_test(uidq_bitmask_t *bm, size_t off);
 int  uidq_bitmask_test_sequence(uidq_bitmask_t *bm, int target, size_t off, size_t len);
@@ -62,7 +67,7 @@ int  uidq_bitmask_fgb(uidq_bitmask_t *bm, size_t off, size_t len, int type);
 bool uidq_bitmask_toggle(uidq_bitmask_t *bm, size_t off, size_t len);
 
 int  uidq_bitmask_push(uidq_bitmask_t *bm, int pos, size_t len);
-bool uidq_bitmask_pop(uidq_bitmask_t *bm, size_t start, size_t len);
+bool uidq_bitmask_pop(uidq_bitmask_t *bm, int start, size_t len);
 
 void uidq_bitmask_invert(uidq_bitmask_t *bm);
 void uidq_bitmask_replace(uidq_bitmask_t *bm, size_t start, size_t len, size_t next);

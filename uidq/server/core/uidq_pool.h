@@ -2,31 +2,35 @@
 #define UIDQ_POOL_INCLUDE_H
 
 #include "core/uidq_bitmask.h"
+#include "core/uidq_list.h"
 #include "uidq_log.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define UIDQ_POOL_ALIGNMENT_SIZE 16
-#define UIDQ_POOL_PAGE_SIZE 64
+typedef enum {
+   UIDQ_POOL_STRAT_BITMASK = 1,
+   UIDQ_POOL_STRAT_FREELIST
+} uidq_pool_strategy_t;
 
 typedef struct {
    size_t capacity;
    size_t size;
 } uidq_pool_conf_t;
 
-typedef struct uidq_pool_block_s {
-    void *data;
+typedef struct {
+   void *data;
 } uidq_pool_block_t;
 
 typedef struct {
    int initialized;
 
    uidq_pool_conf_t conf;
+
    uidq_bitmask_t *bitmask;
-  
+
    void *data;
-   
+
    uidq_log_t *log;
 } uidq_pool_t;
 

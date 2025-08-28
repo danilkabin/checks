@@ -3,7 +3,7 @@
 #include "core/uidq_alloc.h"
 #include "core/uidq_conf.h"
 #include "core/uidq_log.h"
-#include "core/uidq_types.h"
+#include "core/uidq_core.h"
 
 #include <limits.h>
 #include <stdint.h>
@@ -76,9 +76,11 @@ uidq_bitmask_init(uidq_bitmask_t *bm, uidq_bitmask_conf_t *conf, uidq_log_t *log
 
    bm->bits = WORD_BITS;
    bm->word_capacity = (config->capacity + WORD_BITS - 1) / WORD_BITS;
+   bm->capacity = config->capacity;
+   bm->real_capacity = config->capacity;
    bm->log = log;
 
-   bm->mask = uidq_calloc(bm->word_capacity * sizeof(uint64_t), log);
+   bm->mask = uidq_calloc(bm->capacity, log);
    if (!bm->mask) {
       uidq_err(log, "Memory allocation failed\n");
       free(bm);
@@ -94,6 +96,7 @@ uidq_bitmask_exit(uidq_bitmask_t *bm)
    bm->bits = 0;
    bm->count = 0;
    bm->word_capacity = 0;
+   bm->capacity = 0;
    bm->log = NULL;
 
    if (bm->mask) {
@@ -188,7 +191,29 @@ uidq_bitmask_reset(uidq_bitmask_t *bm)
 uidq_bitmask_is_empty(uidq_bitmask_t *bm)
 {
    if (!uidq_bitmask_isvalid(bm)) return UIDQ_RET_ERR;
-   return bm->count == 0 ? UIDQ_RET_OK : UIDQ_RET_ERR;
+   return bm->count <= 0 ? UIDQ_RET_OK : UIDQ_RET_ERR;
+}
+
+   int
+uidq_bitmask_is_full(uidq_bitmask_t *bm)
+{
+   if (!uidq_bitmask_isvalid(bm)) return UIDQ_RET_ERR;
+   return bm->count >= bm->capacity ? UIDQ_RET_OK : UIDQ_RET_ERR;
+}
+
+size_t
+uidq_bitmask_get_capacity(uidq_bitmask_t *bm) 
+{
+   return bm->capacity;
+}
+
+void
+uidq_bitmask_lim_capacity(uidq_bitmask_t *bm, size_t new_capacity) 
+{
+   if (new_capacity > bm->real_capacity) {
+      return;
+   }
+   bm->capacity = new_capacity;
 }
 
    bool
@@ -201,7 +226,7 @@ uidq_bitmask_set(uidq_bitmask_t *bm, size_t off)
    if (!(bm->mask[word] & mask)) {
       bm->mask[word] |= mask;
       bm->count++;
-     // uidq_debug(bm->log, "Set bit at %zu\n", off);
+      // uidq_debug(bm->log, "Set bit at %zu\n", off);
    }
 
    return true;
@@ -365,16 +390,28 @@ uidq_bitmask_push(uidq_bitmask_t *bm, int pos, size_t len)
 }
 
    bool
-uidq_bitmask_pop(uidq_bitmask_t *bm, size_t start, size_t len)
+uidq_bitmask_pop(uidq_bitmask_t *bm, int start, size_t len)
 {
    uidq_bitmask_conf_t *config = uidq_bitmask_conf_get(bm);
    if (!uidq_bitmask_isvalid(bm)) return UIDQ_RET_ERR;
+
    if (len == 0 || (start + len > config->capacity)) {
       uidq_err(bm->log, "Invalid add parameters\n");
       return UIDQ_RET_ERR;
    }
 
-   for (size_t i = start; i < start + len; i++) uidq_bitmask_clear(bm, i);
+   if (start < 0) {
+      int index = uidq_bitmask_fgb(bm, 0, len, 1);
+      if (index >= 0) {
+         uidq_bitmask_pop(bm, index, len);
+      }
+      return UIDQ_RET_OK;
+   }
+
+   for (size_t index = start; index < start + len; index++) {
+      uidq_bitmask_clear(bm, index);
+   }
+
    return true;
 }
 
@@ -414,7 +451,7 @@ uidq_bitmask_replace(uidq_bitmask_t *bm, size_t start, size_t len, size_t next)
       size_t w_idx = pos / bm->bits;
       size_t b_idx = pos % bm->bits;
       size_t bits_in_word = bm->bits - b_idx;
-      size_t to_clear = UIDQ_MIN(bits_left, bits_in_word);
+      size_t to_clear = uidq_min(bits_left, bits_in_word);
       uint64_t mask = (to_clear == bm->bits) ? ~0ULL : ((1ULL << to_clear) - 1) << b_idx;
       old_count += __builtin_popcountll(tmp[w_idx] & mask);
       tmp[w_idx] &= ~mask;
@@ -430,7 +467,7 @@ uidq_bitmask_replace(uidq_bitmask_t *bm, size_t start, size_t len, size_t next)
       size_t sw = pos / bm->bits, sb = pos % bm->bits;
       size_t dw = n_pos / bm->bits, db = n_pos % bm->bits;
       size_t src_left = bm->bits - sb, dst_left = bm->bits - db;
-      size_t copy = UIDQ_MIN(bits_left, UIDQ_MIN(src_left, dst_left));
+      size_t copy = uidq_min(bits_left, uidq_min(src_left, dst_left));
       uint64_t mask = (copy == bm->bits) ? ~0ULL : ((1ULL << copy) - 1);
       uint64_t src_mask = mask << sb;
       uint64_t dst_mask = mask << db;

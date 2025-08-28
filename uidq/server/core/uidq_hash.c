@@ -3,7 +3,7 @@
 #include "core/uidq_bitmask.h"
 #include "core/uidq_log.h"
 #include "core/uidq_pool.h"
-#include "core/uidq_types.h"
+#include "core/uidq_core.h"
 #include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>

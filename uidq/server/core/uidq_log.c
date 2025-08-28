@@ -5,7 +5,7 @@
 
 #include "uidq_log.h"
 #include "core/uidq_alloc.h"
-#include "core/uidq_types.h"
+#include "core/uidq_core.h"
 
    int
 uidq_log_isvalid(uidq_log_t *log) 
