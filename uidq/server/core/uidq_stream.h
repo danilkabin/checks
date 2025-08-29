@@ -5,7 +5,7 @@
 #include "core/uidq_socket.h"
 #include <unistd.h>
 
-typedef struct uidq_annihilator_s uidq_annihilator_t ;
+typedef struct uidq_annihilator_s uidq_annihilator_t;
 
 struct uidq_annihilator_s {
    uidq_socket_t fd;

@@ -96,7 +96,6 @@ uidq_slab_abort(uidq_slab_t *slab)
 uidq_slab_init(uidq_slab_t *slab, uidq_slab_conf_t *conf, uidq_log_t *log) 
 {
    if (!uidq_slab_isvalid(slab)) {
-      uidq_err(log, "Invalid hash table.\n");
       return UIDQ_RET_ERR;
    }
 
@@ -176,7 +175,9 @@ fail:
 }
 
 void uidq_slab_exit(uidq_slab_t *slab) {
-   if (!uidq_slab_isvalid(slab)) return;
+   if (!uidq_slab_isvalid(slab)) {
+      return;
+   }
 
    if (slab->data) {
       uidq_free(slab->data, NULL);
@@ -227,25 +228,39 @@ void uidq_slab_exit(uidq_slab_t *slab) {
 
 void *uidq_slab_push(uidq_slab_t *slab, size_t size) {
    if (!uidq_slab_isvalid(slab)) {
-      uidq_err(slab->data, "Invalid hash table.\n");
+      return NULL;
+   }
+
+   if (size == 0) {
+      uidq_debug(slab->log, "Zero size requested.\n");
       return NULL;
    }
 
    size_t shift = 0;
    size_t block_size = UIDQ_SLAB_SHIFT_MIN;
+
    while (block_size < size) {
       block_size <<= 1;
       shift++;
    }
 
    uidq_slab_slot_t *slot = &slab->slots[shift];
-
+   uint8_t *data = slab->data;
    uint8_t *ptr = NULL;
 
    if (block_size <= UIDQ_SLAB_SHIFT_MAX) {
+      if (shift >= UIDQ_SLAB_SHIFT_NUM) {
+         uidq_err(slab->log, "Calculated shift exceeds slots array.\n");
+         return NULL;
+      }
       ptr = uidq_push_default(slab, slot);
    } else {
       ptr = uidq_push_big(slab, slot, block_size);
+   }
+
+   if (!ptr || ptr < data || ptr >= data + slab->size) {
+      uidq_err(slab->log, "Returned pointer is out of slab data range.\n");
+      return NULL;
    }
 
    return ptr;
@@ -254,22 +269,29 @@ void *uidq_slab_push(uidq_slab_t *slab, size_t size) {
    static void *
 uidq_push_default(uidq_slab_t *slab, uidq_slab_slot_t *slot)
 {
+   if (!uidq_slab_isvalid(slab)) {
+      return NULL;
+   }
+
+   if (!slot) {
+      uidq_err(slab->log, "Invalid slot parameter.\n");
+      return NULL;
+   }
+
    uidq_slab_stat_t *stats = &slot->stats; 
    uidq_slab_page_t *page = NULL;
 
    if (uidq_list_empty(&slot->pages)) {
       page = uidq_page_alloc(slab, slot);
-      printf("List is empty!\n");
    } else {
       page = uidq_list_first_entry(&slot->pages, uidq_slab_page_t, head);
-      printf("List found the page!\n");
    }
 
    stats->total = stats->total + 1;
 
    if (!page) {
       uidq_err(slab->log, "Failed to allocate page!\n");
-      stats->fails = stats->fails + 1;
+      stats->fails++;
       return NULL;
    }
 
@@ -290,22 +312,30 @@ uidq_push_default(uidq_slab_t *slab, uidq_slab_slot_t *slot)
 
    size_t page_index = page - slab->pages;
    size_t offset = page_index * UIDQ_SLAB_PAGE_SIZE + index * slot->block_size;
-   uint8_t *ptr = slab->data + offset;
-   return ptr;
+   return slab->data + offset;
 }
 
    static void *
 uidq_push_big(uidq_slab_t *slab, uidq_slab_slot_t *slot, size_t block_size) 
 {
+   if (!uidq_slab_isvalid(slab)) {
+      return NULL;
+   }
+
+   if (!slot || block_size == 0) {
+      uidq_err(slab->log, "Invalid parameters.\n");
+      return NULL;
+   }
+
    uidq_slab_stat_t *stats = &slot->stats;
    uidq_slab_page_t *current, *tmp = NULL;
    uidq_slab_page_t *baby = NULL;
 
    size_t demand = block_size / UIDQ_SLAB_PAGE_SIZE;
    size_t found = 0;
-   
+
    if (slab->free_count < demand) {
-      printf("too little baby!\n");
+      uidq_debug(slab->log, "Too few free pages for big allocation.\n");
       return NULL;
    }
 
@@ -320,33 +350,36 @@ uidq_push_big(uidq_slab_t *slab, uidq_slab_slot_t *slot, size_t block_size)
          uidq_list_add(&current->head, &baby->head);
       }
 
-      if (found == demand)
+      found++;
+      if (found == demand) {
          break;
+      }
+   }
 
-      found = found + 1;
+   if (!baby) {
+      return NULL;
    }
 
    uidq_bitmask_reset(baby->bitmask);
    uidq_bitmask_lim_capacity(baby->bitmask, found);
    baby->tag = UIDQ_SLAB_PAGE_BIG;
-   
-   slab->free_count = slab->free_count - found;
 
-   printf("found: %zu, demand: %zu, block_size: %zu\n", found, demand, block_size);
+   slab->free_count -= found;
 
    size_t page_index = baby - slab->pages;
    size_t offset = page_index * UIDQ_SLAB_PAGE_SIZE;
-   uint8_t *ptr = slab->data + offset;
-   return ptr;
+   return slab->data + offset;
 }
 
 void uidq_slab_pop(uidq_slab_t *slab, void *ptr) {
    if (!uidq_slab_isvalid(slab)) {
-      uidq_err(slab->data, "Invalid slab table.\n");
       return;
    }
 
-   uidq_slab_slot_t *slot = NULL;
+   if (!ptr) {
+      uidq_err(slab->log, "Invalid pointer parameter.\n");
+      return;
+   }
 
    size_t offset = (uint8_t*)ptr - (uint8_t*)slab->data;
    size_t page_index = offset / UIDQ_SLAB_PAGE_SIZE;
@@ -363,24 +396,33 @@ void uidq_slab_pop(uidq_slab_t *slab, void *ptr) {
    if (uidq_bitmask_is_empty(page->bitmask) == UIDQ_RET_OK) {
       uidq_page_dealloc(slab, page);
    }
-
-   printf("POPOCHKA offset: %zu, page_index: %zu, page_offset %zu\n", offset, page_index, page_offset);
 }
 
    static void
 uidq_slab_pop_default(uidq_slab_t *slab, uidq_slab_page_t *page)
 {
-   uidq_slab_slot_t *slot = NULL;
+   if (!uidq_slab_isvalid(slab)) {
+      return;
+   }
+
+   if (!page) {
+      uidq_err(slab->log, "Invalid page parameter.\n");
+      return;
+   }
+
    size_t size = UIDQ_SLAB_PAGE_SIZE / uidq_bitmask_get_capacity(page->bitmask);
+   if (size == 0) {
+      return;
+   }
 
    size_t shift = 0;
    size_t block_size = UIDQ_SLAB_SHIFT_MIN;
    while (block_size < size) {
-      block_size = block_size << 1;
-      shift = shift + 1;
+      block_size <<= 1;
+      shift++;
    }
 
-   slot = &slab->slots[shift];
+   uidq_slab_slot_t *slot = &slab->slots[shift];
 
    if (uidq_bitmask_is_full(page->bitmask) == UIDQ_RET_OK) {
       uidq_list_add_tail(&page->head, &slot->pages); 
@@ -392,20 +434,34 @@ uidq_slab_pop_default(uidq_slab_t *slab, uidq_slab_page_t *page)
    static void
 uidq_slab_pop_big(uidq_slab_t *slab, uidq_slab_page_t *page)
 {
+   if (!uidq_slab_isvalid(slab)) {
+      return;
+   }
+
+   if (!page) {
+      uidq_err(slab->log, "Invalid page parameter.\n");
+      return;
+   }
+
    size_t page_index = page - slab->pages;
 
    uidq_slab_page_t *current, *tmp = NULL;
    uidq_list_for_each_entry_safe(current, tmp, &page->head, head) {
       uidq_list_del(&current->head);
       uidq_bitmask_reset(current->bitmask);
-      slab->free_count = slab->free_count + 1;
+      slab->free_count++;
    }
 }
 
-static uidq_slab_page_t *
-uidq_page_alloc(uidq_slab_t *slab, uidq_slab_slot_t *slot) {
-   if (!uidq_slab_isvalid(slab) || !slot) {
-      uidq_err(slab->data, "Invalid slab table or slot.\n");
+   static uidq_slab_page_t *
+uidq_page_alloc(uidq_slab_t *slab, uidq_slab_slot_t *slot)
+{
+   if (!uidq_slab_isvalid(slab)) {
+      return NULL;
+   }
+
+   if (!slot) {
+      uidq_err(slab->log, "Invalid slot parameter.\n");
       return NULL;
    }
 
@@ -421,33 +477,43 @@ uidq_page_alloc(uidq_slab_t *slab, uidq_slab_slot_t *slot) {
    }
 
    size_t new_capacity = UIDQ_SLAB_PAGE_SIZE / slot->block_size;
-
    uidq_bitmask_reset(page->bitmask);
    uidq_bitmask_lim_capacity(page->bitmask, new_capacity);
 
    uidq_list_del(&page->head);
    uidq_list_add_tail(&page->head, &slot->pages);
 
-   slab->free_count = slab->free_count - 1;
-
-   printf("new capacity: %zu\n", page->bitmask->capacity);
+   slab->free_count--;
 
    return page;
 }
 
-void uidq_page_dealloc(uidq_slab_t *slab, uidq_slab_page_t *page) {
+   void
+uidq_page_dealloc(uidq_slab_t *slab, uidq_slab_page_t *page) 
+{
+   if (!uidq_slab_isvalid(slab)) {
+      return;
+   }
+
+   if (!page) {
+      uidq_err(slab->log, "Invalid page pointer.\n");
+      return;
+   }
+
    if (uidq_list_is_linked(&page->head)) {
-      printf("DEALLOCATED YES YES YES\n");
+      uidq_debug(slab->log, "Deallocated page %p\n", page);
       uidq_list_del(&page->head);
    }
 
    uidq_list_add_tail(&page->head, &slab->free);
    uidq_bitmask_reset(page->bitmask);
 
-   slab->free_count = slab->free_count + 1;
+   slab->free_count++;
 }
 
-void uidq_slab_chains_debug(uidq_slab_t *slab) {
+   void
+uidq_slab_chains_debug(uidq_slab_t *slab) 
+{
    if (!uidq_slab_isvalid(slab)) {
       return;
    }
@@ -456,12 +522,13 @@ void uidq_slab_chains_debug(uidq_slab_t *slab) {
 
    for (int index = 0; index < UIDQ_SLAB_SHIFT_NUM; index++) {
       uidq_slab_slot_t *slot = &slab->slots[index];
-      printf("head. Index: %d ", index);
+
+      uidq_debug_inline(slab->log, "head. Index: %d ", index);
 
       uidq_list_for_each_entry_safe(page, tmp, &slot->pages, head) {
-         printf("%p ", page);
+         uidq_debug_inline(slab->log, "%p ", page);
       }
 
-      printf("\n");
+      uidq_debug_inline(slab->log, "\n");
    }
 }

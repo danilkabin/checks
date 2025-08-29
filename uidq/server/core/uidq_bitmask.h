@@ -6,10 +6,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
-   size_t capacity;
-} uidq_bitmask_conf_t;
-
 typedef enum {
    UIDQ_BITMASK_OP_AND,
    UIDQ_BITMASK_OP_OR,
@@ -21,17 +17,13 @@ typedef enum {
 
 typedef struct {
    bool initialized;
-  
-   size_t count;
-   size_t bits;
-   size_t word_capacity;
+
    size_t capacity;
-   size_t real_capacity;
-   
+   size_t allocated_capacity;
+   size_t word_count;
+
    uint64_t *mask;
 
-   uidq_bitmask_conf_t conf;
-   
    uidq_log_t *log;
 } uidq_bitmask_t;
 
@@ -39,12 +31,11 @@ typedef struct {
 
 int uidq_bitmask_isvalid(uidq_bitmask_t *bm);
 int uidq_bitmask_isvalid_index(uidq_bitmask_t *bm, size_t index);
-uidq_bitmask_conf_t *uidq_bitmask_conf_get(uidq_bitmask_t *bm);
 
-uidq_bitmask_t *uidq_bitmask_create(uidq_bitmask_conf_t *conf, uidq_log_t *log); 
+uidq_bitmask_t *uidq_bitmask_create(size_t capacity, uidq_log_t *log); 
 void uidq_bitmask_abort(uidq_bitmask_t *bm); 
 
-int uidq_bitmask_init(uidq_bitmask_t *bm, uidq_bitmask_conf_t *conf, uidq_log_t *log);
+int uidq_bitmask_init(uidq_bitmask_t *bm, size_t capacity, uidq_log_t *log);
 void uidq_bitmask_exit(uidq_bitmask_t *bm);
 
 int uidq_bitmask_realloc(uidq_bitmask_t *bm, size_t new_capacity); 
