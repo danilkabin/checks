@@ -11,12 +11,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_conf.o",
-      "uidq/server/core/uidq_conf.c"
+      "build/obj/uidq/server/core/opium_alloc.o",
+      "uidq/server/core/opium_alloc.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_conf.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_conf.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_alloc.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_alloc.o"
   },
   {
     "arguments": [
@@ -30,12 +30,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_hash.o",
-      "uidq/server/core/uidq_hash.c"
+      "build/obj/uidq/server/core/opium_conf.o",
+      "uidq/server/core/opium_conf.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_hash.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_hash.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_conf.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_conf.o"
   },
   {
     "arguments": [
@@ -49,12 +49,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_pool.o",
-      "uidq/server/core/uidq_pool.c"
+      "build/obj/uidq/server/core/opium_config.o",
+      "uidq/server/core/opium_config.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_pool.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_pool.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_config.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_config.o"
   },
   {
     "arguments": [
@@ -68,12 +68,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_log.o",
-      "uidq/server/core/uidq_log.c"
+      "build/obj/uidq/server/core/opium_conf_parse.o",
+      "uidq/server/core/opium_conf_parse.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_log.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_log.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_conf_parse.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_conf_parse.o"
   },
   {
     "arguments": [
@@ -87,12 +87,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_alloc.o",
-      "uidq/server/core/uidq_alloc.c"
+      "build/obj/uidq/server/core/opium_array.o",
+      "uidq/server/core/opium_array.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_alloc.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_alloc.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_array.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_array.o"
   },
   {
     "arguments": [
@@ -106,12 +106,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_bitmask.o",
-      "uidq/server/core/uidq_bitmask.c"
+      "build/obj/uidq/server/core/opium_cpuinfo.o",
+      "uidq/server/core/opium_cpuinfo.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_bitmask.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_bitmask.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_cpuinfo.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_cpuinfo.o"
   },
   {
     "arguments": [
@@ -125,12 +125,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_cpuinfo.o",
-      "uidq/server/core/uidq_cpuinfo.c"
+      "build/obj/uidq/server/core/opium_bitmask.o",
+      "uidq/server/core/opium_bitmask.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_cpuinfo.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_cpuinfo.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_bitmask.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_bitmask.o"
   },
   {
     "arguments": [
@@ -144,12 +144,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_rwlock.o",
-      "uidq/server/core/uidq_rwlock.c"
+      "build/obj/uidq/server/core/opium_dlqueue.o",
+      "uidq/server/core/opium_dlqueue.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_rwlock.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_rwlock.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_dlqueue.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_dlqueue.o"
   },
   {
     "arguments": [
@@ -163,12 +163,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_shmtx.o",
-      "uidq/server/core/uidq_shmtx.c"
+      "build/obj/uidq/server/core/opium_log.o",
+      "uidq/server/core/opium_log.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_shmtx.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_shmtx.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_log.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_log.o"
   },
   {
     "arguments": [
@@ -182,12 +182,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_slab.o",
-      "uidq/server/core/uidq_slab.c"
+      "build/obj/uidq/server/core/opium_mutex.o",
+      "uidq/server/core/opium_mutex.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_slab.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_slab.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_mutex.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_mutex.o"
   },
   {
     "arguments": [
@@ -201,12 +201,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_socket.o",
-      "uidq/server/core/uidq_socket.c"
+      "build/obj/uidq/server/core/opium_hash.o",
+      "uidq/server/core/opium_hash.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_socket.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_socket.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_hash.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_hash.o"
   },
   {
     "arguments": [
@@ -220,12 +220,12 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/core/uidq_stream.o",
-      "uidq/server/core/uidq_stream.c"
+      "build/obj/uidq/server/core/opium_pool.o",
+      "uidq/server/core/opium_pool.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/core/uidq_stream.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/uidq_stream.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_pool.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_pool.o"
   },
   {
     "arguments": [
@@ -239,12 +239,107 @@
       "-Iuidq/server",
       "-c",
       "-o",
-      "build/obj/uidq/server/process/uidq_process.o",
-      "uidq/server/process/uidq_process.c"
+      "build/obj/uidq/server/core/opium_rbtree.o",
+      "uidq/server/core/opium_rbtree.c"
     ],
     "directory": "/home/dima/Projects/zheneshka",
-    "file": "/home/dima/Projects/zheneshka/uidq/server/process/uidq_process.c",
-    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/process/uidq_process.o"
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_rbtree.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_rbtree.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/opium_slab.o",
+      "uidq/server/core/opium_slab.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_slab.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_slab.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/opium_socket.o",
+      "uidq/server/core/opium_socket.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_socket.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_socket.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/opium_stream.o",
+      "uidq/server/core/opium_stream.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_stream.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_stream.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/core/opium_string.o",
+      "uidq/server/core/opium_string.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/core/opium_string.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/core/opium_string.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/uvent/opium_epoll.o",
+      "uidq/server/uvent/opium_epoll.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/uvent/opium_epoll.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/uvent/opium_epoll.o"
   },
   {
     "arguments": [
@@ -264,5 +359,24 @@
     "directory": "/home/dima/Projects/zheneshka",
     "file": "/home/dima/Projects/zheneshka/uidq/server/master/main.c",
     "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/master/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude",
+      "-pthread",
+      "-Iuidq/server",
+      "-c",
+      "-o",
+      "build/obj/uidq/server/process/uidq_process.o",
+      "uidq/server/process/uidq_process.c"
+    ],
+    "directory": "/home/dima/Projects/zheneshka",
+    "file": "/home/dima/Projects/zheneshka/uidq/server/process/uidq_process.c",
+    "output": "/home/dima/Projects/zheneshka/build/obj/uidq/server/process/uidq_process.o"
   }
 ]

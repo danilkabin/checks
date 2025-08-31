@@ -1,45 +1,60 @@
-#include <stdint.h>
+#include "core/opium_alloc.h"
+#include "core/opium_bitmask.h"
+#include "core/opium_config.h"
+#include "core/opium_core.h"
+#include "core/opium_dlqueue.h"
+#include "core/opium_log.h"
+#include "core/opium_pool.h"
+#include "core/opium_rbtree.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-#include "core/uidq_bitmask.h"
-#include "core/uidq_conf.h"
-#include "core/uidq_core.h"
-#include "core/uidq_hash.h"
-#include "core/uidq_list.h"
-#include "core/uidq_log.h"
-#include "core/uidq_pool.h"
-#include "core/uidq_slab.h"
+#include <time.h>
+#include <stdint.h>
 
 int main() {
-   uidq_log_conf_t log_conf = {.debug = NULL, .warn = NULL, .err = NULL};
-   uidq_log_t *log = uidq_log_create(&log_conf);
+   opium_log_conf_t log_conf = {.debug = NULL, .warn = NULL, .err = NULL};
+   opium_log_t *log = opium_log_create(&log_conf);
 
-   uidq_bitmask_t *bitmask = uidq_bitmask_create({.capacity = 10}, log); 
+   opium_rbt_node_t nill;
+   nill.parent = NULL;
+   nill.right = NULL;
+   nill.left = NULL;
+   opium_rbt_ins_func_t ins = opium_rbt_insert1;
 
- 
- /*  uidq_slab_conf_t confii = {.count = 4};
-   uidq_slab_t *slab = uidq_slab_create(&confii, log);
-   if (!slab) {
+   opium_dlqueue_t *queue = opium_calloc(sizeof(opium_dlqueue_t), NULL);
+   if (!queue) {
       return -1;
    }
+   opium_dlqueue_init(queue);
 
-   size_t sizeee = 1;
-   void *ptr[5] = {0};
-   for (size_t index = 0; index < sizeee; index++) {
-      ptr[index] = uidq_slab_push(slab, 16000);
-   } 
+   for (int index = 0; index < 10; index++) {
+      opium_dlqueue_node_t *node = opium_calloc(sizeof(opium_dlqueue_node_t), NULL);
+      node->key = index;
+      opium_dlqueue_push(queue, node);
+   }
 
-   uidq_slab_pop(slab, ptr[0]);
+   opium_dlqueue_debug(queue);
 
-   uidq_slab_chains_debug(slab);
+   for (int index = 0; index < 13; index++) {
+      opium_dlqueue_pop(queue);
+      opium_dlqueue_debug(queue);
+   }
 
-   for (size_t index = 0; index < sizeee; index++) {
-      ptr[index] = uidq_slab_push(slab, 16000);
-   } 
+   /*  opium_rbt_t *rbtree = opium_rbt_create(&nill, ins, log);
+       if (!rbtree) {
+       opium_err(log, "Noooo!\n"); 
+       return -1;
+       }
 
-   uidq_slab_pop(slab, ptr[0]);
+       for (int index = 0; index < 30; index++) {
+       opium_rbt_node_t *node = opium_calloc(sizeof(opium_rbt_node_t), NULL);
+       node->data = index;
+       opium_rbt_insert(rbtree, node);
+       }
 
-   uidq_slab_chains_debug(slab);*/
-   return 0;
+
+       opium_rbt_debug(rbtree->head, rbtree->nill, 0);
+       */
+   opium_debug(log, "HEllo!\n"); 
 }
