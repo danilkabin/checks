@@ -94,17 +94,22 @@ opium_rbt_insert1(opium_rbt_node_t *head, opium_rbt_node_t *nill, opium_rbt_node
       }
    }
 
-   if (parent->data > node->data) {
-      parent->left = node;
-   } else {
-      parent->right = node;
-   }
-
    node->parent = parent;
    node->right = nill;
    node->left = nill;
 
    opium_rbt_red(node);
+
+   if (parent == NULL) {
+      head = node;
+      return;
+   }
+
+   if (parent->data > node->data) {
+      parent->left = node;
+   } else {
+      parent->right = node;
+   }
 
    printf("parent: %d\n", parent->data);
 
@@ -175,8 +180,9 @@ opium_rbt_insert(opium_rbt_t *rbtree, opium_rbt_node_t *node)
 
       }
 
-}
+   }
 
+   opium_rbt_black(uncle);
 }
 
    static void
@@ -187,36 +193,47 @@ opium_rbt_rotate_right(opium_rbt_node_t **head, opium_rbt_node_t *nill, opium_rb
    node->left = temp->right;
 
    if (temp->right != nill) {
-
+      temp->right->parent = node;
    }
+
+   temp->parent = node->parent;
+
+   if (node == *head) {
+      *head = temp;
+   } else if (node == node->parent->right) {
+      node->parent->right = temp;
+   } else {
+      node->parent->left = temp;
+   }
+
+   temp->right = node;
+   node->parent = temp;
 }
 
    static void 
 opium_rbt_rotate_left(opium_rbt_node_t **head, opium_rbt_node_t *nill, opium_rbt_node_t *node)
 {
-   opium_rbt_node_t *parent = node->right;
+   opium_rbt_node_t *temp = node->right;
 
-   node->right = parent->left;
+   node->right = temp->left;
 
-   if (parent->left != nill) {
-      parent->left->parent = node;
+   if (temp->left != nill) {
+      temp->left->parent = node;
    }
 
-   parent->parent = node->parent;
+   temp->parent = node->parent;
 
    if (node == *head) {
-      *head = parent;
-
+      *head = temp;
    } else if (node == node->parent->left) {
-      node->parent->left = parent;
-
+      node->parent->left = temp;
    } else {
-      node->parent->right = parent;
+      node->parent->right = temp;
 
    }
 
-   parent->left = node;
-   node->parent = parent;
+   temp->left = node;
+   node->parent = temp;
 }
 
 void opium_rbt_debug(opium_rbt_node_t *node, opium_rbt_node_t *nill, int depth) {
@@ -224,10 +241,10 @@ void opium_rbt_debug(opium_rbt_node_t *node, opium_rbt_node_t *nill, int depth) 
 
    opium_rbt_debug(node->right, nill, depth + 1);
 
-   for (int i = 0; i < depth; i++) {
-      printf("   ");
-   }
-   printf("%d (%s)\n", node->data, opium_rbt_is_black(node) ? "B" : "R");
+printf("%d (%s, parent: %d)\n", 
+          node->data, 
+          opium_rbt_is_black(node) ? "B" : "R",
+          node->parent == nill ? -1 : node->parent->data);
 
    opium_rbt_debug(node->left, nill, depth + 1);
 }

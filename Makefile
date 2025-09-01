@@ -7,6 +7,7 @@ CORE_DIR := $(SRC_DIR)/core
 MASTER_DIR := $(SRC_DIR)/master
 PROCESS_DIR := $(SRC_DIR)/process
 UVENT_DIR := $(SRC_DIR)/uvent
+UDOP_DIR := $(SRC_DIR)/udop
 INCLUDE_DST := include/uidq
 
 BUILD_DIR := build
@@ -18,7 +19,7 @@ TARGET_LIB := $(LIB_DIR)/libuidq.a
 TARGET_MASTER := $(BIN_DIR)/uidq
 TARGET_PROCESS := $(BIN_DIR)/process_worker
 
-COMMON_SRCS := $(wildcard $(CORE_DIR)/*.c) $(wildcard $(UVENT_DIR)/*.c)
+COMMON_SRCS := $(wildcard $(CORE_DIR)/*.c) $(wildcard $(UVENT_DIR)/*.c) $(wildcard $(UDOP_DIR)/*.c)
 MASTER_SRCS := $(wildcard $(MASTER_DIR)/*.c)
 PROCESS_SRCS := $(wildcard $(PROCESS_DIR)/*.c)
 
