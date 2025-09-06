@@ -4,6 +4,8 @@
 #include "core/opium_log.h"
 #include "core/opium_pool.h"
 #include "core/opium_core.h"
+#include "core/opium_hashfunc.h"
+
 #include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -18,11 +20,13 @@
 #define OPIUM_HT_MINIMUM_COLL_MULT  1
 
 /* Statics */
-static uint8_t *opium_node_key(opium_hash_node_t *node);
-static uint8_t *opium_node_value(opium_hash_node_t *node, size_t key_size);
 static opium_hash_node_t *opium_hash_index(opium_hash_t *hash, size_t index);
 static void opium_hash_normalize_key(void *dst, void *src, size_t key_size);
 static size_t opium_hash_text(opium_hash_t *hash, void *key, uint8_t *normalized);
+
+static opium_hash_node_t *opium_hash_find_node(opium_hash_t *hash, void *key, opium_hash_node_t **out_prev); 
+static opium_hash_node_t *opium_hash_create_node(opium_hash_t *hash, uint8_t *key, int rindex, opium_hash_node_t *prev); 
+
 
 /* Validity Checks */
    int
@@ -32,6 +36,24 @@ opium_hash_isvalid(opium_hash_t *hash)
 }
 
 /* State Checks */
+   static uint8_t *
+opium_node_key(opium_hash_node_t *node)
+{
+   if (!node) {
+      return NULL;
+   }
+   return (uint8_t *)(node + 1);
+}
+
+   static uint8_t *
+opium_node_value(opium_hash_node_t *node, size_t key_size)
+{
+   if (!node) {
+      return NULL;
+   }
+   return opium_node_key(node) + key_size;
+}
+
    opium_hash_conf_t *
 opium_hash_conf_get(opium_hash_t *hash) 
 {
@@ -373,8 +395,38 @@ void opium_hash_pop_branch(opium_hash_t *hash, void *key) {
    }
 }
 
-/* Node Operations */
-opium_hash_node_t *opium_hash_find_node(opium_hash_t *hash, void *key, opium_hash_node_t **out_prev) {
+/* Debugging */
+   void
+opium_hash_debug_tree(opium_hash_t *hash) 
+{
+   if (!opium_hash_isvalid(hash)) {
+      return;
+   }
+
+   opium_hash_conf_t *config = opium_hash_conf_get(hash);
+
+   opium_debug(hash->log, "=== HASH TABLE DEBUG ===\n");
+
+   for (size_t index = 0; index < config->capacity; ++index) {
+      if (!opium_pool_block_check(hash->buckets, index)) continue;
+      opium_hash_node_t *node = opium_pool_get(hash->buckets, index);
+      if (!node) continue;
+
+      opium_debug_inline(hash->log, "Bucket %zu:\n", index);
+      list_for_hash_index(hash, node, index) {
+         opium_debug_inline(hash->log, "  Key: '%.*s', Value: '%.*s'\n",
+               (int)config->key_size, opium_node_key(node),
+               (int)config->value_size, opium_node_value(node, config->key_size));
+      }
+   }
+
+   opium_debug_inline(hash->log, "\n");
+}
+
+/* Statics */
+static opium_hash_node_t *
+opium_hash_find_node(opium_hash_t *hash, void *key, opium_hash_node_t **out_prev) 
+{
    if (!opium_hash_isvalid(hash)) {
       return NULL;
    }
@@ -407,7 +459,9 @@ opium_hash_node_t *opium_hash_find_node(opium_hash_t *hash, void *key, opium_has
    return NULL;
 }
 
-opium_hash_node_t *opium_hash_create_node(opium_hash_t *hash, uint8_t *key, int rindex, opium_hash_node_t *prev) {
+static opium_hash_node_t *
+opium_hash_create_node(opium_hash_t *hash, uint8_t *key, int rindex, opium_hash_node_t *prev) 
+{
    if (!opium_hash_isvalid(hash)) {
       return NULL;
    }
@@ -442,168 +496,6 @@ opium_hash_node_t *opium_hash_create_node(opium_hash_t *hash, uint8_t *key, int 
    memcpy(opium_node_key(node), key, config->key_size);
 
    return node;
-}
-
-/* Debugging */
-   void
-opium_hash_debug_tree(opium_hash_t *hash) 
-{
-   if (!opium_hash_isvalid(hash)) {
-      return;
-   }
-
-   opium_hash_conf_t *config = opium_hash_conf_get(hash);
-
-   opium_debug(hash->log, "=== HASH TABLE DEBUG ===\n");
-
-   for (size_t index = 0; index < config->capacity; ++index) {
-      if (!opium_pool_block_check(hash->buckets, index)) continue;
-      opium_hash_node_t *node = opium_pool_get(hash->buckets, index);
-      if (!node) continue;
-
-      opium_debug_inline(hash->log, "Bucket %zu:\n", index);
-      list_for_hash_index(hash, node, index) {
-         opium_debug_inline(hash->log, "  Key: '%.*s', Value: '%.*s'\n",
-               (int)config->key_size, opium_node_key(node),
-               (int)config->value_size, opium_node_value(node, config->key_size));
-      }
-   }
-
-   opium_debug_inline(hash->log, "\n");
-}
-
-/* Hash Functions */
-   uint64_t 
-opium_hash_djb2(void *raw_key, size_t key_size)
-{
-   if (!raw_key || key_size == 0) {
-      return 0;
-   }
-
-   size_t hash = 5381;
-   char *key = raw_key;
-
-   for (size_t byte = 0; byte < key_size; ++byte) {
-      hash = ((hash << 5) + hash) ^ key[byte];
-   }
-
-   return hash;
-}
-
-   uint64_t 
-opium_hash_sdbm(void *raw_key, size_t key_size) 
-{
-   if (!raw_key || key_size == 0) {
-      return 0;
-   }
-
-   uint64_t hash = 0;
-   unsigned char *key = raw_key;
-
-   for (size_t i = 0; i < key_size; i++) {
-      hash = key[i] + (hash << 6) + (hash << 16) - hash;
-   }
-
-   return hash;
-}
-
-   uint64_t
-opium_hash_fnv1a( void *raw_key, size_t key_size) 
-{
-   if (!raw_key || key_size == 0) {
-      return 0;
-   }
-
-   uint64_t hash = 14695981039346656037ULL;
-   unsigned char *key = raw_key;
-
-   for (size_t i = 0; i < key_size; i++) {
-      hash ^= key[i];
-      hash *= 1099511628211ULL;
-   }
-
-   return hash;
-}
-
-   uint64_t
-opium_hash_jenkins( void *raw_key, size_t key_size) 
-{
-   if (!raw_key || key_size == 0) {
-      return 0;
-   }
-
-   uint64_t hash = 0;
-   unsigned char *key = raw_key;
-
-   for (size_t i = 0; i < key_size; i++) {
-      hash += key[i];
-      hash += (hash << 10);
-      hash ^= (hash >> 6);
-   }
-   hash += (hash << 3);
-   hash ^= (hash >> 11);
-   hash += (hash << 15);
-
-   return hash;
-}
-
-   uint64_t
-opium_hash_murmur3( void *raw_key, size_t key_size)
-{
-   if (!raw_key || key_size == 0) {
-      return 0;
-   }
-
-   uint64_t seed = 0xc70f6907UL;
-   uint64_t m = 0xc6a4a7935bd1e995ULL;
-   int r = 47;
-
-   uint64_t hash = seed ^ (key_size * m);
-   uint64_t *data = ( uint64_t *)raw_key;
-   uint64_t *end = data + (key_size / 8);
-
-   while (data != end) {
-      uint64_t k = *data++;
-      k *= m; k ^= k >> r; k *= m;
-      hash ^= k;
-      hash *= m;
-   }
-
-   unsigned char *data2 = ( unsigned char *)data;
-   switch (key_size & 7) {
-      case 7: hash ^= (uint64_t)data2[6] << 48;
-      case 6: hash ^= (uint64_t)data2[5] << 40;
-      case 5: hash ^= (uint64_t)data2[4] << 32;
-      case 4: hash ^= (uint64_t)data2[3] << 24;
-      case 3: hash ^= (uint64_t)data2[2] << 16;
-      case 2: hash ^= (uint64_t)data2[1] << 8;
-      case 1: hash ^= (uint64_t)data2[0]; hash *= m;
-   }
-
-   hash ^= hash >> r;
-   hash *= m;
-   hash ^= hash >> r;
-
-   return hash;
-}
-
-/* Statics */
-   static uint8_t *
-opium_node_key(opium_hash_node_t *node)
-{
-   if (!node) {
-      return NULL;
-   }
-   return (uint8_t *)(node + 1);
-}
-
-   static uint8_t *
-opium_node_value(opium_hash_node_t *node, size_t key_size)
-{
-   if (!node) {
-      return NULL;
-   }
-   return opium_node_key(node) + key_size;
 }
 
    static opium_hash_node_t *
@@ -650,24 +542,3 @@ opium_hash_text(opium_hash_t *hash, void *key, uint8_t *normalized)
 
    return config->func(normalized, config->key_size) % config->capacity;
 }
-
-/*static void
-  opium_hash_trim(opium_hash_t *hash, size_t start, size_t end)
-  {
-  if (!opium_hash_isvalid(hash)) {
-  return;
-  }
-
-  opium_hash_conf_t *config = opium_hash_conf_get(hash);
-
-  if (start >= config->capacity || end > config->capacity || start > end) {
-  opium_err(hash->log, "Invalid trim range.\n");
-  return;
-  }
-
-  for (size_t index = start; index < end; index++) {
-  opium_hash_node_t *node = opium_hash_index(hash, index);
-  if (!node || !opium_node_key(node)) continue;
-  opium_hash_pop_branch(hash, opium_node_key(node));
-  }
-  }*/

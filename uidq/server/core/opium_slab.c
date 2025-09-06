@@ -110,7 +110,6 @@ opium_slab_init(opium_slab_t *slab, opium_slab_conf_t *conf, opium_log_t *log)
       return OPIUM_RET_ERR;
    }
 
-   // Slab setting
    config->count = conf->count > 0 ? conf->count : OPIUM_SLAB_DEFAULT_COUNT;
    slab->size = OPIUM_SLAB_PAGE_SIZE * config->count;
    slab->free_count = config->count;
@@ -118,12 +117,11 @@ opium_slab_init(opium_slab_t *slab, opium_slab_conf_t *conf, opium_log_t *log)
 
    OPIUM_INIT_LIST_HEAD(&slab->free);
 
-   // Init
    size_t slots_size = sizeof(opium_slab_slot_t) * OPIUM_SLAB_SHIFT_NUM;
    size_t pages_size = sizeof(opium_slab_page_t) * config->count;
    size_t data_size = slab->size; 
 
-   slab->slots = opium_calloc(slots_size, slab->log);
+   slab->slots = opium_calloc(slots_size, NULL);
    if (!slab->slots) {
       opium_err(slab->log, "Failed to allocated slab slots.\n");
       goto fail;
@@ -140,7 +138,7 @@ opium_slab_init(opium_slab_t *slab, opium_slab_conf_t *conf, opium_log_t *log)
       slot->block_size = OPIUM_SLAB_SHIFT_MIN << index;
    }
 
-   slab->pages = opium_calloc(pages_size, slab->log);
+   slab->pages = opium_calloc(pages_size, NULL);
    if (!slab->pages) {
       opium_err(slab->log, "Failed to allocate slab pages.\n");
       goto fail;
@@ -161,7 +159,7 @@ opium_slab_init(opium_slab_t *slab, opium_slab_conf_t *conf, opium_log_t *log)
       }
    }
 
-   slab->data = opium_calloc(data_size, slab->log);
+   slab->data = opium_calloc(data_size, NULL);
    if (!slab->data) {
       opium_err(slab->log, "Failed to allocate slab data.\n");
       goto fail;

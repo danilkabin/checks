@@ -33,6 +33,18 @@ opium_avl_height_diff(opium_avl_t *node)
    return node != NULL ? (opium_avl_height(node->left) - opium_avl_height(node->right)) : 0; 
 }
 
+   opium_avl_t *
+opium_avl_min(opium_avl_t *node)
+{
+   opium_avl_t *temp = node;
+
+   while (temp->left != NULL) {
+      temp = temp->left;
+   }
+
+   return temp; 
+}
+
 /* Why do we need rotations in an AVL tree?
  *
  * For example, we have this tree and we need to find the X node. It`ll be a linear search O(N)
@@ -265,7 +277,7 @@ opium_avl_insert(opium_avl_t *node, int key)
 
    }
 
-   node->height = (opium_max(opium_avl_height(node->right), opium_avl_height(node->left)) - 1);
+   node->height = (opium_max(opium_avl_height(node->right), opium_avl_height(node->left)) + 1);
 
    int balance = opium_avl_height_diff(node); 
 
@@ -275,7 +287,7 @@ opium_avl_insert(opium_avl_t *node, int key)
     * Tree before the turn: [NUMBERS FOR EXAMPLE] INSERT KEY: 35
     *        z [10]                  y[20]
     *         \                     /    \
-    *          y [20]        ->   z[10]   x[30]     i[35] > x[30]
+    *          y [20]        ->   z[10]   x[30]
     *           \                          \ 
     *            x [30]                     i[35]
     *    key[35] > y.right.key[30]
@@ -291,7 +303,7 @@ opium_avl_insert(opium_avl_t *node, int key)
     * Tree before the turn: [NUMBERS FOR EXAMPLE] INSERT KEY: 5
     *             z [30]            y[20]
     *            /                 /    \
-    *           y [20]       ->  x[10]   z[30]       i[5] < x[10]
+    *           y [20]       ->  x[10]   z[30] 
     *          /                /
     *         x [10]          i[5]
     *    key[5] < y.left.key[10]
@@ -301,5 +313,126 @@ opium_avl_insert(opium_avl_t *node, int key)
       return opium_avl_right_rotate(node);
    }
 
+   /* 3: Right Left
+    * Condition: balance < -1 && key < node->right->key. What does it mean?
+    * The right subtree is to tall. New key isnserted into left subtree of right child.
+    * Tree before the turn: [NUMBERS FOR EXAMPLE] INSERT KEY: 25
+    *        z[10]         z[10]             x[25]
+    *         \             \               /  \
+    *          y[30]   ->    x[25]    -> z[10]  y[30]
+    *         /               \              
+    *        x[25]             y[30]         
+    *       key[25] < y.key[30]  
+    */
+
+   if (balance < -1 && key < node->right->key) {
+      node = opium_avl_right_left(node);      
+   }
+
+   /* 4: Left Right
+    * Condition: balance > 1 && key > node.left.key. What does it mean?
+    * The left subtree is to tall. New key inserted into right subtree of left child.
+    * Tree before the turn: [NUMBERS FOR EXAMPLE] INSERT KEY: 15
+    *         z[30]             z[30]           x[15]
+    *        /                 /               /   \
+    *       y[10]    ->      x[15]      ->   y[10] z[30]
+    *        \              /            
+    *         x[15]       y[10]        
+    *        x[15] > y.key[10] 
+    */
+
+   if (balance > 1 && key > node->left->key) {
+      node = opium_avl_left_right(node);
+   }
+
    return node;
+}
+
+   opium_avl_t *
+opium_avl_delete(opium_avl_t *node, int key)
+{
+   if (!node) {
+      return NULL;
+   }
+
+   if (key > node->key) {
+      node->right = opium_avl_delete(node->right, key);
+   } else if (key < node->key) {
+      node->left = opium_avl_delete(node->left, key);
+   } else {
+
+      /* <= 1 Chidren */
+
+      if (!node->right || !node->left) {
+         opium_avl_t *temp = node->right ? node->right : node->left;
+
+         if (!temp) {
+            temp = node;
+            node = NULL;
+         } else {
+            *node = *temp;
+         }
+
+         opium_free(temp, NULL);
+      } else {
+         /* 2 Childrens */
+
+         /* We want to delete 50. min(node[50].right) -> 60
+          *       [FIRST]          [SECOND]     [THIRD]
+          *        50              60            60
+          *       /  \            /  \          /  \
+          *     30    70     ->  30   70    -> 30   70
+          *          /  \            /  \            \
+          *        60    80         60   80           80
+          */ 
+
+         /* FIRST */
+         opium_avl_t *temp = opium_avl_min(node->right);
+         
+         /* SECOND */
+         node->key = temp->key;
+
+         /* THIRD. DELETE THE SMALLEST IN THE SUBTREE [60 in picture] */
+         node->right = opium_avl_delete(node->right, temp->key);
+      }
+
+   }
+
+   if (!node) {
+      return node;
+   }
+
+   node->height = (opium_max(opium_avl_height(node->right), opium_avl_height(node->left)) + 1);
+
+   int balance = opium_avl_height_diff(node);
+
+   if (balance > 1 && (opium_avl_height_diff(node->left) >= 0)) {
+      return opium_avl_right_rotate(node);
+   }
+
+   if (balance < -1 && (opium_avl_height_diff(node->right) >= 0)) {
+      return opium_avl_left_rotate(node);
+   }
+
+   if (balance > 1 && (opium_avl_height_diff(node->left) < 0)) {
+      node = opium_avl_left_right(node);
+   }
+
+   if (balance < -1 && (opium_avl_height_diff(node->right) < 0)) {
+      node = opium_avl_right_left(node);
+   }
+
+   return node;
+}
+
+   void
+opium_avl_debug(opium_avl_t *node)
+{
+   if (!node) {
+      return;
+   }
+
+   opium_avl_debug(node->left);
+   printf(" %d ", node->key);
+   opium_avl_debug(node->right);
 }

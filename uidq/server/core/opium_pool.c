@@ -58,6 +58,30 @@ opium_pool_get(opium_pool_t *pool, int index) {
    return ptr;
 }
 
+int 
+opium_pool_getin(opium_pool_t *pool, void *data) {
+   if (!opium_pool_isvalid(pool)) {
+      return -1;
+   }
+
+   size_t capacity = pool->capacity;
+   size_t block_size = pool->block_size;
+
+   ptrdiff_t diff = ((char*)data - (char*)pool->data);
+
+   if (diff < 0 || (size_t)diff >= capacity * block_size) {
+      return -1;
+   }
+
+   int index = diff / block_size;
+
+   if (!opium_pool_block_check(pool, index)) {
+      return -1;
+   }
+
+   return index;
+}
+
 int
 opium_pool_block_check(opium_pool_t *pool, int index) {
    if (!opium_pool_isvalid(pool)) {
@@ -238,6 +262,17 @@ opium_pool_pop(opium_pool_t *pool, int index) {
    memset(ptr, 0, block_size);
 
    return OPIUM_RET_OK;
+}
+
+   void
+opium_pool_popit(opium_pool_t *pool, void *data)
+{
+   int index = opium_pool_getin(pool, data);
+   if (index < 0) {
+      return;
+   }
+
+   opium_pool_pop(pool, index);
 }
 
 void

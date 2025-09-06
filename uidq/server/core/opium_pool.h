@@ -40,6 +40,7 @@ int opium_pool_block_check(opium_pool_t *pool, int index);
 int opium_pool_push(opium_pool_t *pool, void *data);
 int opium_pool_pushim(opium_pool_t *pool, void *data, int index);
 int opium_pool_pop(opium_pool_t *pool, int index);
+void opium_pool_popit(opium_pool_t *pool, void *data);
 
 /* Debug */
 void opium_pool_debug(opium_pool_t *pool);

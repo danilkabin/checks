@@ -62,13 +62,6 @@ opium_hash_node_t *opium_hash_create_node(opium_hash_t *hash,  uint8_t *key, int
 /* Debugging */
 void opium_hash_debug_tree(opium_hash_t *hash);
 
-/* Hash Functions */
-uint64_t opium_hash_djb2(void *raw_key, size_t key_size);
-uint64_t opium_hash_sdbm(void *raw_key, size_t key_size);
-uint64_t opium_hash_fnv1a( void *raw_key, size_t key_size);
-uint64_t opium_hash_jenkins( void *raw_key, size_t key_size);
-uint64_t opium_hash_murmur3( void *raw_key, size_t key_size);
-
 #define list_for_hash_index(hash, node, index) \
    for (opium_hash_node_t *node = opium_pool_get((hash)->buckets, (index)); \
          node; \
