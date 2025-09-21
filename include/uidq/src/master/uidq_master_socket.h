@@ -1,4 +1,0 @@
-#ifndef UIDQ_MASTER_SOCKET_H
-#define UIDQ_MASTER_SOCKET_H
-
-#endif

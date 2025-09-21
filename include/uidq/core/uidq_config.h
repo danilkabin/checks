@@ -1,4 +1,0 @@
-#ifndef UIDQ_CONFIG_INCLUDE_H
-#define UIDQ_CONFIG_INCLUDE_H
-
-#endif /* UIDQ_CONFIG_INCLUDE_H */

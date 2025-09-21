@@ -1,4 +1,0 @@
-#ifndef UIDQ_TYPES_INCLUDE_H
-#define UIDQ_TYPES_INCLUDE_H
-
-#endif /* UIDQ_TYPES_INCLUDE_H */
