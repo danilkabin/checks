@@ -43,6 +43,73 @@ opium_is_little_endian(void)
    return *byte == 1;
 }
 
+   size_t 
+opium_round_of_two(size_t x)
+{
+   /*
+    * Example: rounding up to the nearest power of two
+    * Let's use an 8-bit register for example.
+    * Let size = 32
+    *
+    * Step 1: convert to binary
+    *  - 32 = 0b00100000
+    *
+    * Step 2: subtract 1
+    *  - 32 - 1 = 0b00011111
+    *
+    * Step 3: Count leading zeroes (clz):
+    *   0b00011111
+    *     ^^^
+    *   lz = 3
+    *
+    * Step 4: Compute the next power of two:
+    * 1 << (8 - lz)
+    * 1 << (8 - 3)
+    * 1 << 5 = 32
+    *
+    * Note:
+    *   For 32-bit numbers, replace 8 with 32;
+    *   For 64-bit numbers, replace 8 with 64.
+    */
+#if (OPIUM_PTR_SIZE == 4)
+   size_t lz = __builtin_clzl(x - 1);
+   return 1UL << (32 - lz);
+#else
+   size_t lz = __builtin_clzll(x - 1);
+   return 1ULL << (64 - lz);
+#endif
+
+}
+
+   size_t 
+opium_log2(size_t x)
+{
+   /*
+    * Compute the integer log2 of x
+    * 
+    * Example (8-bit for simplicity):
+    *   x = 20
+    *   binary: 00010100   
+    * 
+    * Step 1: Count leading zeroes
+    *   clz(20) = 3 00010100
+    *               ^^^ (zeroes 3 before first 1) 
+    *
+    * Step 2: Subtract from total bits - 1
+    *   8 Bit: 7 - 3 = 4
+    *
+    *  Result:
+    *  log(20) = 4
+    *  2^4 = 16 <= 20 < 2^5 = 32
+    *
+    */
+#if (OPIUM_PTR_SIZE == 4)
+   return 31 - __builtin_clz(x);
+#else
+   return 63 - __builtin_clzll(x);
+#endif
+}
+
    void
 opium_debug_point(void)
 {

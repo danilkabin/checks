@@ -27,14 +27,14 @@
 #include <unistd.h>
 
 #include "core/opium_slab.h"
+#include "core/opium_core.h"
+#include "opium_slab.h"
 
 /* Number of bits in a pointer (32-bit or 64-bit) */
 #define OPIUM_SLAB_BITS (OPIUM_PTR_SIZE * 8)
 
 /* Page size in bytes (standard slab page) */
 #define OPIUM_SLAB_PAGE_SIZE 4096  
-
-#define OPIUM_SLAB_PAGE_MAX_EMPTY 1
 
 /* Maximum and minimum number of items per page */
 #define OPIUM_SLAB_PAGE_MAX OPIUM_SLAB_BITS   /* Max items in a slab page */
@@ -89,10 +89,13 @@ opium_slab_new_slot(opium_slab_t *slab, opium_slab_page_t *page)
    slab->stats.used = slab->stats.used + 1;
 
    /* Return pointer to allocated object within page */
-   return page->data + slot * slab->item_size;
+      //*((opium_ubyte_t*)(data)) = slot;
+   void *ptr = opium_slab_slot(slab, page, slot);
+   opium_slab_slot_header_set(ptr, slot);
+   return ptr;
 }
 
-   void 
+   int 
 opium_slab_init(opium_slab_t *slab, size_t item_size, opium_log_t *log)
 {
    assert(slab != NULL);
@@ -100,7 +103,7 @@ opium_slab_init(opium_slab_t *slab, size_t item_size, opium_log_t *log)
 
    size_t item_count = OPIUM_SLAB_PAGE_MAX;
 
-   slab->item_size = item_size;
+   slab->item_size = item_size + OPIUM_SLAB_SLOT_HEADER;
 
    /* 
     * 1. offsetof(opium_slab_page_t, data) - This is the offset of the data field
@@ -207,6 +210,8 @@ opium_slab_init(opium_slab_t *slab, size_t item_size, opium_log_t *log)
    opium_log_debug(log, 
          "Slab initialization: item_size: %zu, item_count: %zu data_offset: %zu, page_size: %zu\n", 
          slab->item_size, slab->item_count, data_offset, slab->page_size);
+
+   return OPIUM_RET_OK;
 
 }
 
@@ -481,7 +486,7 @@ opium_slab_free(opium_slab_t *slab, void *ptr)
     *   slot          = 20 / 8 = 2 (third element, zero-based)
     */
 
-   size_t distance = (u_char*) ptr - (u_char*) page->data; 
+   size_t distance = (u_char*) ptr - ((u_char*) page->data + OPIUM_SLAB_SLOT_HEADER); 
    size_t slot = distance / slab->item_size;
 
    /*
@@ -570,14 +575,14 @@ opium_slab_traverse(opium_slab_t *slab, opium_slab_trav_ctx func)
           * We clear the bit after processing to iterate over all set slots efficiently.
           */
          size_t slot = __builtin_ctzll(mask);
-         func(page->data + slot * slab->item_size);
+         func(opium_slab_slot(slab, page, slot));
          mask = mask & ~(1ULL << slot);
       }
    }
 
    opium_list_for_each_entry_safe(page, tmp, &slab->full, head) {
       for (size_t index = 0; index < slab->item_count; index++) {
-         func(page->data + index * slab->item_size);
+         func(opium_slab_slot(slab, page, index));
       }
    }
 

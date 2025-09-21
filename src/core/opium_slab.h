@@ -5,20 +5,24 @@
 #include "core/opium_alloc.h"
 #include "core/opium_list.h"
 #include "core/opium_log.h"
+#include "opium_alloc.h"
 
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
+
+#define OPIUM_SLAB_SLOT_HEADER 1
 
 /* Define the "mask" for free/used slots depending on pointer size */
 #if (OPIUM_PTR_SIZE == 4) 
-/* All 32 bits set -> all slots used */
+/* All 32 bits set */
 typedef opium_uint_t opium_slab_mask_t;
 #define OPIUM_SLAB_PAGE_FREE 0
 #define OPIUM_SLAB_PAGE_BUSY ((opium_uint_t)0xFFFFFFFF)
 
 #else
-/* All 64 bits set -> all slots used */
+/* All 64 bits set */
 typedef opium_ulong_t opium_slab_mask_t; 
 #define OPIUM_SLAB_PAGE_FREE 0
 #define OPIUM_SLAB_PAGE_BUSY ((opium_ulong_t)0xFFFFFFFFFFFFFFFF)
@@ -101,7 +105,7 @@ typedef void (*opium_slab_trav_ctx)(void *data);
 /* API */
 
 /* Lifecycle */
-void opium_slab_init(opium_slab_t *slab, size_t item_size, opium_log_t *log);
+int  opium_slab_init(opium_slab_t *slab, size_t item_size, opium_log_t *log);
 void opium_slab_exit(opium_slab_t *slab);
 
 /* Allocation */
@@ -115,6 +119,18 @@ void opium_slab_stats(opium_slab_t *slab);
 /* Statics */
 static inline void opium_slab_zero_stats(opium_slab_stat_t *stats) {
    stats->total = stats->used = stats->reqs = stats->fails = 0; 
+}
+
+static inline void *opium_slab_slot_header(void *ptr) {
+   return (void*)((opium_byte_t*)ptr - OPIUM_SLAB_SLOT_HEADER);
+}
+
+static inline void opium_slab_slot_header_set(void *ptr, size_t data) {
+   *((opium_ubyte_t*)(ptr - OPIUM_SLAB_SLOT_HEADER)) = (opium_ubyte_t)data;
+}
+
+static inline void *opium_slab_slot(opium_slab_t *slab, opium_slab_page_t *page, size_t index)  {
+   return (void*)((u_char*) page->data + index * slab->item_size + OPIUM_SLAB_SLOT_HEADER);
 }
 
 static inline opium_slab_mask_t opium_slab_page_init(size_t count) {

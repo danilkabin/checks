@@ -5,46 +5,52 @@
 #include "core/opium_alloc.h"
 #include "core/opium_list.h"
 #include "core/opium_log.h"
+#include "opium_slab.h"
 
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 
+/* Define the "mask" for free/used slots depending on pointer size */
 #if (OPIUM_PTR_SIZE == 4) 
-/* All 32 bits set -> all slots used */
+/* All 32 bits set */
+
+#define OPIUM_ARENA_MAX_SHIFT 16
+#define OPIUM_ARENA_MIN_SHIFT 4
 
 #else
-/* All 64 bits set -> all slots used */
+/* All 64 bits set */
+
+#define OPIUM_ARENA_MAX_SHIFT 16
+#define OPIUM_ARENA_MIN_SHIFT 4
 
 #endif
-
-typedef struct opium_arena_stat_s opium_arena_stat_t;
-
-struct opium_arena_stat_s {
-   size_t total;
-   size_t used;
-
-   size_t reqs;
-   size_t fails;
-};
 
 typedef struct opium_arena_page_s opium_arena_page_t;
 
 struct opium_arena_page_s {
+   opium_ubyte_t index;
+   void *ptr;
 };
 
-
 typedef struct {
+   size_t shift_count;
+
+   size_t min_shift, max_shift;
+   size_t min_size;
+
+   opium_slab_t *slabs;
 
    opium_log_t *log;
 } opium_arena_t;
 
-typedef void (*opium_slab_trav_ctx)(void *data);
-
 /* API */
 
 /* Lifecycle */
-void opium_slab_init(opium_arena_t *arena, size_t item_size, opium_log_t *log);
-void opium_slab_exit(opium_arena_t *arena);
+int opium_arena_init(opium_arena_t *arena, opium_log_t *log);
+void opium_arena_exit(opium_arena_t *arena);
+
+void *opium_arena_alloc(opium_arena_t *arena, size_t size);
+void opium_arena_free(opium_arena_t *arena, void *ptr);
 
 #endif /* OPIUM_ARENA_INCLUDE_H */

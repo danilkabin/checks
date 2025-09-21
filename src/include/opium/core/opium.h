@@ -1,7 +1,11 @@
 #ifndef OPIUM_INCLUDE_H
 #define OPIUM_INCLUDE_H
 
+#include <stddef.h>
+
 int opium_is_little_endian(void);
+size_t opium_round_of_two(size_t x);
+size_t opium_log2(size_t x);
 
 void opium_debug_point(void);
 
