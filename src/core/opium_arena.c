@@ -1,17 +1,18 @@
 /* opium_arena.c 
- * 
+ *
+ * There is no need to write anything special on top of the slab.
+ * The whole point of the arena is that it:
+ *
+ * - Distribues the load access sets of slabs (16, 32, 64 ... bytes etc.)
+ * - Knows the rules for choosing the right slab (via round of two and log)
+ * - Saves the slab index in the slab header (so it can be freed later without a lookup)
+ *
+ * It doesn`t need any more logic (for allocation/free);
+ * everything else is already hidden is the slab
+ *
  */
 
-#include "core/opium_arena.h"
 #include "core/opium_core.h"
-#include "core/opium_slab.h"
-#include "opium.h"
-#include "opium_alloc.h"
-#include "opium_arena.h"
-#include "opium_log.h"
-#include "opium_slab.h"
-#include <assert.h>
-#include <stdio.h>
 
    int
 opium_arena_init(opium_arena_t *arena, opium_log_t *log)
@@ -74,45 +75,88 @@ opium_arena_init(opium_arena_t *arena, opium_log_t *log)
 opium_arena_exit(opium_arena_t *arena)
 {
    assert(arena != NULL);
+
+   /* Just rustle all the slabs and delete them. */
+   for (size_t index = 0; index < arena->shift_count; index++) {
+      opium_slab_exit(&arena->slabs[index]);
+   }
+
+   arena->min_size = 0;
+   arena->shift_count = arena->min_shift = arena->max_shift = 0;
+   arena->log = NULL;
 }
 
    void * 
 opium_arena_alloc(opium_arena_t *arena, size_t size)
 {
+   /* Protection against incorrect request */
    if (size <= 1) {
       return NULL;
    }
 
+   /* 
+    * Round the size to the nearest power of two
+    * All slabs operate on fixed-size blocks. Therefore, any request
+    * is rounded up to the nearest power of two.
+    */
    size_t round_size = opium_round_of_two(size);
 
    if (round_size < arena->min_size) {
+      /* Guarantee that will never allocate less than the smallest block */
       round_size = arena->min_size;
    }
 
+   /* This is how we find which specific slab will service this request
+    * Examples: OPIUM_ARENA_MIN_SHIFT = 4 then 2^4 = 16 (min_size)
+    * index = log(16) - OPIUM_ARENA_MIN_SHIFT = 4 - 4 = 0
+    * index = log(32) - OPIUM_ARENA_MIN_SHIFT = 5 - 4 = 1
+    * index = log(64) - OPIUM_ARENA_MIN_SHIFT = 6 - 4 = 2
+    */
    size_t index = opium_log2(round_size) - OPIUM_ARENA_MIN_SHIFT;
 
    opium_slab_t *slab = &arena->slabs[index];
 
    void *ptr = opium_slab_alloc(slab);
-   opium_slab_slot_header_set(ptr, index);   
 
-   opium_log_debug(arena->log, "ptr header: %zu, size: %zu, index: %zu\n", 
-         *(size_t*)opium_slab_slot_header(ptr), round_size, index); 
+   /*
+    * We store a label indicating which slab allocated this block.
+    * This is necessary so that we can quickly find the slab by index
+    * when deallocating it. (Otherwise, we`d have to search by size - slower)
+    */
+   opium_slab_slot_header_set(ptr, index); 
 
    return ptr;
 }
 
-void
+void *
+opium_arena_calloc(opium_arena_t *arena, size_t size)
+{
+   assert(arena != NULL);
+
+   /* Default alloc with memzero */
+   void *ptr = opium_arena_alloc(arena, size);
+   if (!ptr) {
+      return NULL;
+   }
+
+   opium_memzero(ptr, size);
+
+   return ptr;
+}
+
+   void
 opium_arena_free(opium_arena_t *arena, void *ptr)
 {
    assert(arena != NULL);
    assert(ptr != NULL);
 
+   /*
+    * Read the same slab index that was saved during the alloc
+    * Now know exactly which slab this block belongs to
+    */
    size_t index = *(size_t*)opium_slab_slot_header(ptr);
 
    opium_slab_t *slab = &arena->slabs[index];
-
-   printf("Deleting: %zu\n", index);
 
    opium_slab_free(slab, ptr);
 }

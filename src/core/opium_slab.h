@@ -2,15 +2,6 @@
 #define OPIUM_SLAB_INCLUDE_H
 
 #include "core/opium_core.h"
-#include "core/opium_alloc.h"
-#include "core/opium_list.h"
-#include "core/opium_log.h"
-#include "opium_alloc.h"
-
-#include <math.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
 
 #define OPIUM_SLAB_SLOT_HEADER 1
 
@@ -64,7 +55,7 @@ struct opium_slab_stat_s {
 typedef struct opium_slab_page_s opium_slab_page_t;
 
 struct opium_slab_page_s {
-   struct opium_list_head head;
+   opium_list_head_t head;
    struct opium_slab_page_s *boss;
 
    opium_slab_mask_t mask;
@@ -87,18 +78,18 @@ struct opium_slab_page_s {
  *  - stats - usage statistics (number of objects in use, requests, failures, etc.)
  *
  */
-typedef struct {
+struct opium_slab_s {
    size_t page_size, pages_per_alloc;
    size_t item_size, item_count;
 
    opium_ulong_t alignment_mask; 
 
-   struct opium_list_head empty, partial, full; 
+   opium_list_head_t empty, partial, full; 
 
    opium_slab_stat_t stats;
 
    opium_log_t *log;
-} opium_slab_t;
+};
 
 typedef void (*opium_slab_trav_ctx)(void *data);
 
@@ -110,6 +101,7 @@ void opium_slab_exit(opium_slab_t *slab);
 
 /* Allocation */
 void *opium_slab_alloc(opium_slab_t *slab);
+void *opium_slab_calloc(opium_slab_t *slab);
 void opium_slab_free(opium_slab_t *slab, void *ptr);
 
 /* Additional */

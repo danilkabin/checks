@@ -1,9 +1,9 @@
 #include "core/opium_alloc.h"
 #include "core/opium_arena.h"
-#include "core/opium_bitmask.h"
 #include "core/opium_core.h"
+#include "core/opium_hash.h"
+#include "core/opium_hashfuncs.h"
 #include "core/opium_log.h"
-#include "core/opium_pool.h"
 #include "core/opium_slab.h"
 #include "core/opium_string.h"
 
@@ -11,10 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <time.h>
-
-#define ITEM_SIZE 2048
-#define MAX_PTRS 1000000  // огромная куча
 
 void print_memory_usage() {
    FILE *f = fopen("/proc/self/status", "r");
@@ -31,6 +29,13 @@ void print_memory_usage() {
    fclose(f);
 }
 
+void print_uchar(u_char yes) {
+   for (int index = sizeof(u_char) * 8 - 1; index >= 0; index--) {
+      printf("%d", (yes >> index) & 1);
+   }
+   printf("\n");
+}
+
 int main() {
    srand((unsigned int)time(NULL));
 
@@ -42,20 +47,21 @@ int main() {
       return -1;
    }
 
-   size_t times = 10;
+   size_t key_size = 10;
+   size_t value_size = 10;
+   size_t nelts = 140;
 
-   void *ptrs[times];
+   opium_hash_t hash;
+   opium_hash_init(&hash, nelts, key_size, value_size, log);
 
-   size_t size = 3;
-   for (size_t index = 0; index < times; index++) {
-      void *ptr = opium_arena_alloc(&arena, size);
-      ptrs[index] = ptr; 
-      size = size * 2;
-   }
+   opium_hash_insert(&hash, "Hello", "Value");
+   opium_hash_insert(&hash, "Hello1", "Value");
+   opium_hash_insert(&hash, "hello", "Value");
+   opium_hash_insert(&hash, "bye", "Value");
+   opium_hash_insert(&hash, "yes", "Value");
+   opium_hash_insert(&hash, "ah yes bro", "Value");
+   opium_hash_insert(&hash, "bye bye bye", "Value");
 
-   for (size_t index = 0; index < times; index++) {
-     opium_arena_free(&arena, ptrs[index]);
-   }
 
    return 0;
 }

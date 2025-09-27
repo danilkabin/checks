@@ -1,19 +1,12 @@
 #ifndef OPIUM_STRING_INCLUDE_H
 #define OPIUM_STRING_INCLUDE_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/types.h>
-
 #include "core/opium_core.h"
-#include "core/opium_alloc.h"
 
-typedef struct {
+struct opium_string_s {
    size_t len;
    u_char *data;
-} opium_str_t;
+};
 
 #define opium_string(str) { sizeof(str) - 1, (u_char*) str}
 #define opium_null_string {0, NULL}
@@ -31,6 +24,7 @@ typedef struct {
 
 #define opium_strncmp(s1, s2, n) strncmp((const char *)s1, (const char *)s2, n)
 #define opium_strlen(str) strlen((const char*)(str))
+#define opium_strnlen(str, len) strnlen((const char*)(str), len)
 
 void opium_strlow(u_char *dst, u_char *src, size_t len);
 u_char *opium_cpystrn(u_char *dst, u_char *src, size_t len);

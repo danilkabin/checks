@@ -64,12 +64,12 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium_bitmask.o",
-      "core/opium_bitmask.c"
+      "build/obj/core/opium.o",
+      "core/opium.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_bitmask.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_bitmask.o"
+    "file": "/home/dima/Projects/norm3/src/core/opium.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium.o"
   },
   {
     "arguments": [
@@ -82,12 +82,30 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium.o",
-      "core/opium.c"
+      "build/obj/core/opium_hash.o",
+      "core/opium_hash.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium.o"
+    "file": "/home/dima/Projects/norm3/src/core/opium_hash.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_hash.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude/opium",
+      "-pthread",
+      "-c",
+      "-o",
+      "build/obj/core/opium_ialloc.o",
+      "core/opium_ialloc.c"
+    ],
+    "directory": "/home/dima/Projects/norm3/src",
+    "file": "/home/dima/Projects/norm3/src/core/opium_ialloc.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_ialloc.o"
   },
   {
     "arguments": [
@@ -118,12 +136,12 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium_pool.o",
-      "core/opium_pool.c"
+      "build/obj/core/opium_rbt.o",
+      "core/opium_rbt.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_pool.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_pool.o"
+    "file": "/home/dima/Projects/norm3/src/core/opium_rbt.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_rbt.o"
   },
   {
     "arguments": [

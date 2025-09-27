@@ -15,20 +15,7 @@
  *
  */
 
-#include <assert.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include "core/opium_slab.h"
 #include "core/opium_core.h"
-#include "opium_slab.h"
 
 /* Number of bits in a pointer (32-bit or 64-bit) */
 #define OPIUM_SLAB_BITS (OPIUM_PTR_SIZE * 8)
@@ -89,7 +76,7 @@ opium_slab_new_slot(opium_slab_t *slab, opium_slab_page_t *page)
    slab->stats.used = slab->stats.used + 1;
 
    /* Return pointer to allocated object within page */
-      //*((opium_ubyte_t*)(data)) = slot;
+   //*((opium_ubyte_t*)(data)) = slot;
    void *ptr = opium_slab_slot(slab, page, slot);
    opium_slab_slot_header_set(ptr, slot);
    return ptr;
@@ -221,10 +208,10 @@ opium_slab_exit(opium_slab_t *slab)
    assert(slab != NULL);
 
    /* We want to go through all the pages */
-   struct opium_list_head *heads[] = { &slab->empty, &slab->partial, &slab->full };
+   opium_list_head_t *heads[] = { &slab->empty, &slab->partial, &slab->full };
 
    for (size_t index = 0; index < 3; index++) {
-      struct opium_list_head *current_head = heads[index];
+      opium_list_head_t *current_head = heads[index];
 
       opium_slab_page_t *current, *tmp = NULL;
 
@@ -252,6 +239,16 @@ opium_slab_exit(opium_slab_t *slab)
       }
 
    }
+
+   slab->page_size = slab->pages_per_alloc = 0;
+   slab->item_size = slab->item_count = 0;
+
+   slab->alignment_mask = 0;
+
+   opium_slab_zero_stats(&slab->stats);
+
+   slab->log = NULL;
+
 }
 
    void *
@@ -444,6 +441,22 @@ opium_slab_alloc(opium_slab_t *slab)
    return NULL;
 }
 
+   void *
+opium_slab_calloc(opium_slab_t *slab)
+{
+   assert(slab != NULL);
+
+   /* Default alloc with memzero */
+   void *ptr = opium_slab_alloc(slab);
+   if (!ptr) {
+      return NULL;
+   }
+
+   opium_memzero(ptr, slab->item_size);
+
+   return ptr;
+}
+
    void
 opium_slab_free(opium_slab_t *slab, void *ptr)
 {
@@ -602,7 +615,7 @@ opium_slab_stats(opium_slab_t *slab) {
     *    - Refcount - number of occupied slots
     */
 
-   struct opium_list_head *heads[] = {&slab->empty, &slab->partial, &slab->full};
+   opium_list_head_t *heads[] = {&slab->empty, &slab->partial, &slab->full};
    char *labels[] = {"Empty", "Partial", "Full"};
 
    opium_log_debug_inline(slab->log, "%45s\n", "Slab Stats"); 
@@ -622,7 +635,7 @@ opium_slab_stats(opium_slab_t *slab) {
          "Schunk", "Type", "Refcount", "Used", "Free");
 
    for (size_t index = 0; index < 3; index++) {
-      struct opium_list_head *current_head = heads[index];
+      opium_list_head_t *current_head = heads[index];
 
       opium_slab_page_t *current, *tmp = NULL;
 

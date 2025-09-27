@@ -1,11 +1,4 @@
-#include <fcntl.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "opium_core.h"
-#include "opium_log.h"
-#include "opium_alloc.h"
+#include "core/opium_core.h"
 
    int
 opium_log_isvalid(opium_log_t *log)
@@ -101,7 +94,7 @@ opium_log_stderr(char *format, ...)
 opium_log_init(char *debug, char *warn, char *err)
 {
 
-   opium_log_t *log = opium_calloc(sizeof(opium_log_t), NULL);
+   opium_log_t *log = calloc(1, sizeof(opium_log_t));
    if (!log) {
       opium_log_err(log, "Failed to allocate hash table.\n");
       return NULL;
@@ -144,5 +137,5 @@ opium_log_exit(opium_log_t *log)
       log->err = NULL;
    }
 
-   opium_free(log, NULL);
+   free(log);
 }

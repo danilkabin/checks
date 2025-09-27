@@ -1,19 +1,19 @@
 #ifndef OPIUM_LOG_INCLUDE_H
 #define OPIUM_LOG_INCLUDE_H
 
-#include <stdio.h>
+#include "core/opium_core.h"
 
 #define OPIUM_COLOR_RESET  "\x1b[0m"
 #define OPIUM_COLOR_YELLOW "\x1b[33m"
 #define OPIUM_COLOR_RED    "\x1b[31m"
 
-typedef struct {
+struct opium_log_s {
    int initialized;
 
    FILE *debug;
    FILE *warn;
    FILE *err;
-} opium_log_t;
+};
 
 int opium_log_isvalid(opium_log_t *log);
 

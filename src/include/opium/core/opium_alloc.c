@@ -8,12 +8,7 @@
  *
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-
-#include "opium_alloc.h"
-#include "opium_log.h"
+#include "core/opium_core.h"
 
    void *
 opium_malloc(size_t size, opium_log_t *log)
@@ -45,7 +40,8 @@ opium_free(void *ptr, opium_log_t *log)
 {
    if (!ptr) return;
    free(ptr);
- //  opium_log_debug(log, "Pointer freed succesfully: %p, %zu\n", ptr, sizeof(ptr));
+   (void)log;
+   //opium_log_debug(log, "Pointer freed succesfully: %p, %zu\n", ptr, sizeof(ptr));
 }
 
 void *
