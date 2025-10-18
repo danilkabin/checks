@@ -219,7 +219,7 @@ opium_rbt_node_insert(opium_rbt_t *rbt, opium_rbt_node_t **root, opium_rbt_key_t
       } else if (current->key > key) {
          current = current->left;
       } else {
-         return NULL;
+         return current;
       }
 
    }
@@ -295,6 +295,7 @@ opium_rbt_insert(opium_rbt_t *rbt, opium_rbt_key_t key, void *data)
    opium_rbt_node_t *temp;
 
    while (node != *root && opium_rbt_is_red(node->parent)) {
+      if (node->parent->parent == NULL) break;
       /*
        * #1 - Determine Side
        *  We loot at whether the parent (P) is to the left of right of grandparent (G).
@@ -416,6 +417,10 @@ opium_rbt_insert(opium_rbt_t *rbt, opium_rbt_key_t key, void *data)
       }
 
    }
+
+   node->data = data;
+
+   opium_rbt_black(*root);
 
    return node;
 }

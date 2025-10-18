@@ -43,7 +43,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/un.h>
-
+#include <sys/eventfd.h>
+#include <sys/epoll.h>
 /* -------------------- Memory / misc -------------------- */
 #include <malloc.h>         /* memalign() */
 

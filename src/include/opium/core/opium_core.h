@@ -30,11 +30,19 @@ typedef uint16_t opium_ushort_t;
 typedef uint32_t opium_uint_t;
 typedef uint64_t opium_ulong_t;
 
-/* Key type (1 byte) */
 typedef opium_byte_t opium_key_t;
-
-/* Boolean flag type */
 typedef opium_byte_t opium_flag_t;
+typedef opium_int_t  opium_fd_t;
+typedef opium_int_t  opium_socket_fd_t;
+typedef cpu_set_t    opium_cpuset_t;
+
+typedef uid_t        opium_uid_t;
+typedef gid_t        opium_gid_t;
+typedef off_t        opium_off_t;
+typedef mode_t       opium_mode_t;
+typedef time_t       opium_time_t;
+
+typedef FILE         opium_ofile_t;
 
 /* Boolean flag utilities */
 #define opium_flag_true(flag)    ((flag) = 1)
@@ -47,14 +55,31 @@ typedef opium_byte_t opium_flag_t;
 
 /* Definitions */
 
-typedef struct opium_slab_s       opium_slab_t;
-typedef struct opium_arena_s      opium_arena_t;
-typedef struct opium_ialloc_s     opium_ialloc_t;
-typedef struct opium_hash_s       opium_hash_t;
-typedef struct opium_rbt_s        opium_rbt_t;
-typedef struct opium_string_s     opium_string_t;
-typedef struct opium_list_head_s  opium_list_head_t;
-typedef struct opium_log_s        opium_log_t;
+typedef struct opium_log_s         opium_log_t;
+typedef struct opium_string_s      opium_string_t;
+typedef struct opium_list_head_s   opium_list_head_t;
+typedef struct opium_slab_s        opium_slab_t;
+typedef struct opium_arena_s       opium_arena_t;
+typedef struct opium_bitmask_s     opium_bitmask_t;
+typedef struct opium_pool_s        opium_pool_t;
+typedef struct opium_array_s       opium_array_t;
+typedef struct opium_hash_s        opium_hash_t;
+typedef struct opium_rbt_s         opium_rbt_t;
+
+typedef struct opium_conf_file_s   opium_conf_file_t ;
+typedef struct opium_command_s     opium_command_t;
+typedef struct opium_conf_server_s opium_conf_server_t;
+typedef struct opium_conf_worker_s opium_conf_worker_t;
+typedef struct opium_conf_s        opium_conf_t;
+
+typedef struct opium_synapse_s     opium_synapse_t;
+typedef struct opium_open_file_s   opium_open_file_t;
+
+typedef struct opium_file_s        opium_file_t;
+typedef struct opium_path_s        opium_path_t;
+
+typedef struct opium_listening_s   opium_listening_t;
+typedef struct opium_connection_s  opium_connection_t;
 
 /* Includes */
 #include "opium_log.h"
@@ -62,12 +87,22 @@ typedef struct opium_log_s        opium_log_t;
 #include "opium_string.h"
 #include "opium_hashfuncs.h"
 #include "opium_alloc.h"
+
 #include "opium_slab.h"
 #include "opium_arena.h"
+#include "opium_bitmask.h"
+#include "opium_pool.h"
+#include "opium_array.h"
+
 #include "opium_rbt.h"
 #include "opium_hash.h"
-#include "opium_ialloc.h"
 
+#include "opium_conf_file_parser.h"
+#include "opium_conf_file.h"
+
+#include "opium_synapse.h"
+#include "opium_file.h"
+#include "opium_connection.h"
 
 /* Utility macros */
 #define opium_min(a,b) ((a) < (b) ? (a) : (b))

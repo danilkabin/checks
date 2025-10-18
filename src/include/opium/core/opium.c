@@ -1,6 +1,4 @@
 #include "opium.h"
-#include <signal.h>
-#include <stdint.h>
 
    int 
 opium_is_little_endian(void)

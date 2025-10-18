@@ -78,7 +78,8 @@ opium_slab_new_slot(opium_slab_t *slab, opium_slab_page_t *page)
    /* Return pointer to allocated object within page */
    //*((opium_ubyte_t*)(data)) = slot;
    void *ptr = opium_slab_slot(slab, page, slot);
-   opium_slab_slot_header_set(ptr, slot);
+   opium_slab_header_t *header = opium_slab_slot_header(ptr);
+   header->index = slot;
    return ptr;
 }
 
@@ -230,6 +231,7 @@ opium_slab_exit(opium_slab_t *slab)
                opium_free(current, slab->log);
             }
 
+            current = NULL;
          } else {
             if (opium_list_is_linked(&current->head)) {
                opium_list_del(&current->head);
@@ -466,26 +468,34 @@ opium_slab_free(opium_slab_t *slab, void *ptr)
    slab->stats.reqs = slab->stats.reqs + 1;
 
    /*
+    * 'slot_ptr' is the pointer to the full slot, including the header.
+    * We subtract OPIUM_SLAB_SLOT_HEADER to get the original slot start,
+    * which is required for computing the page base and slot index.
+    */
+
+   u_char *slot_ptr = (u_char*)ptr - OPIUM_SLAB_SLOT_HEADER;
+
+   /*
     * It takes a pointer.
     * It converts it to an integer (uintptr_t) so bitwise ops are legal.
     * It uses a precomputed mask 'alignment_mask' to clear the low bit of the address.
-    * Clearing those low bits produces the start address of the page that contains ptr.
-    * So: ptr & alignment_mask = pointer rounded down to the nearest multiple of page_size.
+    * Clearing those low bits produces the start address of the page that contains slot_ptr.
+    * So: slot_ptr & alignment_mask = pointer rounded down to the nearest multiple of page_size.
     */
 
-   opium_slab_page_t *page = (void*)((uintptr_t)ptr & slab->alignment_mask);
+   opium_slab_page_t *page = (void*)((uintptr_t)slot_ptr & slab->alignment_mask);
 
    /*
     * Calculate the slot index of a pointer within a slab page.
     *
-    * 'ptr'        - pointer to the object
+    * 'slot_ptr'   - pointer to the object
     * 'page->data' - start of the slab data block
     *
     * All objects are laid out consecutively:
     * page->data -> [item0][item1][item2]...[itemN]
     * Each object occupies slab->item_size bytes.
     *
-    * distance = (u_char*)ptr - (u_char*)page->data
+    * distance = (u_char*)slot_ptr - (u_char*)page->data
     *   -> distance in bytes from the start of the page
     *
     * slot = distance / slab->item_size
@@ -493,13 +503,13 @@ opium_slab_free(opium_slab_t *slab, void *ptr)
     *
     * Example:
     *   page->data    = 0x1000
-    *   ptr           = 0x1014
+    *   slot_ptr      = 0x1014
     *   slab->item_size = 8
     *   distance      = 0x1014 - 0x1000 = 0x14 = 20 bytes
     *   slot          = 20 / 8 = 2 (third element, zero-based)
     */
 
-   size_t distance = (u_char*) ptr - ((u_char*) page->data + OPIUM_SLAB_SLOT_HEADER); 
+   size_t distance = (u_char*) slot_ptr - (u_char*) page->data; 
    size_t slot = distance / slab->item_size;
 
    /*
@@ -640,7 +650,7 @@ opium_slab_stats(opium_slab_t *slab) {
       opium_slab_page_t *current, *tmp = NULL;
 
       opium_list_for_each_entry_safe(current, tmp, current_head, head) {
-         if (current->refcount != 0) {
+         if (current && current->refcount != 0) {
             size_t used_mask = current->mask & ((1ULL << slab->item_count) - 1);
             size_t used = __builtin_popcountll(used_mask);
             size_t free = slab->item_count - used;

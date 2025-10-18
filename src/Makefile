@@ -2,7 +2,7 @@ CC := gcc
 AR := ar
 CFLAGS := -Wall -Wextra -O2 -fPIC -Iinclude/opium -pthread
 
-SRC_DIRS := . core platform/unix uvent
+SRC_DIRS := . core http stream platform/unix uvent uvent/module
 BUILD_DIR := build
 OBJ_DIR := $(BUILD_DIR)/obj
 LIB_DIR := $(BUILD_DIR)/lib
@@ -22,8 +22,11 @@ all: headers $(TARGET_LIB) $(TARGET_MASTER)
 headers:
 	@mkdir -p $(INCLUDE_DIR)
 	@cp -r core $(INCLUDE_DIR)/ || true
+	@cp -r http $(INCLUDE_DIR)/ || true
+	@cp -r stream $(INCLUDE_DIR)/ || true
 	@cp -r platform $(INCLUDE_DIR)/ || true
 	@cp -r uvent $(INCLUDE_DIR)/ || true
+	#@cp -r uvent/module $(INCLUDE_DIR)/ || true
 
 $(TARGET_LIB): $(OBJS)
 	@mkdir -p $(LIB_DIR)

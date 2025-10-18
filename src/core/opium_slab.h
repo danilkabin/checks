@@ -3,8 +3,6 @@
 
 #include "core/opium_core.h"
 
-#define OPIUM_SLAB_SLOT_HEADER 1
-
 /* Define the "mask" for free/used slots depending on pointer size */
 #if (OPIUM_PTR_SIZE == 4) 
 /* All 32 bits set */
@@ -19,6 +17,18 @@ typedef opium_ulong_t opium_slab_mask_t;
 #define OPIUM_SLAB_PAGE_BUSY ((opium_ulong_t)0xFFFFFFFFFFFFFFFF)
 
 #endif
+
+/* 
+ * opium_slab_header_t — per-slot header for slab allocator.
+ * 
+ * Stores metadata about the slot, currently just the slab index.
+ * Placed immediately before user data (ptr - OPIUM_SLAB_SLOT_HEADER).
+ */
+typedef struct opium_slab_header_s opium_slab_header_t;
+
+struct opium_slab_header_s {
+   opium_ubyte_t index;
+};
 
 /* opium_slab_stat_t - Just will store informaion
  * It will be convenient for both debbugind and testing.
@@ -78,6 +88,9 @@ struct opium_slab_page_s {
  *  - stats - usage statistics (number of objects in use, requests, failures, etc.)
  *
  */
+
+//typedef struct opium_slab_s opium_slab_t;
+
 struct opium_slab_s {
    size_t page_size, pages_per_alloc;
    size_t item_size, item_count;
@@ -90,6 +103,8 @@ struct opium_slab_s {
 
    opium_log_t *log;
 };
+
+#define OPIUM_SLAB_SLOT_HEADER sizeof(opium_slab_header_t)
 
 typedef void (*opium_slab_trav_ctx)(void *data);
 
@@ -113,12 +128,8 @@ static inline void opium_slab_zero_stats(opium_slab_stat_t *stats) {
    stats->total = stats->used = stats->reqs = stats->fails = 0; 
 }
 
-static inline void *opium_slab_slot_header(void *ptr) {
-   return (void*)((opium_byte_t*)ptr - OPIUM_SLAB_SLOT_HEADER);
-}
-
-static inline void opium_slab_slot_header_set(void *ptr, size_t data) {
-   *((opium_ubyte_t*)(ptr - OPIUM_SLAB_SLOT_HEADER)) = (opium_ubyte_t)data;
+static inline opium_slab_header_t *opium_slab_slot_header(void *ptr) {
+    return (opium_slab_header_t *)((opium_byte_t *)ptr - OPIUM_SLAB_SLOT_HEADER);
 }
 
 static inline void *opium_slab_slot(opium_slab_t *slab, opium_slab_page_t *page, size_t index)  {

@@ -18,6 +18,8 @@
 
 #endif
 
+//typedef struct opium_arena_s opium_arena_t;
+
 struct opium_arena_s {
    size_t shift_count;
 

@@ -13,6 +13,9 @@
  */
 
 #include "core/opium_core.h"
+#include "opium_slab.h"
+#include <stdio.h>
+#include <sys/types.h>
 
    int
 opium_arena_init(opium_arena_t *arena, opium_log_t *log)
@@ -123,12 +126,16 @@ opium_arena_alloc(opium_arena_t *arena, size_t size)
     * This is necessary so that we can quickly find the slab by index
     * when deallocating it. (Otherwise, we`d have to search by size - slower)
     */
-   opium_slab_slot_header_set(ptr, index); 
+   opium_slab_header_t *header = opium_slab_slot_header(ptr);
+   header->index = index;
+
+   printf("ptr: %p, header: %p, value: %d\n",
+         ptr, header, header->index);
 
    return ptr;
 }
 
-void *
+   void *
 opium_arena_calloc(opium_arena_t *arena, size_t size)
 {
    assert(arena != NULL);
@@ -154,9 +161,14 @@ opium_arena_free(opium_arena_t *arena, void *ptr)
     * Read the same slab index that was saved during the alloc
     * Now know exactly which slab this block belongs to
     */
-   size_t index = *(size_t*)opium_slab_slot_header(ptr);
 
-   opium_slab_t *slab = &arena->slabs[index];
+   opium_slab_header_t *header = opium_slab_slot_header(ptr);
+   printf("DELETE ptr: %p, header: %p, value: %d\n",
+         ptr, header, header->index);
 
-   opium_slab_free(slab, ptr);
+   opium_slab_t *slab = &arena->slabs[header->index];
+
+   void *slot_ptr = (u_char*)ptr - OPIUM_SLAB_SLOT_HEADER;
+
+   opium_slab_free(slab, slot_ptr);
 }

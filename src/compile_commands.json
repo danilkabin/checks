@@ -64,6 +64,42 @@
       "-pthread",
       "-c",
       "-o",
+      "build/obj/core/opium_array.o",
+      "core/opium_array.c"
+    ],
+    "directory": "/home/dima/Projects/norm3/src",
+    "file": "/home/dima/Projects/norm3/src/core/opium_array.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_array.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude/opium",
+      "-pthread",
+      "-c",
+      "-o",
+      "build/obj/core/opium_bitmask.o",
+      "core/opium_bitmask.c"
+    ],
+    "directory": "/home/dima/Projects/norm3/src",
+    "file": "/home/dima/Projects/norm3/src/core/opium_bitmask.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_bitmask.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-fPIC",
+      "-Iinclude/opium",
+      "-pthread",
+      "-c",
+      "-o",
       "build/obj/core/opium.o",
       "core/opium.c"
     ],
@@ -82,12 +118,12 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium_hash.o",
-      "core/opium_hash.c"
+      "build/obj/core/opium_conf_file.o",
+      "core/opium_conf_file.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_hash.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_hash.o"
+    "file": "/home/dima/Projects/norm3/src/core/opium_conf_file.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_conf_file.o"
   },
   {
     "arguments": [
@@ -100,12 +136,12 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium_ialloc.o",
-      "core/opium_ialloc.c"
+      "build/obj/core/opium_conf_file_parser.o",
+      "core/opium_conf_file_parser.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_ialloc.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_ialloc.o"
+    "file": "/home/dima/Projects/norm3/src/core/opium_conf_file_parser.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_conf_file_parser.o"
   },
   {
     "arguments": [
@@ -118,155 +154,11 @@
       "-pthread",
       "-c",
       "-o",
-      "build/obj/core/opium_log.o",
-      "core/opium_log.c"
+      "build/obj/core/opium_connection.o",
+      "core/opium_connection.c"
     ],
     "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_log.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_log.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/core/opium_rbt.o",
-      "core/opium_rbt.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_rbt.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_rbt.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/core/opium_slab.o",
-      "core/opium_slab.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_slab.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_slab.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/core/opium_string.o",
-      "core/opium_string.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/core/opium_string.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_string.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/platform/unix/uidq_daemon.o",
-      "platform/unix/uidq_daemon.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/platform/unix/uidq_daemon.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/platform/unix/uidq_daemon.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/platform/unix/uidq_recv.o",
-      "platform/unix/uidq_recv.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/platform/unix/uidq_recv.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/platform/unix/uidq_recv.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/platform/unix/uidq_send.o",
-      "platform/unix/uidq_send.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/platform/unix/uidq_send.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/platform/unix/uidq_send.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-c",
-      "-o",
-      "build/obj/uvent/opium_epoll.o",
-      "uvent/opium_epoll.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/uvent/opium_epoll.c",
-    "output": "/home/dima/Projects/norm3/src/build/obj/uvent/opium_epoll.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-c",
-      "-Wall",
-      "-Wextra",
-      "-O2",
-      "-fPIC",
-      "-Iinclude/opium",
-      "-pthread",
-      "-o",
-      "build/bin/opium",
-      "opium.c"
-    ],
-    "directory": "/home/dima/Projects/norm3/src",
-    "file": "/home/dima/Projects/norm3/src/opium.c",
-    "output": "/home/dima/Projects/norm3/src/build/bin/opium"
+    "file": "/home/dima/Projects/norm3/src/core/opium_connection.c",
+    "output": "/home/dima/Projects/norm3/src/build/obj/core/opium_connection.o"
   }
 ]

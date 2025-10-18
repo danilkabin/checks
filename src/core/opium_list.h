@@ -3,8 +3,6 @@
 
 #include "core/opium_core.h"
 
-#include <stddef.h>
-
 #define OPIUM_LIST_POISON1  ((void *)0x00100100)
 #define OPIUM_LIST_POISON2  ((void *)0x00200200)
 

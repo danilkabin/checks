@@ -52,4 +52,3 @@ static inline void opium_rbt_insert_data(opium_rbt_node_t *node, void *data) {
 }
 
 #endif /* OPIUM_RBTREE_INCLUDE_H */
-

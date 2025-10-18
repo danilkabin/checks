@@ -19,5 +19,3 @@ opium_strnstr(u_char *s1, u_char *s2)
 {
    return (u_char*)(strstr((char*)s1, (char*)s2)); 
 }
-
-
