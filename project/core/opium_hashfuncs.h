@@ -3,7 +3,7 @@
 
 #include "core/opium_core.h"
 
-   static inline opium_ulong_t 
+   static inline opium_u64_t 
 opium_hash_djb2(void *raw_key, size_t key_size)
 {
    if (!raw_key || key_size == 0) {

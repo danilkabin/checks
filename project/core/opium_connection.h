@@ -6,7 +6,7 @@
 struct opium_listening_s {
    opium_socket_fd_t fd;
 
-   opium_int_t       port;
+    opium_s32_t      port;
 
    struct sockaddr  *sockaddr;
    socklen_t         socklen;
@@ -21,7 +21,7 @@ struct opium_connection_s {
    struct sockaddr  *sockaddr;
    socklen_t         socklen;
 
-   opium_uint_t      session_id;
+   opium_u32_t       session_id;
 
    unsigned          authorized:1;
 

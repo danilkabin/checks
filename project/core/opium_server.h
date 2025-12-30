@@ -1,0 +1,13 @@
+#ifndef OPIUM_SERVER_INCLUDE_H
+#define OPIUM_SERVER_INCLUDE_H
+
+typedef enum {
+   OPIUM_SERVER_STATUS_NO,
+   OPIUM_SERVER_STATUS_OK,
+} OPIUM_SERVER_STATUS;
+
+struct opium_server_s {
+
+};
+
+#endif /* OPIUM_SERVER_INCLUDE_H */

@@ -15,7 +15,7 @@ opium_thread_wrapper(void *arg)
    return NULL;
 }
 
-   opium_int_t 
+   opium_s32_t 
 opium_thread_init(opium_thread_t *thread, opium_thread_cb cb, void *ctx, opium_log_t *log)
 {
    opium_err_t    err;
@@ -41,7 +41,7 @@ opium_thread_init(opium_thread_t *thread, opium_thread_cb cb, void *ctx, opium_l
    return OPIUM_RET_OK;
 }
 
-   opium_int_t 
+   opium_s32_t 
 opium_thread_exit(opium_thread_t *thread, opium_log_t *log)
 {
    opium_err_t    err;

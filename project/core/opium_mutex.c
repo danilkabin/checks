@@ -7,7 +7,7 @@
 
 #include "core/opium_core.h"
 
-   opium_int_t
+   opium_s32_t
 opium_thread_mutex_init(opium_mutex_t *mtx, opium_log_t *log)
 {
    opium_err_t    err;
@@ -54,7 +54,7 @@ opium_thread_mutex_init(opium_mutex_t *mtx, opium_log_t *log)
    return OPIUM_RET_OK;
 }
 
-   opium_int_t
+   opium_s32_t
 opium_thread_mutex_exit(opium_mutex_t *mtx, opium_log_t *log)
 {
    opium_err_t err;
@@ -72,7 +72,7 @@ opium_thread_mutex_exit(opium_mutex_t *mtx, opium_log_t *log)
    return OPIUM_RET_OK;
 }
 
-   opium_int_t
+   opium_s32_t
 opium_thread_mutex_lock(opium_mutex_t *mtx, opium_log_t *log)
 {
    opium_err_t err;
@@ -91,7 +91,7 @@ opium_thread_mutex_lock(opium_mutex_t *mtx, opium_log_t *log)
    return OPIUM_RET_OK;
 }
 
-   opium_int_t
+   opium_s32_t
 opium_thread_mutex_unlock(opium_mutex_t *mtx, opium_log_t *log)
 {
    opium_err_t err;

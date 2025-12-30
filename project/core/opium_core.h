@@ -20,20 +20,20 @@
 #define OPIUM_MEMSET_LIMIT 2048
 
 /* Fixed-width integer types with short aliases */
-typedef int8_t   opium_byte_t;
-typedef int16_t  opium_short_t;  
-typedef int32_t  opium_int_t;
-typedef int64_t  opium_long_t;
+typedef int8_t   opium_s8_t;
+typedef int16_t  opium_s16_t;  
+typedef int32_t  opium_s32_t;
+typedef int64_t  opium_s64_t;
 
-typedef uint8_t  opium_ubyte_t;
-typedef uint16_t opium_ushort_t;
-typedef uint32_t opium_uint_t;
-typedef uint64_t opium_ulong_t;
+typedef uint8_t  opium_u8_t;
+typedef uint16_t opium_u16_t;
+typedef uint32_t opium_u32_t;
+typedef uint64_t opium_u64_t;
 
-typedef opium_byte_t opium_key_t;
-typedef opium_byte_t opium_flag_t;
-typedef opium_int_t  opium_fd_t;
-typedef opium_int_t  opium_socket_fd_t;
+typedef opium_s8_t opium_key_t;
+typedef opium_s8_t opium_flag_t;
+typedef opium_s32_t  opium_fd_t;
+typedef opium_s32_t  opium_socket_fd_t;
 typedef cpu_set_t    opium_cpuset_t;
 
 typedef uid_t        opium_uid_t;
@@ -76,10 +76,12 @@ typedef struct opium_event_s       opium_event_t;
 #include "opium_arena.h"
 
 #include "opium_rbt.h"
-
 #include "opium_thread.h"
-
 #include "opium_event.h"
+
+#include "opium_network.h"
+#include "opium_server.h"
+#include "opium_connection.h"
 
 /* Utility macros */
 #define opium_min(a,b) ((a) < (b) ? (a) : (b))

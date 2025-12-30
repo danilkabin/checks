@@ -8,13 +8,13 @@
 /* All 32 bits set */
 typedef opium_uint_t opium_slab_mask_t;
 #define OPIUM_SLAB_PAGE_FREE 0
-#define OPIUM_SLAB_PAGE_BUSY ((opium_uint_t)0xFFFFFFFF)
+#define OPIUM_SLAB_PAGE_BUSY ((opium_u32_t)0xFFFFFFFF)
 
 #else
 /* All 64 bits set */
-typedef opium_ulong_t opium_slab_mask_t; 
+typedef opium_u64_t opium_slab_mask_t; 
 #define OPIUM_SLAB_PAGE_FREE 0
-#define OPIUM_SLAB_PAGE_BUSY ((opium_ulong_t)0xFFFFFFFFFFFFFFFF)
+#define OPIUM_SLAB_PAGE_BUSY ((opium_u64_t)0xFFFFFFFFFFFFFFFF)
 
 #endif
 
@@ -27,7 +27,7 @@ typedef opium_ulong_t opium_slab_mask_t;
 typedef struct opium_slab_header_s opium_slab_header_t;
 
 struct opium_slab_header_s {
-   opium_ubyte_t index;
+   opium_u8_t index;
 };
 
 /* opium_slab_stat_t - Just will store informaion
@@ -71,7 +71,7 @@ struct opium_slab_page_s {
    opium_slab_mask_t mask;
    size_t refcount;
 
-   opium_byte_t data[] __attribute__((aligned(sizeof(void *))));
+   opium_s8_t data[] __attribute__((aligned(sizeof(void *))));
 };
 
 /* opium_slab_t - is the main allocator structure for objects of the same size.
@@ -95,7 +95,7 @@ struct opium_slab_s {
    size_t page_size, pages_per_alloc;
    size_t item_size, item_count;
 
-   opium_ulong_t alignment_mask; 
+   opium_u64_t alignment_mask; 
 
    opium_list_head_t empty, partial, full; 
 
@@ -129,7 +129,7 @@ static inline void opium_slab_zero_stats(opium_slab_stat_t *stats) {
 }
 
 static inline opium_slab_header_t *opium_slab_slot_header(void *ptr) {
-    return (opium_slab_header_t *)((opium_byte_t *)ptr - OPIUM_SLAB_SLOT_HEADER);
+    return (opium_slab_header_t *)((opium_u8_t *)ptr - OPIUM_SLAB_SLOT_HEADER);
 }
 
 static inline void *opium_slab_slot(opium_slab_t *slab, opium_slab_page_t *page, size_t index)  {

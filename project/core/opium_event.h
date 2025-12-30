@@ -19,7 +19,7 @@ struct opium_event_s {
    opium_log_t           *log;
 };
 
-opium_int_t  opium_event_init(opium_event_t *event, opium_arena_t *arena, size_t mevents, opium_log_t *log);
+opium_s32_t  opium_event_init(opium_event_t *event, opium_arena_t *arena, size_t mevents, opium_log_t *log);
 void opium_event_exit(opium_event_t *event);
 
 #endif /* OPIUM_EVENT_CONNECTION_H */

@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-void onn(opium_fd_t fd, opium_uint_t mask, void *ctx) {
+void onn(opium_fd_t fd, opium_u32_t mask, void *ctx) {
    printf("changed!\n");
 }
 
@@ -39,9 +39,6 @@ int main() {
    int ret = opium_arena_init(&arena, opium_log);
 
    opium_event_t event;
-   ret = opium_event_init(&event, &arena, 6);
-
-
 
    return -1;
 }
